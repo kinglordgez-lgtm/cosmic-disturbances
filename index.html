@@ -7,12 +7,12 @@
 <link rel="manifest" href="./manifest.json">
 <title>Cosmic Disturbances</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:#05070a;color:#ece8dd;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}body{padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}#app{max-width:680px;margin:auto;padding:8px 0 24px}h1{font-size:21px;letter-spacing:1px;margin:4px 0}.sub{font-size:10px;color:#8a8f99}.panel{background:#10131a;border:1px solid #343945;border-radius:10px;padding:9px;margin:7px 0}.stats{font-size:11px;line-height:1.6}.hp{color:#e47e89}.san{color:#78a8cc}.myth{color:#b07ad0}.gold{color:#c6aa70}#map{display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#020307;padding:4px;border-radius:7px}.tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:2px}.floor{background:#1a1d23}.wall{background:#090a0e;color:#30343d}.water{background:#10212a;color:#4f7887}.player{background:#54482d!important;color:#fff}.foe{background:#4a1d27!important;color:#ffb8c0}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}button{min-height:44px;background:#20242d;border:1px solid #4a5060;border-radius:8px;color:#eee;font:inherit;font-size:12px;padding:8px}button:active{background:#343a46;transform:scale(.98)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}#battle{display:none}.title{font-size:15px;color:#e4c18f}.hint{font-size:10px;color:#858994;line-height:1.4}#log{height:155px;overflow:auto;white-space:pre-wrap;font-size:10px;line-height:1.45;color:#c9cad0}#modal{position:fixed;inset:0;background:#03040af2;z-index:9;display:none;align-items:flex-end;justify-content:center;padding:12px}.sheet{width:min(680px,100%);max-height:88vh;overflow:auto;background:#11141b;border:1px solid #484e5b;border-radius:14px;padding:13px}.entry{padding:9px 2px;border-bottom:1px solid #292d37;font-size:11px;line-height:1.5}.locked{opacity:.45}#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#20242d;border:1px solid #555b69;border-radius:8px;padding:8px 12px;font-size:11px;display:none;z-index:12}.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:#05070a;color:#ece8dd;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}body{padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}#app{max-width:680px;margin:auto;padding:8px 0 24px}h1{font-size:21px;letter-spacing:1px;margin:4px 0}.sub{font-size:10px;color:#8a8f99}.panel{background:#10131a;border:1px solid #343945;border-radius:10px;padding:9px;margin:7px 0}.stats{font-size:11px;line-height:1.6}.hp{color:#e47e89}.san{color:#78a8cc}.myth{color:#b07ad0}.gold{color:#c6aa70}#map{display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#020307;padding:4px;border-radius:7px}.tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:2px}.floor{background:#1a1d23}.wall{background:#090a0e;color:#30343d}.water{background:#10212a;color:#4f7887}.player{background:#54482d!important;color:#fff}.foe{background:#4a1d27!important;color:#ffb8c0}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}button{min-height:44px;background:#20242d;border:1px solid #4a5060;border-radius:8px;color:#eee;font:inherit;font-size:12px;padding:8px}button:active{background:#343a46;transform:scale(.98)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}#battle{display:none}.title{font-size:15px;color:#e4c18f}.hint{font-size:10px;color:#858994;line-height:1.4}#log{height:155px;overflow:auto;white-space:pre-wrap;font-size:10px;line-height:1.45;color:#c9cad0}#modal{position:fixed;inset:0;background:#03040af2;z-index:9;display:none;align-items:flex-end;justify-content:center;padding:12px}.sheet{width:min(680px,100%);max-height:88vh;overflow:auto;background:#11141b;border:1px solid #484e5b;border-radius:14px;padding:13px}.entry{padding:9px 2px;border-bottom:1px solid #292d37;font-size:11px;line-height:1.5}.locked{opacity:.45}#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#20242d;border:1px solid #555b69;border-radius:8px;padding:8px 12px;font-size:11px;display:none;z-index:12}.nav{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
 </style>
 </head>
 <body>
 <div id="app">
-<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.4 · BLACKWATER · SEED <span id="seed">—</span></div>
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5 · BLACKWATER · SEED <span id="seed">—</span></div>
 <div class="panel stats" id="stats">Initialisation…</div>
 <div class="panel"><div id="map"></div></div>
 <div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">⌂ maison · ▣ cimetière · ✦ anomalie · ☠ menace</div></div>
@@ -61,7 +61,7 @@ function turn(){p.turn++;const r=rng();if(r<0.12)randomEvent();else if(r<0.21)sp
 function spawnEnemy(){const n=R(100);const name=n<48?"Cultiste":n<76?"Profond":n<91?"Goule":n<97?"Mi-Go":n<99?"Byakhee":"Shoggoth";const stats={"Cultiste":[13,4],"Profond":[20,6],"Goule":[17,7],"Mi-Go":[23,7],"Byakhee":[28,8],"Shoggoth":[45,10]};const s=stats[name];discover(name);enemy={name,hp:s[0],maxhp:s[0],atk:s[1],x:px,y:py};battle=true;log("☠ "+name+" surgit dans la brume.")}
 function updateBattle(){document.getElementById("battleTitle").textContent="⚔ "+enemy.name;document.getElementById("battleInfo").innerHTML=`PV ennemi <span class="hp">${enemy.hp}/${enemy.maxhp}</span> · Vous ${p.hp} PV · ${p.san} SAN`}
 function enemyTurn(){const d=Math.max(1,enemy.atk-p.def+(rng()<0.18?2:0));p.hp-=d;if(rng()<0.35)p.san=Math.max(0,p.san-2);log(enemy.name+" inflige "+d+" dégâts.");if(p.hp<=0)die()}
-function attack(){if(!battle)return;const bonus=p.inv.some(i=>i.tag==="bruit")?2:0;const d=p.atk+bonus+R(4);enemy.hp-=d;log("Attaque : "+d+" dégâts.");if(enemy.hp<=0)victory();else enemyTurn();render()}
+function attack(){if(!battle)return;const bonus=(p.equip&&p.equip.arme==="Vieux revolver")?2:0;const d=p.atk+bonus+R(4);enemy.hp-=d;log("Attaque : "+d+" dégâts.");if(enemy.hp<=0)victory();else enemyTurn();render()}
 function defend(){if(!battle)return;p.def++;log("Vous vous protégez.");enemyTurn();p.def--;render()}
 function useItem(){if(!battle)return;const i=p.inv.find(i=>i.tag==="feu");if(i){p.san=Math.min(p.maxsan,p.san+6);i.uses--;log("La lampe repousse les ombres. +6 SAN.");if(i.uses<=0)p.inv.splice(p.inv.indexOf(i),1)}else{p.hp=Math.min(p.maxhp,p.hp+4);log("Vous improvisez un soin. +4 PV.")}enemyTurn();render()}
 function flee(){if(!battle)return;if(rng()<0.65){battle=false;log("Vous fuyez dans la brume.")}else{log("La fuite échoue.");enemyTurn()}render()}
@@ -73,6 +73,44 @@ function interact(){if(battle||eventOpen)return;if(px===8&&py===3)openEvent("MAI
 function die(){battle=false;eventOpen=false;log("☠ VOUS ÊTES MORT. Une nouvelle réalité vous attend.");unlock("Mourir à Blackwater");render()}
 function openModal(html){document.getElementById("sheet").innerHTML=html;document.getElementById("modal").style.display="flex"}
 function closeModal(){document.getElementById("modal").style.display="none"}
+
+function itemInfo(name){return itemDB.find(i=>i.name===name)||{name:name,type:"Inconnu",rarity:"?",slot:null,tags:[],effect:"Effet inconnu.",synergy:"Aucune synergie connue."};}
+function itemCount(name){return p.inv.filter(i=>i.n===name).length;}
+function equippedSlot(name){if(!p.equip)return null;return Object.keys(p.equip).find(k=>p.equip[k]===name)||null;}
+function openInventory(){
+ const names=[...new Set(p.inv.map(i=>i.n))];
+ let s=`<h2>🎒 INVENTAIRE — ${p.inv.length} objet${p.inv.length>1?"s":""}</h2>`;
+ s+=`<div class="entry"><b>ÉQUIPEMENT</b><br>⚔ Arme : ${p.equip.arme||"—"}<br>🔦 Outil : ${p.equip.outil||"—"}<br>✦ Relique : ${p.equip.relique||"—"}</div>`;
+ if(!names.length)s+=`<div class="entry">Votre sac est vide.</div>`;
+ names.forEach(name=>{
+  const i=itemInfo(name),eq=equippedSlot(name),count=itemCount(name),safe=name.replace(/'/g,"\\'");
+  s+=`<div class="entry"><b>${i.name}${count>1?" ×"+count:""}</b> ${eq?`<span class="badge">ÉQUIPÉ · ${eq}</span>`:""}<br><span class="gold">${i.type} · ${i.rarity}</span><br>${i.effect}<br><span class="hint">Tags : ${i.tags.join(", ")||"—"}</span><br><b>Synergie :</b> ${i.synergy}<br><button onclick="inventoryAction('examine','${safe}')">EXAMINER</button> ${i.slot?`<button onclick="inventoryAction('equip','${safe}')">${eq?"DÉSÉQUIPER":"ÉQUIPER"}</button>`:""} <button onclick="inventoryAction('use','${safe}')">UTILISER</button> <button onclick="inventoryAction('drop','${safe}')">JETER</button></div>`;
+ });
+ openModal(s);
+}
+function inventoryAction(action,name){
+ const info=itemInfo(name),idx=p.inv.findIndex(i=>i.n===name);
+ if(idx<0){toast("Objet absent.");openInventory();return;}
+ if(action==="examine"){
+  seeItem(name);
+  if(info.tags.includes("maudit")){p.san=Math.max(0,p.san-2);p.myth+=2;log("Vous examinez "+name+". Quelque chose vous examine en retour. -2 SAN, +2% Mythe.");}
+  else log("Vous examinez "+name+" : "+info.effect);
+ } else if(action==="equip"){
+  if(!info.slot){toast("Cet objet ne s'équipe pas.");return;}
+  if(p.equip[info.slot]===name){p.equip[info.slot]=null;log(name+" déséquipé.");}
+  else{p.equip[info.slot]=name;log(name+" équipé : "+info.slot+".");}
+ } else if(action==="use"){
+  if(name==="Lampe à pétrole"){const o=p.inv[idx];if((o.uses||0)<=0){toast("La lampe est vide.");return;}p.san=Math.min(p.maxsan,p.san+6);o.uses--;log("Lampe : +6 SAN. Charges : "+o.uses+".");if(o.uses<=0){p.inv.splice(idx,1);if(p.equip.outil===name)p.equip.outil=null;}}
+  else if(name==="Œil humide"){p.san=Math.min(p.maxsan,p.san+3);p.inv.splice(idx,1);if(p.equip.relique===name)p.equip.relique=null;log("L'Œil humide se dissout. +3 SAN.");}
+  else if(name==="Fragment noir"){p.myth+=4;p.san=Math.max(0,p.san-3);log("Le Fragment pulse. +4% Mythe, -3 SAN.");}
+  else if(name==="Symbole gravé"){p.myth+=1;log("Le symbole réagit. +1% Mythe.");}
+  else toast("Équipez cet objet pour profiter de son effet.");
+ } else if(action==="drop"){
+  p.inv.splice(idx,1);const slot=equippedSlot(name);if(slot)p.equip[slot]=null;log("Vous abandonnez "+name+".");
+ }
+ render();openInventory();
+}
+
 function openCodex(){let s=`<h2>📖 BESTIAIRE — ${Object.keys(codex).length}/${bestiary.length}</h2>`;bestiary.forEach(e=>{const known=!!codex[e.name];s+=`<div class="entry ${known?"":"locked"}"><b>${known?e.name:"ENTRÉE INCONNUE"}</b><br>${known?e.desc:"Vous n'avez pas encore observé cette entité."}${known?`<br><span class="gold">${e.cat}</span> · ${e.traits}`:""}</div>`});openModal(s)}
 function openItems(){let s=`<h2>🎒 GUIDE DES OBJETS — ${Object.keys(itemsSeen).length}/${itemDB.length}</h2>`;itemDB.forEach(i=>{const known=!!itemsSeen[i.name];s+=`<div class="entry ${known?"":"locked"}"><b>${known?i.name:"OBJET INCONNU"}</b>${known?`<br><span class="gold">${i.type} · ${i.rarity}</span><br>${i.effect}<br><span class="hint">Tags : ${i.tags.join(", ")}</span><br><b>Synergie :</b> ${i.synergy}`:"<br>Découvrez cet objet en exploration ou en combat."}</div>`});openModal(s)}
 function openAchievements(){const list=["Première victoire","Premier catalogue","Le prix du savoir","Mourir à Blackwater"];let s="<h2>🏆 SUCCÈS</h2>";list.forEach(x=>s+=`<div class="entry ${achievements[x]?"":"locked"}"><b>${achievements[x]?"✓":"?"} ${x}</b><br><span class="hint">${achievements[x]?"Débloqué":"Succès à découvrir"}</span></div>`);openModal(s)}
