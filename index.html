@@ -12,7 +12,7 @@
 </head>
 <body>
 <div id="app">
-<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5.1 · BLACKWATER · SEED <span id="seed">—</span></div>
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5.2 · BLACKWATER · SEED <span id="seed">—</span></div>
 <div class="panel stats" id="stats">Initialisation…</div>
 <div class="panel"><div id="map"></div></div>
 <div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">⌂ maison · ▣ cimetière · ✦ anomalie · ☠ menace</div></div>
@@ -52,7 +52,7 @@ function log(s){const x=document.getElementById("log");x.textContent=s+"\n"+x.te
 function seeItem(name){if(!itemsSeen[name]){itemsSeen[name]=1;saveMeta();toast("🎒 Objet découvert : "+name)}}
 function discover(name){if(!codex[name]){codex[name]=1;saveMeta();toast("📖 Bestiaire : "+name);if(Object.keys(codex).length>=3)unlock("Premier catalogue")}}
 function unlock(name){if(!achievements[name]){achievements[name]=Date.now();saveMeta();toast("🏆 Succès : "+name)}}
-function newGame(){seed=100000+Math.floor(Math.random()*899999);rng=mulberry32(seed);p={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,turn:0,inv:[{n:"Lampe à pétrole",tag:"feu",uses:2},{n:"Vieux revolver",tag:"bruit",atk:2}]};p.inv.forEach(i=>seeItem(i.n));px=6;py=6;battle=false;enemy=null;eventOpen=false;generateMap();document.getElementById("log").textContent="";log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");render()}
+function newGame(){seed=100000+Math.floor(Math.random()*899999);rng=mulberry32(seed);p={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,turn:0,equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",tag:"feu",uses:2},{n:"Vieux revolver",tag:"bruit",atk:2}]};p.inv.forEach(i=>seeItem(i.n));px=6;py=6;battle=false;enemy=null;eventOpen=false;generateMap();document.getElementById("log").textContent="";log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");render()}
 function generateMap(){map=[];for(let y=0;y<13;y++){const row=[];for(let x=0;x<13;x++){if(x===0||y===0||x===12||y===12)row.push("wall");else row.push(rng()<0.06?"water":"floor")}map.push(row)}[[6,6],[8,3],[6,10],[2,2]].forEach(([x,y])=>map[y][x]="floor")}
 function render(){document.getElementById("seed").textContent=seed;const m=document.getElementById("map");m.innerHTML="";for(let y=0;y<13;y++)for(let x=0;x<13;x++){const d=document.createElement("div");d.className="tile "+map[y][x];if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&x===enemy.x&&y===enemy.y){d.className+=" foe";d.textContent="☠"}else if(x===8&&y===3)d.textContent="⌂";else if(x===6&&y===10)d.textContent="▣";else if(x===2&&y===2)d.textContent="✦";m.appendChild(d)}document.getElementById("stats").innerHTML=`PV <span class="hp">${p.hp}/${p.maxhp}</span> · SAN <span class="san">${p.san}/${p.maxsan}</span> · MYTHE <span class="myth">${p.myth}%</span><br>ATQ ${p.atk} · DEF ${p.def} · Niv. ${p.lvl} · XP ${p.xp}/10<br>🎒 ${p.inv.map(i=>i.n).join(" · ")}`;document.getElementById("battle").style.display=battle?"block":"none";document.getElementById("eventPanel").style.display=eventOpen?"block":"none";if(battle)updateBattle()}
 function move(dx,dy){if(battle||eventOpen)return;const nx=px+dx,ny=py+dy;if(nx<1||nx>11||ny<1||ny>11||map[ny][nx]==="wall")return;px=nx;py=ny;turn();render()}
@@ -76,8 +76,9 @@ function closeModal(){document.getElementById("modal").style.display="none"}
 
 function itemInfo(name){return itemDB.find(i=>i.name===name)||{name:name,type:"Inconnu",rarity:"?",slot:null,tags:[],effect:"Effet inconnu.",synergy:"Aucune synergie connue."};}
 function itemCount(name){return p.inv.filter(i=>i.n===name).length;}
-function equippedSlot(name){if(!p.equip)return null;return Object.keys(p.equip).find(k=>p.equip[k]===name)||null;}
+function equippedSlot(name){if(!p.equip)p.equip={arme:null,outil:null,relique:null};return Object.keys(p.equip).find(k=>p.equip[k]===name)||null;}
 function openInventory(){
+ if(!p.equip)p.equip={arme:null,outil:null,relique:null};
  const names=[...new Set(p.inv.map(i=>i.n))];
  let s=`<h2>🎒 INVENTAIRE — ${p.inv.length} objet${p.inv.length>1?"s":""}</h2>`;
  s+=`<div class="entry"><b>ÉQUIPEMENT</b><br>⚔ Arme : ${p.equip.arme||"—"}<br>🔦 Outil : ${p.equip.outil||"—"}<br>✦ Relique : ${p.equip.relique||"—"}</div>`;
