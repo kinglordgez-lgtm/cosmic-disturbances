@@ -9,10 +9,146 @@
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:#05070a;color:#ece8dd;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}body{padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}#app{max-width:680px;margin:auto;padding:8px 0 24px}h1{font-size:21px;letter-spacing:1px;margin:4px 0}.sub{font-size:10px;color:#8a8f99}.panel{background:#10131a;border:1px solid #343945;border-radius:10px;padding:9px;margin:7px 0}.stats{font-size:11px;line-height:1.6}.hp{color:#e47e89}.san{color:#78a8cc}.myth{color:#b07ad0}.gold{color:#c6aa70}#map{display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#020307;padding:4px;border-radius:7px}.tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:2px}.floor{background:#1a1d23}.wall{background:#090a0e;color:#30343d}.water{background:#10212a;color:#4f7887}.player{background:#54482d!important;color:#fff}.foe{background:#4a1d27!important;color:#ffb8c0}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}button{min-height:44px;background:#20242d;border:1px solid #4a5060;border-radius:8px;color:#eee;font:inherit;font-size:12px;padding:8px}button:active{background:#343a46;transform:scale(.98)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}#battle{display:none}.title{font-size:15px;color:#e4c18f}.hint{font-size:10px;color:#858994;line-height:1.4}#log{height:155px;overflow:auto;white-space:pre-wrap;font-size:10px;line-height:1.45;color:#c9cad0}#modal{position:fixed;inset:0;background:#03040af2;z-index:9;display:none;align-items:flex-end;justify-content:center;padding:12px}.sheet{width:min(680px,100%);max-height:88vh;overflow:auto;background:#11141b;border:1px solid #484e5b;border-radius:14px;padding:13px}.entry{padding:9px 2px;border-bottom:1px solid #292d37;font-size:11px;line-height:1.5}.locked{opacity:.45}#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#20242d;border:1px solid #555b69;border-radius:8px;padding:8px 12px;font-size:11px;display:none;z-index:12}.nav{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
 </style>
+
+<style id="mobile-modal-hotfix-061">
+/* Cosmic Disturbances 0.6.1 — anti-blocage menus iPhone */
+.modal,.overlay,.dialog,[role="dialog"]{
+  overscroll-behavior:contain;
+}
+.modal>div,.overlay>div,.dialog,[role="dialog"]{
+  max-height:88dvh !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+  position:relative;
+}
+.cd-close-061{
+  position:sticky; top:0; float:right; z-index:99999;
+  width:48px; height:48px; margin:4px;
+  border:1px solid #626978; border-radius:12px;
+  background:#20252f; color:#f4f0e6;
+  font:700 28px/42px monospace; text-align:center;
+}
+body.cd-modal-open{overflow:hidden;touch-action:none}
+</style>
+<script id="mobile-modal-hotfix-js-061">
+document.addEventListener('DOMContentLoaded',()=>{
+  const labels=['INVENTAIRE','BESTIAIRE','GUIDE OBJETS','SUCCÈS'];
+  function visibleDialogs(){
+    return [...document.querySelectorAll('body *')].filter(el=>{
+      const t=(el.innerText||'').trim();
+      if(!labels.some(x=>t.startsWith(x))) return false;
+      const s=getComputedStyle(el);
+      return s.display!=='none' && s.visibility!=='hidden' && el.offsetHeight>180;
+    }).sort((a,b)=>a.innerText.length-b.innerText.length);
+  }
+  function close(el){
+    const candidates=[...el.querySelectorAll('button')];
+    let b=candidates.find(x=>/FERMER|RETOUR|×|✕|X/i.test((x.textContent||'').trim()));
+    if(b){b.click();return}
+    // fallback: hide closest large overlay/modal without affecting game state
+    let p=el;
+    for(let i=0;i<5 && p;i++,p=p.parentElement){
+      if(p.offsetHeight>innerHeight*.55 && p.offsetWidth>innerWidth*.75){p.style.display='none';break}
+    }
+    document.body.classList.remove('cd-modal-open');
+  }
+  function fix(){
+    const d=visibleDialogs()[0];
+    if(!d) return;
+    document.body.classList.add('cd-modal-open');
+    d.style.maxHeight='88dvh'; d.style.overflowY='auto';
+    if(!d.querySelector('.cd-close-061')){
+      const x=document.createElement('button');
+      x.className='cd-close-061'; x.textContent='✕'; x.setAttribute('aria-label','Fermer');
+      x.onclick=e=>{e.stopPropagation();close(d)};
+      d.prepend(x);
+    }
+  }
+  new MutationObserver(()=>setTimeout(fix,0)).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class']});
+  document.addEventListener('click',()=>setTimeout(fix,0),true);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=visibleDialogs()[0];if(d)close(d)}});
+  setTimeout(fix,300);
+});
+</script>
+
+
+<style id="responsive-062">
+:root{--safe-top:env(safe-area-inset-top);--safe-bottom:env(safe-area-inset-bottom)}
+html,body{min-height:100%;width:100%}
+body{padding-top:var(--safe-top);padding-bottom:var(--safe-bottom)}
+#app{width:min(100%,980px);margin:0 auto}
+
+/* Portrait */
+@media (orientation:portrait){
+  #app{max-width:680px;padding-left:8px;padding-right:8px}
+  #map{grid-template-columns:repeat(13,minmax(0,1fr))}
+  .panel.nav{grid-template-columns:repeat(2,1fr)}
+}
+
+/* Landscape phones/tablets */
+@media (orientation:landscape) and (max-height:700px){
+  body{overflow:auto}
+  #app{
+    max-width:none;
+    width:100%;
+    display:grid;
+    grid-template-columns:minmax(320px,1.25fr) minmax(300px,.9fr);
+    grid-auto-rows:auto;
+    gap:8px;
+    padding:8px 12px 14px;
+    align-items:start
+  }
+  #app>h1,#app>.sub{grid-column:1/-1}
+  #app>.stats{grid-column:2;grid-row:3}
+  #app>.panel:nth-of-type(2){grid-column:1;grid-row:3 / span 3}
+  #app>.panel:nth-of-type(3){grid-column:2;grid-row:4}
+  #battle{grid-column:2}
+  #eventPanel{grid-column:2}
+  .panel.nav{grid-column:2;grid-template-columns:repeat(2,1fr)}
+  #app>.panel:has(#log){grid-column:2}
+  #app>.panel:last-child{grid-column:2}
+  #map{max-height:calc(100dvh - 110px)}
+  .tile{font-size:13px}
+  button{min-height:40px}
+}
+
+/* Very wide landscape */
+@media (orientation:landscape) and (min-width:900px){
+  #app{grid-template-columns:minmax(420px,1.4fr) minmax(360px,1fr)}
+}
+
+/* Menus: always fit current orientation */
+.sheet,[role="dialog"],.modal>div,.overlay>div{
+  max-width:min(94vw,760px)!important;
+  max-height:86dvh!important;
+}
+@media (orientation:landscape){
+  .sheet,[role="dialog"],.modal>div,.overlay>div{
+    max-width:min(88vw,900px)!important;
+    max-height:82dvh!important;
+  }
+}
+</style>
+<script id="orientation-062">
+(function(){
+  function refreshOrientation(){
+    document.documentElement.dataset.orientation =
+      innerWidth>innerHeight ? "landscape" : "portrait";
+    // Re-render only if the game has initialized; state is preserved.
+    try{
+      if(typeof render==="function" && typeof p!=="undefined" && p){render();}
+    }catch(e){}
+  }
+  addEventListener("orientationchange",()=>setTimeout(refreshOrientation,120));
+  addEventListener("resize",()=>setTimeout(refreshOrientation,80));
+  addEventListener("DOMContentLoaded",refreshOrientation);
+})();
+</script>
+
 </head>
 <body>
 <div id="app">
-<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.6 · BLACKWATER · SEED <span id="seed">—</span> · PROF. <span id="depth">0</span></div>
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.6.2 · BLACKWATER · SEED <span id="seed">—</span> · PROF. <span id="depth">0</span></div>
 <div class="panel stats" id="stats">Initialisation…</div>
 <div class="panel"><div id="map"></div></div>
 <div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">▼ profondeur · ▣ cache · ✦ autel · × piège · ☠ menace</div></div>
