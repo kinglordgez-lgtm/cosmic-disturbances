@@ -12,13 +12,13 @@
 </head>
 <body>
 <div id="app">
-<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5 · BLACKWATER · SEED <span id="seed">—</span></div>
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5.1 · BLACKWATER · SEED <span id="seed">—</span></div>
 <div class="panel stats" id="stats">Initialisation…</div>
 <div class="panel"><div id="map"></div></div>
 <div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">⌂ maison · ▣ cimetière · ✦ anomalie · ☠ menace</div></div>
 <div class="panel" id="battle"><div class="title" id="battleTitle"></div><div id="battleInfo"></div><div class="actions"><button onclick="attack()">⚔ ATTAQUER</button><button onclick="defend()">🛡 DÉFENDRE</button><button onclick="useItem()">🧪 OBJET</button><button onclick="flee()">↩ FUIR</button></div></div>
 <div class="panel" id="eventPanel" style="display:none"><div id="eventText"></div><div id="eventChoices"></div></div>
-<div class="panel nav"><button onclick="openCodex()">📖 BESTIAIRE</button><button onclick="openItems()">🎒 GUIDE OBJETS</button><button onclick="openAchievements()">🏆 SUCCÈS</button></div>
+<div class="panel nav"><button onclick="openInventory()">🎒 INVENTAIRE</button><button onclick="openCodex()">📖 BESTIAIRE</button><button onclick="openItems()">📚 GUIDE OBJETS</button><button onclick="openAchievements()">🏆 SUCCÈS</button></div>
 <div class="panel"><b>Journal d'enquête</b><div id="log"></div></div><div class="panel"><button onclick="newGame()">☠ NOUVELLE RÉALITÉ</button></div>
 </div>
 <div id="modal" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div><div id="toast"></div>
