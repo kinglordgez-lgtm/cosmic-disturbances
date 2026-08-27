@@ -12,10 +12,10 @@
 </head>
 <body>
 <div id="app">
-<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5.3 · BLACKWATER · SEED <span id="seed">—</span></div>
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.6 · BLACKWATER · SEED <span id="seed">—</span> · PROF. <span id="depth">0</span></div>
 <div class="panel stats" id="stats">Initialisation…</div>
 <div class="panel"><div id="map"></div></div>
-<div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">⌂ maison · ▣ cimetière · ✦ anomalie · ☠ menace</div></div>
+<div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">▼ profondeur · ▣ cache · ✦ autel · × piège · ☠ menace</div></div>
 <div class="panel" id="battle"><div class="title" id="battleTitle"></div><div id="battleInfo"></div><div class="actions"><button onclick="attack()">⚔ ATTAQUER</button><button onclick="defend()">🛡 DÉFENDRE</button><button onclick="useItem()">🧪 OBJET</button><button onclick="flee()">↩ FUIR</button></div></div>
 <div class="panel" id="eventPanel" style="display:none"><div id="eventText"></div><div id="eventChoices"></div></div>
 <div class="panel nav"><button onclick="openInventory()">🎒 INVENTAIRE</button><button onclick="openCodex()">📖 BESTIAIRE</button><button onclick="openItems()">📚 GUIDE OBJETS</button><button onclick="openAchievements()">🏆 SUCCÈS</button></div>
@@ -35,11 +35,14 @@ const bestiary=[
 {name:"Chien de Tindalos",cat:"Mythe",desc:"Prédateur lié aux angles et aux géométries impossibles.",traits:"Apparitions atypiques, traque persistante."}
 ];
 const itemDB=[
-{name:"Lampe à pétrole",type:"Outil",rarity:"Commun",tags:["feu","lumière"],effect:"Restaure de la SAN en combat.",synergy:"Feu + huile : dégâts environnementaux futurs."},
-{name:"Vieux revolver",type:"Arme",rarity:"Commun",tags:["bruit","métal"],effect:"+2 dégâts de base.",synergy:"Bruit peut attirer des ennemis dans les prochaines versions."},
-{name:"Fragment noir",type:"Relique",rarity:"Rare",tags:["cosmique","maudit"],effect:"+Mythe lors de la découverte.",synergy:"Cosmique + occulte : futurs rituels et visions."},
-{name:"Œil humide",type:"Relique",rarity:"Rare",tags:["profond","organique"],effect:"Butin de créature marine.",synergy:"Profond + lentille : vision des passages noyés."},
-{name:"Symbole gravé",type:"Occulte",rarity:"Inhabituel",tags:["occulte","ancien"],effect:"Indice de quêtes et rituels.",synergy:"Occulte + cosmique : accès à des interactions interdites."}
+{name:"Lampe à pétrole",type:"Outil",rarity:"Commun",slot:"outil",tags:["feu","lumière"],effect:"Restaure 6 SAN. Deux charges.",synergy:"Lumière contre Goule : l'ennemi hésite et perd une attaque."},
+{name:"Vieux revolver",type:"Arme",rarity:"Commun",slot:"arme",tags:["bruit","métal"],effect:"+2 dégâts lorsqu'il est équipé.",synergy:"Métal contre Cultiste : +2 dégâts supplémentaires."},
+{name:"Fragment noir",type:"Relique",rarity:"Rare",slot:"relique",tags:["cosmique","maudit"],effect:"Accroît le Mythe au prix de la SAN.",synergy:"Avec Symbole gravé : Résonance interdite, +3 ATQ mais -1 SAN par combat."},
+{name:"Œil humide",type:"Relique",rarity:"Rare",slot:"relique",tags:["profond","organique"],effect:"Peut être consommé pour restaurer 3 SAN.",synergy:"Équipé contre Profond : révèle sa faiblesse, +3 dégâts."},
+{name:"Symbole gravé",type:"Occulte",rarity:"Inhabituel",slot:"relique",tags:["occulte","ancien"],effect:"Indice rituel équipable.",synergy:"Avec Fragment noir : Résonance interdite."},
+{name:"Sel consacré",type:"Consommable",rarity:"Inhabituel",slot:null,tags:["sel","rituel"],effect:"Inflige 8 dégâts à une créature du Mythe.",synergy:"Très efficace contre les manifestations cosmiques."},
+{name:"Bandage militaire",type:"Consommable",rarity:"Commun",slot:null,tags:["soin","humain"],effect:"Restaure 8 PV.",synergy:"Aucune."},
+{name:"Clé d'obsidienne",type:"Objet de quête",rarity:"Rare",slot:null,tags:["clé","ancien"],effect:"Ouvre certains passages scellés.",synergy:"Peut éviter un combat de gardien."}
 ];
 let codex=JSON.parse(localStorage.getItem("cd_codex_v04")||"{}");
 let itemsSeen=JSON.parse(localStorage.getItem("cd_items_v04")||"{}");
@@ -52,24 +55,114 @@ function log(s){const x=document.getElementById("log");x.textContent=s+"\n"+x.te
 function seeItem(name){if(!itemsSeen[name]){itemsSeen[name]=1;saveMeta();toast("🎒 Objet découvert : "+name)}}
 function discover(name){if(!codex[name]){codex[name]=1;saveMeta();toast("📖 Bestiaire : "+name);if(Object.keys(codex).length>=3)unlock("Premier catalogue")}}
 function unlock(name){if(!achievements[name]){achievements[name]=Date.now();saveMeta();toast("🏆 Succès : "+name)}}
-function newGame(){seed=100000+Math.floor(Math.random()*899999);rng=mulberry32(seed);p={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,turn:0,equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",tag:"feu",uses:2},{n:"Vieux revolver",tag:"bruit",atk:2}]};p.inv.forEach(i=>seeItem(i.n));px=6;py=6;battle=false;enemy=null;eventOpen=false;generateMap();document.getElementById("log").textContent="";log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");render()}
-function generateMap(){map=[];for(let y=0;y<13;y++){const row=[];for(let x=0;x<13;x++){if(x===0||y===0||x===12||y===12)row.push("wall");else row.push(rng()<0.06?"water":"floor")}map.push(row)}[[6,6],[8,3],[6,10],[2,2]].forEach(([x,y])=>map[y][x]="floor")}
-function render(){document.getElementById("seed").textContent=seed;const m=document.getElementById("map");m.innerHTML="";for(let y=0;y<13;y++)for(let x=0;x<13;x++){const d=document.createElement("div");d.className="tile "+map[y][x];if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&x===enemy.x&&y===enemy.y){d.className+=" foe";d.textContent="☠"}else if(x===8&&y===3)d.textContent="⌂";else if(x===6&&y===10)d.textContent="▣";else if(x===2&&y===2)d.textContent="✦";m.appendChild(d)}document.getElementById("stats").innerHTML=`PV <span class="hp">${p.hp}/${p.maxhp}</span> · SAN <span class="san">${p.san}/${p.maxsan}</span> · MYTHE <span class="myth">${p.myth}%</span><br>ATQ ${p.atk} · DEF ${p.def} · Niv. ${p.lvl} · XP ${p.xp}/10<br>🎒 ${p.inv.map(i=>i.n).join(" · ")}`;document.getElementById("battle").style.display=battle?"block":"none";document.getElementById("eventPanel").style.display=eventOpen?"block":"none";if(battle)updateBattle()}
-function move(dx,dy){if(battle||eventOpen)return;const nx=px+dx,ny=py+dy;if(nx<1||nx>11||ny<1||ny>11||map[ny][nx]==="wall")return;px=nx;py=ny;turn();render()}
-function waitTurn(){if(!battle&&!eventOpen){turn();render()}}
-function turn(){p.turn++;const r=rng();if(r<0.12)randomEvent();else if(r<0.21)spawnEnemy();if(p.san<=0){p.hp-=3;p.myth+=3;log("Votre esprit cède. Une voix répond depuis le mur.")}if(p.hp<=0)die()}
-function spawnEnemy(){const n=R(100);const name=n<48?"Cultiste":n<76?"Profond":n<91?"Goule":n<97?"Mi-Go":n<99?"Byakhee":"Shoggoth";const stats={"Cultiste":[13,4],"Profond":[20,6],"Goule":[17,7],"Mi-Go":[23,7],"Byakhee":[28,8],"Shoggoth":[45,10]};const s=stats[name];discover(name);enemy={name,hp:s[0],maxhp:s[0],atk:s[1],x:px,y:py};battle=true;log("☠ "+name+" surgit dans la brume.")}
-function updateBattle(){document.getElementById("battleTitle").textContent="⚔ "+enemy.name;document.getElementById("battleInfo").innerHTML=`PV ennemi <span class="hp">${enemy.hp}/${enemy.maxhp}</span> · Vous ${p.hp} PV · ${p.san} SAN`}
-function enemyTurn(){const d=Math.max(1,enemy.atk-p.def+(rng()<0.18?2:0));p.hp-=d;if(rng()<0.35)p.san=Math.max(0,p.san-2);log(enemy.name+" inflige "+d+" dégâts.");if(p.hp<=0)die()}
-function attack(){if(!battle)return;const bonus=(p.equip&&p.equip.arme==="Vieux revolver")?2:0;const d=p.atk+bonus+R(4);enemy.hp-=d;log("Attaque : "+d+" dégâts.");if(enemy.hp<=0)victory();else enemyTurn();render()}
-function defend(){if(!battle)return;p.def++;log("Vous vous protégez.");enemyTurn();p.def--;render()}
-function useItem(){if(!battle)return;const i=p.inv.find(i=>i.tag==="feu");if(i){p.san=Math.min(p.maxsan,p.san+6);i.uses--;log("La lampe repousse les ombres. +6 SAN.");if(i.uses<=0)p.inv.splice(p.inv.indexOf(i),1)}else{p.hp=Math.min(p.maxhp,p.hp+4);log("Vous improvisez un soin. +4 PV.")}enemyTurn();render()}
-function flee(){if(!battle)return;if(rng()<0.65){battle=false;log("Vous fuyez dans la brume.")}else{log("La fuite échoue.");enemyTurn()}render()}
-function victory(){battle=false;p.xp+=5;p.myth+=2;const loot=rng()<0.5?{n:"Œil humide",tag:"profond"}:{n:"Symbole gravé",tag:"occulte"};p.inv.push(loot);seeItem(loot.n);log("Victoire. Butin : "+loot.n+".");unlock("Première victoire");if(p.xp>=10){p.xp-=10;p.lvl++;p.maxhp+=3;p.hp=p.maxhp;p.atk++;log("⬆ Niveau "+p.lvl+".");unlock("Le prix du savoir")}}
-function randomEvent(){const r=rng();if(r<0.35){p.san=Math.max(0,p.san-2);p.myth+=2;log("Une silhouette traverse la brume. -2 SAN.")}else if(r<0.62){p.inv.push({n:"Fragment noir",tag:"cosmique"});seeItem("Fragment noir");p.myth+=3;log("Fragment noir trouvé. +3% Mythe.")}else openEvent("UNE VOIX SOUS TERRE","« N'ouvrez pas la porte. » La voix vient pourtant de derrière vous.","ouvrir","ignorer")}
+function newGame(){
+ seed=100000+Math.floor(Math.random()*899999);rng=mulberry32(seed);
+ p={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,turn:0,depth:0,kills:0,
+ equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},
+ inv:[{n:"Lampe à pétrole",tag:"feu",uses:2},{n:"Vieux revolver",tag:"bruit",atk:2}]};
+ p.inv.forEach(i=>seeItem(i.n));battle=false;enemy=null;eventOpen=false;generateMap();
+ document.getElementById("log").textContent="";
+ log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");render()
+}
+function carve(x,y){if(x>0&&x<12&&y>0&&y<12)map[y][x]="floor"}
+function generateMap(){
+ map=Array.from({length:13},()=>Array(13).fill("wall"));
+ let x=6,y=6;carve(x,y);
+ for(let i=0;i<180;i++){const d=R(4);x=Math.max(1,Math.min(11,x+(d===0?1:d===1?-1:0)));y=Math.max(1,Math.min(11,y+(d===2?1:d===3?-1:0)));carve(x,y);if(rng()<.18){carve(x+1,y);carve(x-1,y);carve(x,y+1);carve(x,y-1)}}
+ const floors=[];for(let yy=1;yy<12;yy++)for(let xx=1;xx<12;xx++)if(map[yy][xx]==="floor")floors.push([xx,yy]);
+ const take=()=>floors.splice(R(floors.length),1)[0];
+ [px,py]=take(); const exit=take(), chest=take(), shrine=take(), trap=take();
+ map[exit[1]][exit[0]]="exit";map[chest[1]][chest[0]]="chest";map[shrine[1]][shrine[0]]="shrine";map[trap[1]][trap[0]]="trap";
+ for(let i=0;i<Math.min(5,floors.length);i++){const q=take();map[q[1]][q[0]]="water"}
+}
+function tileGlyph(t){return t==="exit"?"▼":t==="chest"?"▣":t==="shrine"?"✦":t==="trap"?"×":""}
+function render(){
+ document.getElementById("seed").textContent=seed;document.getElementById("depth").textContent=p.depth;
+ const m=document.getElementById("map");m.innerHTML="";
+ for(let y=0;y<13;y++)for(let x=0;x<13;x++){const d=document.createElement("div"),t=map[y][x];d.className="tile "+(t==="wall"?"wall":t==="water"?"water":"floor");
+ if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&x===enemy.x&&y===enemy.y){d.className+=" foe";d.textContent="☠"}else d.textContent=tileGlyph(t);m.appendChild(d)}
+ const syn=activeSynergies();
+ document.getElementById("stats").innerHTML=`PV <span class="hp">${p.hp}/${p.maxhp}</span> · SAN <span class="san">${p.san}/${p.maxsan}</span> · MYTHE <span class="myth">${p.myth}%</span><br>ATQ ${p.atk} · DEF ${p.def} · Niv. ${p.lvl} · XP ${p.xp}/10 · Prof. ${p.depth}<br>🎒 ${p.inv.map(i=>i.n).join(" · ")}${syn.length?`<br><span class="gold">SYNERGIE : ${syn.join(" · ")}</span>`:""}`;
+ document.getElementById("battle").style.display=battle?"block":"none";document.getElementById("eventPanel").style.display=eventOpen?"block":"none";if(battle)updateBattle()
+}
+function move(dx,dy){
+ if(battle||eventOpen)return;const nx=px+dx,ny=py+dy;if(nx<1||nx>11||ny<1||ny>11||map[ny][nx]==="wall")return;
+ px=nx;py=ny;p.turn++;resolveTile();if(!battle&&!eventOpen&&rng()<0.10)spawnEnemy();sanityPressure();render()
+}
+function waitTurn(){if(!battle&&!eventOpen){p.turn++;if(rng()<.16)spawnEnemy();sanityPressure();render()}}
+function sanityPressure(){if(p.san<=0){p.hp-=3;p.myth+=3;log("Votre esprit cède. Une voix répond depuis le mur.")}if(p.hp<=0)die()}
+function resolveTile(){
+ const t=map[py][px];
+ if(t==="trap"){map[py][px]="floor";const d=3+R(5);p.hp-=d;log("Piège : "+d+" PV perdus.");}
+ else if(t==="chest"){map[py][px]="floor";lootChest()}
+ else if(t==="shrine"){map[py][px]="floor";openEvent("AUTEL IMPOSSIBLE","Les angles de la pierre changent lorsque vous clignez des yeux.","toucher","ignorer")}
+ else if(t==="exit"){openEvent("ESCALIER VERS LE BAS","Une haleine froide remonte des profondeurs.","descendre","rester")}
+}
+function lootChest(){
+ const pool=[{n:"Bandage militaire",tag:"soin"},{n:"Sel consacré",tag:"rituel"},{n:"Œil humide",tag:"profond"},{n:"Symbole gravé",tag:"occulte"},{n:"Fragment noir",tag:"cosmique"}];
+ const loot=pool[R(pool.length)];p.inv.push(loot);seeItem(loot.n);log("Cache découverte : "+loot.n+".")
+}
+function activeSynergies(){
+ const a=[];const names=p.inv.map(i=>i.n);
+ if(names.includes("Fragment noir")&&names.includes("Symbole gravé"))a.push("Résonance interdite");
+ if(p.equip&&p.equip.relique==="Œil humide")a.push("Vision des profondeurs");
+ return a
+}
+function spawnEnemy(){
+ const n=R(100),depth=p.depth;
+ const name=n<38?"Cultiste":n<65?"Profond":n<82?"Goule":n<93?"Mi-Go":n<98?"Byakhee":"Shoggoth";
+ const stats={"Cultiste":[13,4],"Profond":[20,6],"Goule":[17,7],"Mi-Go":[23,7],"Byakhee":[28,8],"Shoggoth":[45,10]},s=stats[name],scale=Math.floor(depth/2);
+ discover(name);enemy={name,hp:s[0]+depth*2,maxhp:s[0]+depth*2,atk:s[1]+scale,x:px,y:py,status:"",turn:0};battle=true;
+ if(activeSynergies().includes("Résonance interdite")){p.san=Math.max(0,p.san-1);log("La Résonance interdite exige son prix. -1 SAN.")}
+ log("☠ "+name+" surgit dans la brume.")
+}
+function updateBattle(){document.getElementById("battleTitle").textContent="⚔ "+enemy.name;document.getElementById("battleInfo").innerHTML=`PV ennemi <span class="hp">${enemy.hp}/${enemy.maxhp}</span> · ATQ ${enemy.atk} · Vous ${p.hp} PV · ${p.san} SAN${enemy.status?` · <span class="gold">${enemy.status}</span>`:""}`}
+function enemyTurn(){
+ if(!battle)return;
+ if(enemy.status==="aveuglé"){log(enemy.name+" hésite dans la lumière.");enemy.status="";return}
+ const d=Math.max(1,enemy.atk-p.def+(rng()<0.18?2:0));p.hp-=d;
+ const sanLoss=(enemy.name==="Shoggoth"?3:enemy.name==="Mi-Go"?2:1);if(rng()<0.38)p.san=Math.max(0,p.san-sanLoss);
+ log(enemy.name+" inflige "+d+" dégâts.");if(p.hp<=0)die()
+}
+function attack(){
+ if(!battle)return;let bonus=(p.equip&&p.equip.arme==="Vieux revolver")?2:0;
+ if(enemy.name==="Cultiste"&&p.equip.arme==="Vieux revolver")bonus+=2;
+ if(enemy.name==="Profond"&&p.equip.relique==="Œil humide")bonus+=3;
+ if(activeSynergies().includes("Résonance interdite"))bonus+=3;
+ const crit=rng()<.12,d=p.atk+bonus+R(4)+(crit?4:0);enemy.hp-=d;log((crit?"COUP CRITIQUE. ":"")+"Attaque : "+d+" dégâts.");
+ if(enemy.hp<=0)victory();else enemyTurn();render()
+}
+function defend(){if(!battle)return;p.def+=3;log("Vous vous mettez en garde. +3 DEF pour ce tour.");enemyTurn();p.def-=3;render()}
+function useItem(){
+ if(!battle)return;
+ const lamp=p.inv.find(i=>i.n==="Lampe à pétrole"&&(i.uses||0)>0);
+ const salt=p.inv.find(i=>i.n==="Sel consacré");
+ const band=p.inv.find(i=>i.n==="Bandage militaire");
+ if(p.san<12&&lamp){p.san=Math.min(p.maxsan,p.san+6);lamp.uses--;if(enemy.name==="Goule")enemy.status="aveuglé";log("La lampe repousse les ombres. +6 SAN.");if(lamp.uses<=0){p.inv.splice(p.inv.indexOf(lamp),1);if(p.equip.outil==="Lampe à pétrole")p.equip.outil=null}}
+ else if(enemy.name!=="Cultiste"&&salt){enemy.hp-=8;p.inv.splice(p.inv.indexOf(salt),1);log("Le sel consacré brûle la créature. 8 dégâts.");if(enemy.hp<=0){victory();render();return}}
+ else if(band){p.hp=Math.min(p.maxhp,p.hp+8);p.inv.splice(p.inv.indexOf(band),1);log("Bandage : +8 PV.")}
+ else{toast("Aucun objet de combat utile.");return}
+ enemyTurn();render()
+}
+function flee(){if(!battle)return;const chance=Math.max(.25,.70-p.depth*.04);if(rng()<chance){battle=false;log("Vous fuyez dans la brume.")}else{log("La fuite échoue.");enemyTurn()}render()}
+function victory(){
+ battle=false;p.xp+=5;p.myth+=2;p.kills++;
+ const pool=[{n:"Œil humide",tag:"profond"},{n:"Symbole gravé",tag:"occulte"},{n:"Bandage militaire",tag:"soin"},{n:"Sel consacré",tag:"rituel"}];
+ if(rng()<.75){const loot=pool[R(pool.length)];p.inv.push(loot);seeItem(loot.n);log("Victoire. Butin : "+loot.n+".")}else log("Victoire. Aucun butin.");
+ unlock("Première victoire");if(p.kills>=5)unlock("Chasseur de l'indicible");
+ if(p.xp>=10){p.xp-=10;p.lvl++;p.maxhp+=3;p.hp=Math.min(p.maxhp,p.hp+8);p.atk++;log("⬆ Niveau "+p.lvl+".");unlock("Le prix du savoir")}
+}
+function randomEvent(){const r=rng();if(r<.30){p.san=Math.max(0,p.san-2);p.myth+=2;log("Une silhouette traverse la brume. -2 SAN.")}else if(r<.55){lootChest()}else openEvent("MURMURE DANS LA PIERRE","Une voix prononce un souvenir que vous n'avez jamais vécu.","écouter","fuir")}
 function openEvent(t,txt,a,b){eventOpen=true;document.getElementById("eventText").innerHTML=`<b>${t}</b><br>${txt}`;const c=document.getElementById("eventChoices");c.innerHTML="";[a,b].forEach(v=>{const q=document.createElement("button");q.textContent=v.toUpperCase();q.onclick=()=>choice(v);c.appendChild(q)});render()}
-function choice(v){eventOpen=false;if(v==="ouvrir"||v==="toucher"){p.myth+=5;p.san=Math.max(0,p.san-4);log("La réalité se plie un instant. +5% Mythe, -4 SAN.")}else{p.san=Math.max(0,p.san-1);log("Vous refusez. Quelque chose frappe trois fois.")}render()}
-function interact(){if(battle||eventOpen)return;if(px===8&&py===3)openEvent("MAISON ABANDONNÉE","Une spirale est gravée sous la serrure.","ouvrir","ignorer");else if(px===6&&py===10)openEvent("CIMETIÈRE","Une tombe est ouverte de l'intérieur.","ouvrir","ignorer");else if(px===2&&py===2)openEvent("ANOMALIE","Ce symbole n'appartient à aucune constellation humaine.","toucher","ignorer");else{log("Vous enquêtez. Odeur de sel, métal et chair.");if(rng()<0.30)spawnEnemy()}render()}
+function choice(v){
+ eventOpen=false;
+ if(v==="descendre"){p.depth++;unlock(p.depth>=3?"Sous Blackwater":"Première descente");log("Vous descendez au niveau "+p.depth+".");generateMap()}
+ else if(v==="rester"){log("Vous restez à cet étage.")}
+ else if(v==="toucher"||v==="écouter"){p.myth+=5;p.san=Math.max(0,p.san-4);log("La réalité se plie. +5% Mythe, -4 SAN.");if(rng()<.35){p.inv.push({n:"Clé d'obsidienne",tag:"clé"});seeItem("Clé d'obsidienne");log("Une Clé d'obsidienne apparaît dans votre paume.")}}
+ else{p.san=Math.max(0,p.san-1);log("Vous refusez. Quelque chose frappe trois fois.")}
+ render()
+}
+function interact(){if(battle||eventOpen)return;const t=map[py][px];if(["exit","chest","shrine","trap"].includes(t)){resolveTile();render();return}log("Vous enquêtez. Odeur de sel, métal et chair.");if(rng()<.28)randomEvent();else if(rng()<.30)spawnEnemy();render()}
 function die(){battle=false;eventOpen=false;log("☠ VOUS ÊTES MORT. Une nouvelle réalité vous attend.");unlock("Mourir à Blackwater");render()}
 function openModal(html){document.getElementById("sheet").innerHTML=html;document.getElementById("modal").style.display="flex"}
 function closeModal(){document.getElementById("modal").style.display="none"}
@@ -119,6 +212,9 @@ function inventoryAction(action,name){
   else if(name==="Œil humide"){p.san=Math.min(p.maxsan,p.san+3);p.inv.splice(idx,1);if(p.equip.relique===name)p.equip.relique=null;log("L'Œil humide se dissout. +3 SAN.");}
   else if(name==="Fragment noir"){p.myth+=4;p.san=Math.max(0,p.san-3);log("Le Fragment pulse. +4% Mythe, -3 SAN.");}
   else if(name==="Symbole gravé"){p.myth+=1;log("Le symbole réagit. +1% Mythe.");}
+  else if(name==="Bandage militaire"){p.hp=Math.min(p.maxhp,p.hp+8);p.inv.splice(idx,1);log("Bandage : +8 PV.");}
+  else if(name==="Sel consacré"){toast("Gardez-le pour un combat contre le Mythe.");return;}
+  else if(name==="Clé d'obsidienne"){toast("La clé attend une serrure qui n'existe pas encore.");return;}
   else toast("Équipez cet objet pour profiter de son effet.");
  } else if(action==="drop"){
   p.inv.splice(idx,1);const slot=equippedSlot(name);if(slot)p.equip[slot]=null;log("Vous abandonnez "+name+".");
@@ -128,7 +224,7 @@ function inventoryAction(action,name){
 
 function openCodex(){let s=`<h2>📖 BESTIAIRE — ${Object.keys(codex).length}/${bestiary.length}</h2>`;bestiary.forEach(e=>{const known=!!codex[e.name];s+=`<div class="entry ${known?"":"locked"}"><b>${known?e.name:"ENTRÉE INCONNUE"}</b><br>${known?e.desc:"Vous n'avez pas encore observé cette entité."}${known?`<br><span class="gold">${e.cat}</span> · ${e.traits}`:""}</div>`});openModal(s)}
 function openItems(){let s=`<h2>🎒 GUIDE DES OBJETS — ${Object.keys(itemsSeen).length}/${itemDB.length}</h2>`;itemDB.forEach(i=>{const known=!!itemsSeen[i.name];s+=`<div class="entry ${known?"":"locked"}"><b>${known?i.name:"OBJET INCONNU"}</b>${known?`<br><span class="gold">${i.type} · ${i.rarity}</span><br>${i.effect}<br><span class="hint">Tags : ${i.tags.join(", ")}</span><br><b>Synergie :</b> ${i.synergy}`:"<br>Découvrez cet objet en exploration ou en combat."}</div>`});openModal(s)}
-function openAchievements(){const list=["Première victoire","Premier catalogue","Le prix du savoir","Mourir à Blackwater"];let s="<h2>🏆 SUCCÈS</h2>";list.forEach(x=>s+=`<div class="entry ${achievements[x]?"":"locked"}"><b>${achievements[x]?"✓":"?"} ${x}</b><br><span class="hint">${achievements[x]?"Débloqué":"Succès à découvrir"}</span></div>`);openModal(s)}
+function openAchievements(){const list=["Première victoire","Premier catalogue","Le prix du savoir","Première descente","Sous Blackwater","Chasseur de l'indicible","Mourir à Blackwater"];let s="<h2>🏆 SUCCÈS</h2>";list.forEach(x=>s+=`<div class="entry ${achievements[x]?"":"locked"}"><b>${achievements[x]?"✓":"?"} ${x}</b><br><span class="hint">${achievements[x]?"Débloqué":"Succès à découvrir"}</span></div>`);openModal(s)}
 window.addEventListener("error",e=>{document.getElementById("stats").textContent="Erreur JS : "+e.message});
 newGame();
 </script>
