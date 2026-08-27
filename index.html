@@ -12,7 +12,7 @@
 </head>
 <body>
 <div id="app">
-<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5.2 · BLACKWATER · SEED <span id="seed">—</span></div>
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.5.3 · BLACKWATER · SEED <span id="seed">—</span></div>
 <div class="panel stats" id="stats">Initialisation…</div>
 <div class="panel"><div id="map"></div></div>
 <div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">⌂ maison · ▣ cimetière · ✦ anomalie · ☠ menace</div></div>
@@ -94,12 +94,26 @@ function inventoryAction(action,name){
  if(idx<0){toast("Objet absent.");openInventory();return;}
  if(action==="examine"){
   seeItem(name);
-  if(info.tags.includes("maudit")){p.san=Math.max(0,p.san-2);p.myth+=2;log("Vous examinez "+name+". Quelque chose vous examine en retour. -2 SAN, +2% Mythe.");}
-  else log("Vous examinez "+name+" : "+info.effect);
+  let consequence="";
+  if(info.tags.includes("maudit")){
+    p.san=Math.max(0,p.san-2);p.myth+=2;
+    consequence="<br><br><b>Conséquence :</b> -2 SAN · +2% Mythe";
+    log("Vous examinez "+name+". Quelque chose vous examine en retour. -2 SAN, +2% Mythe.");
+  } else {
+    log("Vous examinez "+name+" : "+info.effect);
+  }
+  render();
+  openModal(`<h2>🔎 ${info.name}</h2>
+    <div class="entry"><span class="gold">${info.type} · ${info.rarity}</span><br><br>
+    <b>Effet :</b> ${info.effect}<br><br>
+    <b>Tags :</b> ${info.tags.join(", ")||"—"}<br><br>
+    <b>Synergie connue :</b> ${info.synergy}${consequence}</div>
+    <button onclick="openInventory()">← RETOUR À L'INVENTAIRE</button>`);
+  return;
  } else if(action==="equip"){
   if(!info.slot){toast("Cet objet ne s'équipe pas.");return;}
-  if(p.equip[info.slot]===name){p.equip[info.slot]=null;log(name+" déséquipé.");}
-  else{p.equip[info.slot]=name;log(name+" équipé : "+info.slot+".");}
+  if(p.equip[info.slot]===name){p.equip[info.slot]=null;log(name+" déséquipé.");toast("Déséquipé : "+name);}
+  else{p.equip[info.slot]=name;log(name+" équipé : "+info.slot+".");toast("Équipé : "+name);}
  } else if(action==="use"){
   if(name==="Lampe à pétrole"){const o=p.inv[idx];if((o.uses||0)<=0){toast("La lampe est vide.");return;}p.san=Math.min(p.maxsan,p.san+6);o.uses--;log("Lampe : +6 SAN. Charges : "+o.uses+".");if(o.uses<=0){p.inv.splice(idx,1);if(p.equip.outil===name)p.equip.outil=null;}}
   else if(name==="Œil humide"){p.san=Math.min(p.maxsan,p.san+3);p.inv.splice(idx,1);if(p.equip.relique===name)p.equip.relique=null;log("L'Œil humide se dissout. +3 SAN.");}
