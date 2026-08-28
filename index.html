@@ -139,6 +139,15 @@ h1{font-size:clamp(18px,2vw,30px);letter-spacing:2px;margin:0}
 }
 #joy button:active,#actionBtn:active{transform:scale(.94)}
 </style>
+<style id="movement-rootfix-097">
+#joy button,#actionBtn{
+ touch-action:manipulation!important;
+ -webkit-user-select:none!important;
+ user-select:none!important;
+ -webkit-touch-callout:none!important;
+}
+#joy button:active,#actionBtn:active{transform:scale(.94)}
+</style>
 </head>
 <body>
 <div id="game">
@@ -231,7 +240,7 @@ function generateMap(){
 }
 function glyph(t){return t==="exit"?"▼":t==="chest"?"▣":t==="shrine"?"✦":t==="trap"?"×":t==="npc"?"☺":t==="quest"?"!":""}
 function render(){
- document.getElementById("sub").textContent=`PROTO 0.9.6 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.9.7 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
  let m=document.getElementById("map");m.innerHTML="";
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){let t=map[y][x],d=document.createElement("div");d.className="tile "+(t==="wall"?"wall":t==="water"?"water":"floor");if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&enemy.x===x&&enemy.y===y){d.className+=" enemy";d.textContent="☠"}else{d.textContent=glyph(t);if(d.textContent)d.className+=" feature";if(t==="npc")d.className+=" npc";if(t==="quest")d.className+=" quest"}m.appendChild(d)}
@@ -250,6 +259,32 @@ function renderQuestTracker(){
  const recent=journal.slice(0,4).map(x=>`<div>${x}</div>`).join("");
  box.innerHTML=qhtml+`<div class="qtRecent">${recent}</div>`
 }
+function resolveTile(){
+ const t=map[py][px];
+ if(t==="trap"){
+   map[py][px]="floor";
+   const d=3+R(5);
+   player.hp-=d;
+   log("Piège : -"+d+" PV.");
+   if(player.hp<=0)death();
+ }
+ else if(t==="chest"){
+   map[py][px]="floor";
+   loot();
+ }
+ else if(t==="shrine"){
+   map[py][px]="floor";
+   player.myth+=4;
+   player.san=Math.max(0,player.san-3);
+   log("Autel impossible : +4% Mythe, -3 SAN.");
+ }
+ else if(t==="exit"){
+   player.depth++;
+   log("Vous descendez au niveau "+player.depth+".");
+   generateMap();
+ }
+}
+
 function move(dx,dy){
  if(battle)return;
  const nx=px+dx,ny=py+dy;
@@ -261,8 +296,6 @@ function move(dx,dy){
  resolveTile();
  if(!battle&&rng()<.10)spawnEnemy();
  render();
- // Force Safari/PWA to repaint immediately after each single step.
- requestAnimationFrame(()=>{ document.getElementById("map").offsetHeight; });
 }
 
 function skillCheck(skill,difficulty){
@@ -363,19 +396,11 @@ function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous
 
 function bindTap(id,fn){
  const el=document.getElementById(id);
- let touched=false;
- const fire=e=>{
-   if(e){e.preventDefault();e.stopPropagation();}
+ el.onclick=null;
+ el.addEventListener("pointerup",e=>{
+   e.preventDefault();
+   e.stopPropagation();
    fn();
- };
- el.onclick=e=>{
-   if(touched){touched=false;return}
-   fire(e)
- };
- el.addEventListener("touchstart",e=>{
-   touched=true;
-   fire(e);
-   setTimeout(()=>{touched=false},350);
  },{passive:false});
 }
 bindTap("up",()=>move(0,-1));
