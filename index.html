@@ -214,7 +214,7 @@ const skills=["Investigation","Observation","Armes","Médecine","Psychologie","O
 function mulberry(a){return()=>{let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 function R(n){return Math.floor(rng()*n)}
 function toast(s){let t=document.getElementById("toast");t.textContent=s;t.style.display="block";clearTimeout(t._x);t._x=setTimeout(()=>t.style.display="none",1500)}
-function log(s){journal.unshift(s);journal=journal.slice(0,120)}
+function log(s){journal.unshift(s);journal=journal.slice(0,60)}
 function closeOverlays(){document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("open"))}
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).classList.remove("open"));
 document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{if(e.target===o)o.classList.remove("open")}));
@@ -226,7 +226,7 @@ function makeCharacter(){
  return {name:pool[Math.floor(Math.random()*pool.length)]+" "+lastN[Math.floor(Math.random()*lastN.length)],sex:female?"Femme":"Homme",job:female?job.f:job.m,trait:traits[Math.floor(Math.random()*traits.length)],skills:v}
 }
 function newRun(){
- closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
+ closeOverlays();inputBusy=false;renderQueued=false;seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
  player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0};
  seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(Math.random()<.35)startQuest();render()
 }
@@ -239,14 +239,48 @@ function generateMap(){
  place("exit");place("chest");place("shrine");place("trap");place("npc");place("quest");for(let i=0;i<5;i++)place("water")
 }
 function glyph(t){return t==="exit"?"▼":t==="chest"?"▣":t==="shrine"?"✦":t==="trap"?"×":t==="npc"?"☺":t==="quest"?"!":""}
-function render(){
- document.getElementById("sub").textContent=`PROTO 0.9.7 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
- document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
- let m=document.getElementById("map");m.innerHTML="";
- for(let y=0;y<13;y++)for(let x=0;x<13;x++){let t=map[y][x],d=document.createElement("div");d.className="tile "+(t==="wall"?"wall":t==="water"?"water":"floor");if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&enemy.x===x&&enemy.y===y){d.className+=" enemy";d.textContent="☠"}else{d.textContent=glyph(t);if(d.textContent)d.className+=" feature";if(t==="npc")d.className+=" npc";if(t==="quest")d.className+=" quest"}m.appendChild(d)}
+let mapCells=[];
+let renderQueued=false;
 
+function initMapDOM(){
+ const m=document.getElementById("map");
+ if(mapCells.length===169 && m.children.length===169)return;
+ m.innerHTML="";
+ mapCells=[];
+ for(let i=0;i<169;i++){
+   const d=document.createElement("div");
+   d.className="tile wall";
+   m.appendChild(d);
+   mapCells.push(d);
+ }
+}
+function renderNow(){
+ renderQueued=false;
+ initMapDOM();
+ document.getElementById("sub").textContent=`PROTO 0.9.8 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
+
+ for(let y=0;y<13;y++)for(let x=0;x<13;x++){
+   const idx=y*13+x,d=mapCells[idx],t=map[y][x];
+   let cls="tile "+(t==="wall"?"wall":t==="water"?"water":"floor"),txt="";
+   if(x===px&&y===py){cls+=" player";txt="☉"}
+   else if(enemy&&enemy.x===x&&enemy.y===y){cls+=" enemy";txt="☠"}
+   else{
+     txt=glyph(t);
+     if(txt)cls+=" feature";
+     if(t==="npc")cls+=" npc";
+     if(t==="quest")cls+=" quest";
+   }
+   if(d.className!==cls)d.className=cls;
+   if(d.textContent!==txt)d.textContent=txt;
+ }
  renderContext();
- renderQuestTracker()
+ renderQuestTracker();
+}
+function render(){
+ if(renderQueued)return;
+ renderQueued=true;
+ requestAnimationFrame(renderNow);
 }
 function renderQuestTracker(){
  const box=document.getElementById("questTrackerBody"); if(!box)return;
@@ -285,17 +319,21 @@ function resolveTile(){
  }
 }
 
+let inputBusy=false;
 function move(dx,dy){
- if(battle)return;
+ if(battle||inputBusy)return;
+ inputBusy=true;
  const nx=px+dx,ny=py+dy;
  if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){
    toast("Passage bloqué");
+   requestAnimationFrame(()=>inputBusy=false);
    return
  }
  px=nx;py=ny;
  resolveTile();
  if(!battle&&rng()<.10)spawnEnemy();
  render();
+ requestAnimationFrame(()=>inputBusy=false);
 }
 
 function skillCheck(skill,difficulty){
@@ -375,7 +413,7 @@ function investigate(){
  }
  if(rng()<.38)spawnEnemy();else if(rng()<.42)loot();else{player.san=Math.max(0,player.san-1);log("Vous fouillez les lieux. -1 SAN.");render()}
 }
-function spawnEnemy(){let names=Object.keys(creatures),name=names[R(names.length)],b=creatures[name];codex[name]=true;enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),x:px,y:py};battle=true;log("☠ "+name+" surgit.");render()}
+function spawnEnemy(){let names=Object.keys(creatures),name=names[R(names.length)],b=creatures[name];codex[name]=true;enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),x:px,y:py};battle=true;log("☠ "+name+" surgit.")}
 function renderContext(){
  let c=document.getElementById("context");
  if(!battle){c.style.display="none";return}
@@ -391,8 +429,8 @@ function combatItem(){
  else toast("Aucun objet utile.");render()
 }
 function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else enemyTurn();render()}
-function win(){battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}render()}
-function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.");render()}
+function win(){battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
+function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.")}
 
 function bindTap(id,fn){
  const el=document.getElementById(id);
@@ -409,6 +447,11 @@ bindTap("left",()=>move(-1,0));
 bindTap("right",()=>move(1,0));
 bindTap("center",investigate);
 bindTap("actionBtn",investigate);
+document.addEventListener("visibilitychange",()=>{
+ if(!document.hidden){inputBusy=false;renderQueued=false;render()}
+});
+window.addEventListener("pageshow",()=>{inputBusy=false;renderQueued=false;render()});
+window.addEventListener("orientationchange",()=>setTimeout(()=>{inputBusy=false;renderQueued=false;render()},120));
 document.getElementById("menuBtn").onclick=()=>document.getElementById("mainMenu").classList.add("open");
 
 function modal(html){document.getElementById("sheetContent").innerHTML=html;document.getElementById("modal").classList.add("open")}
