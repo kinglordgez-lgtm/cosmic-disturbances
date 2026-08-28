@@ -148,6 +148,56 @@ h1{font-size:clamp(18px,2vw,30px);letter-spacing:2px;margin:0}
 }
 #joy button:active,#actionBtn:active{transform:scale(.94)}
 </style>
+
+<style id="stable-layout-0910">
+/* Stable landscape geometry: no recentering jump after first render */
+#game{
+  display:grid!important;
+  grid-template-columns:minmax(190px,22vw) minmax(520px,1fr) minmax(250px,22vw)!important;
+  grid-template-rows:100%!important;
+  column-gap:10px!important;
+}
+#mapWrap{
+  position:relative!important;
+  left:auto!important;
+  top:auto!important;
+  transform:none!important;
+  grid-column:2!important;
+  align-self:center!important;
+  justify-self:stretch!important;
+  width:100%!important;
+  max-width:none!important;
+  height:min(80dvh,650px)!important;
+  margin:0!important;
+}
+#questTracker{
+  position:relative!important;
+  right:auto!important;
+  top:auto!important;
+  grid-column:3!important;
+  align-self:start!important;
+  justify-self:stretch!important;
+  margin-top:84px!important;
+  width:auto!important;
+  max-width:none!important;
+}
+header,#hud,#joy{grid-column:1!important}
+#actionBtn,#menuBtn{grid-column:3!important}
+header{left:18px!important}
+#hud{left:14px!important}
+#joy{left:18px!important}
+#menuBtn{right:max(18px,env(safe-area-inset-right))!important}
+#actionBtn{right:max(24px,env(safe-area-inset-right))!important}
+
+/* Prevent first-frame size animation/reflow */
+#mapWrap,#questTracker,#hud,#joy,#actionBtn{transition:none!important;animation:none!important}
+@media (orientation:landscape) and (max-height:430px){
+ #game{grid-template-columns:minmax(165px,20vw) minmax(460px,1fr) minmax(220px,20vw)!important}
+ #mapWrap{height:76dvh!important}
+ #questTracker{margin-top:70px!important}
+}
+</style>
+
 </head>
 <body>
 <div id="game">
@@ -263,7 +313,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.9.9 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.9.10 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -416,6 +466,16 @@ function investigate(){
  }
  if(rng()<.38)spawnEnemy();else if(rng()<.42)loot();else{player.san=Math.max(0,player.san-1);log("Vous fouillez les lieux. -1 SAN.");render()}
 }
+
+function loot(){
+ const pool=["Bandage militaire","Sel consacré","Fragment noir","Symbole gravé"];
+ const n=pool[R(pool.length)];
+ player.inv.push({n});
+ seenItems[n]=true;
+ log("Objet trouvé : "+n+".");
+ toast("Objet : "+n);
+}
+
 function spawnEnemy(){let names=Object.keys(creatures),name=names[R(names.length)],b=creatures[name];codex[name]=true;enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),x:px,y:py};battle=true;log("☠ "+name+" surgit.")}
 function renderContext(){
  let c=document.getElementById("context");
@@ -482,7 +542,14 @@ function showRuntimeError(err){
 }
 function recoverGame(){
  document.getElementById("runtimeError").style.display="none";
- try{render()}catch(e){console.error(e)}
+ try{
+   battle=false;
+   enemy=null;
+   render();
+ }catch(e){
+   console.error(e);
+   showRuntimeError(e);
+ }
 }
 window.addEventListener("error",e=>{
  console.error(e.error||e.message);
@@ -492,6 +559,18 @@ window.addEventListener("unhandledrejection",e=>{
  console.error(e.reason);
  showRuntimeError(e.reason);
 });
+
+
+function validateCore(){
+ const required=["move","resolveTile","loot","spawnEnemy","render","investigate"];
+ const missing=required.filter(n=>typeof window[n]!=="function");
+ if(missing.length){
+   showRuntimeError("Fonction(s) manquante(s) : "+missing.join(", "));
+   return false;
+ }
+ return true;
+}
+window.addEventListener("load",()=>{validateCore();render()});
 
 </script>
 </body>
