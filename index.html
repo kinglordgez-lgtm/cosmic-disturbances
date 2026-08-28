@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.11.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.12.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -479,7 +479,9 @@ function move(dx,dy){
    resolveTile();
    if(!battle&&rng()<.10)spawnEnemy();
    cdAtmosphere();
-  render();
+  cd12Tick();
+   if(cd12BossChance())return;
+   render();
  }catch(err){
    console.error(err);
    showRuntimeError(err);
@@ -597,7 +599,7 @@ function investigate(){
  else if(rng()<.47)loot();
  else{
    const sk=rng()<.5?"Observation":"Investigation";
-   if(skillCheck(sk,15)){log("Vous découvrez un détail utile.");if(rng()<.35)loot()}
+   if(skillCheck(sk,15)){log("Vous découvrez un détail utile.");if(rng()<.20)cd12Discover();if(rng()<.35)loot()}
    else{player.san=Math.max(0,player.san-1);log("Vous fouillez sans succès. -1 SAN.")}
    render()
  }
@@ -658,7 +660,10 @@ function combatItem(){
  else if(band>=0){player.hp=Math.min(player.maxhp,player.hp+8);player.inv.splice(band,1);log("Bandage : +8 PV.");enemyTurn()}
  else toast("Aucun objet utile.");render()
 }
-function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else enemyTurn();render()}
+function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else enemyTurn();render()
+ if(player.hp>0&&rng()<.12)cd12AddStatus("Saignement");
+ if(player.hp>0&&enemy&&["Chien de Tindalos","Polype rampant","Veilleur sans visage"].includes(enemy.name)&&rng()<.16)cd12AddStatus("Terreur");
+}
 function win(){battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.")}
 
@@ -692,10 +697,15 @@ function itemCard(n){let db=itemDB[n]||{type:"Objet",rarity:"?",desc:"",tags:""}
 function equipInv(n){let db=itemDB[n];if(!db?.slot)return;if(player.equip[db.slot]===n)player.equip[db.slot]=null;else player.equip[db.slot]=n;render();openInventory()}
 function useInv(n){
  let i=player.inv.findIndex(x=>x.n===n);if(i<0)return;
- if(n==="Bandage militaire"){player.hp=Math.min(player.maxhp,player.hp+8);player.inv.splice(i,1);toast("+8 PV")}
- else if(n==="Laudanum trouble"){player.san=Math.min(player.maxsan,player.san+5);player.inv.splice(i,1);toast("+5 SAN");if(rng()<.25){player.hp=Math.max(1,player.hp-2);log("Effet secondaire : -2 PV.")}}
+ if(n==="Bandage militaire"){player.hp=Math.min(player.maxhp,player.hp+8);player.status=(player.status||[]).filter(s=>s!=="Saignement");player.inv.splice(i,1);toast("+8 PV · saignement soigné")}
+ else if(n==="Laudanum trouble"){player.status=(player.status||[]).filter(s=>s!=="Terreur");player.san=Math.min(player.maxsan,player.san+5);player.inv.splice(i,1);toast("+5 SAN");if(rng()<.25){player.hp=Math.max(1,player.hp-2);log("Effet secondaire : -2 PV.")}}
  else if(n==="Lampe à pétrole"){let o=player.inv[i];o.uses=o.uses??2;if(o.uses>0){player.san=Math.min(player.maxsan,player.san+6);o.uses--;toast("+6 SAN");if(o.uses<=0){player.inv.splice(i,1);player.equip.outil=null}}}
  else if(n==="Flacon de kérosène"){let lamp=player.inv.find(x=>x.n==="Lampe à pétrole");if(lamp){lamp.uses=(lamp.uses??0)+2;player.inv.splice(i,1);toast("Lampe +2 charges")}else toast("Aucune lampe")}
+ else if(n==="Sel consacré"&&battle){
+   let d=(enemy.weak==="sel"?10:4);enemy.hp-=d;player.inv.splice(i,1);
+   log("Sel consacré : "+d+" dégâts.");toast(enemy.weak==="sel"?"FAIBLESSE !":"Sel consacré");
+   if(enemy.hp<=0)win()
+ }
  else if(n==="Fragment noir"){player.myth+=4;player.san=Math.max(0,player.san-3);toast("+4% Mythe · -3 SAN")}
  else if(n==="Symbole gravé"){player.myth+=1;toast("+1% Mythe")}
  else if(n==="Photographie impossible"){if(player.quest&&!player.quest.done){changeQuest("la photographie révèle une autre possibilité");player.inv.splice(i,1)}else toast("Aucune enquête active")}
@@ -809,6 +819,73 @@ window.addEventListener("load",()=>{try{cdEnsureSkills();log("0.10.0 : couche RP
 
 
 
+
+
+<script id="gameplay-0120">
+const CD12={
+ conditions:["Saignement","Terreur","Marqué","Infection"],
+ discoveries:[
+  "Une inscription relie Blackwater à une date qui n'existe pas.",
+  "Un plan municipal montre un quartier absent de la ville.",
+  "Une photographie porte votre signature au verso.",
+  "Le symbole correspond à une constellation invisible depuis la Terre.",
+  "Un registre indique que plusieurs habitants sont morts deux fois."
+ ],
+ bosses:[
+  {name:"Prêtre noyé de Dagon",hp:46,atk:10,def:2,weak:"sel"},
+  {name:"Émissaire de Tindalos",hp:52,atk:11,def:3,weak:"symbole"},
+  {name:"Gardien fongique",hp:48,atk:10,def:2,weak:"feu"}
+ ]
+};
+
+function cd12Has(n){return player.inv&&player.inv.some(i=>i.n===n)}
+function cd12Remove(n){const i=player.inv.findIndex(x=>x.n===n);if(i>=0)player.inv.splice(i,1)}
+function cd12Status(){
+ player.status=player.status||[];
+ return player.status
+}
+function cd12AddStatus(s){
+ const a=cd12Status();
+ if(!a.includes(s)){a.push(s);log("ÉTAT : "+s+".");toast(s)}
+}
+function cd12Tick(){
+ const a=cd12Status();
+ if(a.includes("Saignement")){player.hp=Math.max(1,player.hp-1);log("Saignement : -1 PV.")}
+ if(a.includes("Terreur")&&Math.random()<.35){player.san=Math.max(0,player.san-1);log("Terreur : -1 SAN.")}
+}
+function cd12Discover(){
+ const t=CD12.discoveries[Math.floor(Math.random()*CD12.discoveries.length)];
+ log("DÉCOUVERTE : "+t);
+ player.myth=Math.min(100,player.myth+1);
+ toast("Découverte · +1% Mythe")
+}
+function cd12BossChance(){
+ if(battle||player.depth<3||player.depth%3!==0||Math.random()>.18)return false;
+ const b=CD12.bosses[Math.floor(Math.random()*CD12.bosses.length)];
+ enemy={name:b.name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),def:b.def,x:px,y:py,weak:b.weak,resist:"ancien"};
+ battle=true;codex[b.name]=true;
+ if(!creatures[b.name])creatures[b.name]={hp:b.hp,atk:b.atk,def:b.def,cat:"Boss",desc:"Une présence majeure liée aux perturbations de Blackwater.",weak:b.weak,resist:"ancien"};
+ log("☠ PRÉSENCE MAJEURE : "+b.name+".");
+ toast("PRÉSENCE MAJEURE");
+ render();return true
+}
+function cd12Rest(){
+ if(battle){toast("Impossible en combat");return}
+ if(player.san>=player.maxsan&&player.hp>=player.maxhp){toast("Vous n'avez pas besoin de souffler");return}
+ const danger=Math.random();
+ if(danger<.22){log("Votre repos est interrompu.");spawnEnemy();render();return}
+ player.hp=Math.min(player.maxhp,player.hp+3);
+ player.san=Math.min(player.maxsan,player.san+2);
+ log("Vous reprenez votre souffle : +3 PV, +2 SAN.");
+ toast("Repos bref")
+}
+window.addEventListener("load",()=>{
+ try{
+   player.status=player.status||[];
+   log("0.12.0 : états, découvertes et présences majeures actifs.");
+ }catch(e){console.error(e)}
+});
+</script>
 
 </body>
 </html>
