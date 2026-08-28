@@ -3,124 +3,980 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#05070a">
+<meta name="theme-color" content="#07090d">
 <link rel="manifest" href="./manifest.json">
 <title>Cosmic Disturbances</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
-:root{--bg:#05070a;--panel:#141923;--line:#566070;--text:#eee9df;--muted:#9198a5;--gold:#d2b778;--red:#d87982;--blue:#79a9ca}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-#game{position:relative;width:100%;height:100%;min-height:100dvh;overflow:hidden}
-#header{position:absolute;left:3.3vw;top:2.5vh;z-index:30;pointer-events:none}
-#title{font-size:clamp(22px,2.6vw,42px);font-weight:800;letter-spacing:1px;white-space:nowrap}
-#meta{margin-top:10px;color:var(--muted);font-size:clamp(10px,1.15vw,18px);white-space:nowrap}
-#hud{position:absolute;left:3.3vw;top:13vh;z-index:30;font-size:clamp(9px,1vw,15px);line-height:1.55;color:#c8cbd2;pointer-events:none;text-shadow:0 1px 2px #000}
-#hud .hp{color:var(--red)}#hud .san{color:var(--blue)}#hud .myth{color:#bd8ddd}
-#mapWrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-48%);width:min(58vw,760px);height:min(76vh,620px);display:flex;align-items:center;justify-content:center;z-index:5}
-#map{display:block;image-rendering:pixelated;background:#090c11;border:2px solid #37404d;border-radius:10px;box-shadow:0 0 0 1px #111722,0 16px 50px #0008}
-#menuBtn{position:absolute;right:6.6vw;top:2.8vh;width:58px;height:58px;z-index:60;border:2px solid var(--line);border-radius:16px;background:var(--panel);color:var(--text);font-size:30px;font-weight:700}
-#joy{position:absolute;left:7vw;bottom:7vh;width:168px;height:168px;border:2px solid #465161;border-radius:50%;background:#0d1219cc;z-index:50}
-#joy button{position:absolute;width:54px;height:54px;border:2px solid #667183;border-radius:50%;background:#202633;color:var(--text);font:700 22px monospace;padding:0}
-#up{left:56px;top:5px}#down{left:56px;bottom:5px}#left{left:5px;top:56px}#right{right:5px;top:56px}#center{left:56px;top:56px;font-size:16px}
-#actions{position:absolute;right:6.7vw;bottom:7.3vh;display:flex;align-items:center;gap:14px;z-index:50}
-#actions button{width:118px;height:118px;border:2px solid #667183;border-radius:50%;background:#202633;color:var(--text);font:800 16px monospace;padding:4px}
-#actions #wait{width:100px;height:100px;font-size:14px}
-button:active{filter:brightness(1.35);transform:scale(.97)}
-#combat{display:none;position:absolute;left:50%;bottom:3.5vh;transform:translateX(-50%);z-index:80;width:min(56vw,760px);background:#10151eeF;border:2px solid #596477;border-radius:14px;padding:12px;box-shadow:0 12px 40px #000a}
-#combatTop{display:flex;justify-content:space-between;gap:16px;align-items:center;font-size:13px;margin-bottom:8px}
-#enemyName{font-weight:800;color:#e3bd8f}.bar{height:8px;background:#272d38;border-radius:99px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:#a85e67}
-#combatBtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-#combatBtns button{min-height:46px;border:1px solid #5c6574;border-radius:9px;background:#202633;color:var(--text);font:700 11px monospace}
-#message{position:absolute;left:50%;top:15vh;transform:translateX(-50%);z-index:70;min-width:260px;max-width:58vw;padding:8px 12px;border:1px solid #4c5664;border-radius:8px;background:#0e131bcc;color:#d8d9dd;text-align:center;font-size:12px;opacity:0;pointer-events:none;transition:opacity .15s}
-#message.show{opacity:1}
-#menu{display:none;position:fixed;inset:0;z-index:100;background:#05070af2;padding:6vh 6vw;overflow:auto}
-#menu.open{display:block}.menuCard{max-width:980px;margin:auto;background:#11161f;border:2px solid #4b5564;border-radius:18px;padding:18px}.menuTop{display:flex;justify-content:space-between;align-items:center;gap:10px}.menuTop h2{margin:0}.menuTop button,.menuGrid button{border:1px solid #586270;border-radius:10px;background:#202633;color:var(--text);font:700 12px monospace;min-height:48px}.menuTop button{width:120px}.menuGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}.sheet{margin-top:16px;border-top:1px solid #39414d;padding-top:12px;font-size:12px;line-height:1.5}.entry{padding:9px 0;border-bottom:1px solid #2c333e}.locked{opacity:.42}.gold{color:var(--gold)}
-#rotate{display:none;position:fixed;inset:0;z-index:200;background:#05070a;align-items:center;justify-content:center;text-align:center;padding:30px}
-@media (orientation:portrait){#rotate{display:flex}}
-@media (orientation:landscape) and (max-height:500px){
- #header{left:3vw;top:2vh}#title{font-size:clamp(20px,2.4vw,34px)}#meta{margin-top:7px}
- #hud{left:3vw;top:14vh;font-size:9px}
- #mapWrap{width:min(56vw,640px);height:72vh;top:51%}
- #joy{left:4.5vw;bottom:3vh;width:148px;height:148px}#joy button{width:48px;height:48px}#up{left:49px}#down{left:49px}#left{top:49px}#right{top:49px}#center{left:49px;top:49px}
- #actions{right:4.6vw;bottom:3.5vh;gap:10px}#actions button{width:94px;height:94px;font-size:13px}#actions #wait{width:82px;height:82px;font-size:11px}
- #menuBtn{right:5vw;top:2vh;width:52px;height:52px}
- #combat{bottom:1.8vh;width:min(54vw,680px);padding:8px}#combatBtns button{min-height:38px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:#05070a;color:#ece8dd;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}body{padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}#app{max-width:680px;margin:auto;padding:8px 0 24px}h1{font-size:21px;letter-spacing:1px;margin:4px 0}.sub{font-size:10px;color:#8a8f99}.panel{background:#10131a;border:1px solid #343945;border-radius:10px;padding:9px;margin:7px 0}.stats{font-size:11px;line-height:1.6}.hp{color:#e47e89}.san{color:#78a8cc}.myth{color:#b07ad0}.gold{color:#c6aa70}#map{display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#020307;padding:4px;border-radius:7px}.tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:2px}.floor{background:#1a1d23}.wall{background:#090a0e;color:#30343d}.water{background:#10212a;color:#4f7887}.player{background:#54482d!important;color:#fff}.foe{background:#4a1d27!important;color:#ffb8c0}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}button{min-height:44px;background:#20242d;border:1px solid #4a5060;border-radius:8px;color:#eee;font:inherit;font-size:12px;padding:8px}button:active{background:#343a46;transform:scale(.98)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}#battle{display:none}.title{font-size:15px;color:#e4c18f}.hint{font-size:10px;color:#858994;line-height:1.4}#log{height:155px;overflow:auto;white-space:pre-wrap;font-size:10px;line-height:1.45;color:#c9cad0}#modal{position:fixed;inset:0;background:#03040af2;z-index:9;display:none;align-items:flex-end;justify-content:center;padding:12px}.sheet{width:min(680px,100%);max-height:88vh;overflow:auto;background:#11141b;border:1px solid #484e5b;border-radius:14px;padding:13px}.entry{padding:9px 2px;border-bottom:1px solid #292d37;font-size:11px;line-height:1.5}.locked{opacity:.45}#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#20242d;border:1px solid #555b69;border-radius:8px;padding:8px 12px;font-size:11px;display:none;z-index:12}.nav{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+</style>
+
+<style id="mobile-modal-hotfix-061">
+/* Cosmic Disturbances 0.6.1 — anti-blocage menus iPhone */
+.modal,.overlay,.dialog,[role="dialog"]{
+  overscroll-behavior:contain;
+}
+.modal>div,.overlay>div,.dialog,[role="dialog"]{
+  max-height:88dvh !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+  position:relative;
+}
+.cd-close-061{
+  position:sticky; top:0; float:right; z-index:99999;
+  width:48px; height:48px; margin:4px;
+  border:1px solid #626978; border-radius:12px;
+  background:#20252f; color:#f4f0e6;
+  font:700 28px/42px monospace; text-align:center;
+}
+body.cd-modal-open{overflow:hidden;touch-action:none}
+</style>
+<script id="mobile-modal-hotfix-js-061">
+document.addEventListener('DOMContentLoaded',()=>{
+  const labels=['INVENTAIRE','BESTIAIRE','GUIDE OBJETS','SUCCÈS'];
+  function visibleDialogs(){
+    return [...document.querySelectorAll('body *')].filter(el=>{
+      const t=(el.innerText||'').trim();
+      if(!labels.some(x=>t.startsWith(x))) return false;
+      const s=getComputedStyle(el);
+      return s.display!=='none' && s.visibility!=='hidden' && el.offsetHeight>180;
+    }).sort((a,b)=>a.innerText.length-b.innerText.length);
+  }
+  function close(el){
+    const candidates=[...el.querySelectorAll('button')];
+    let b=candidates.find(x=>/FERMER|RETOUR|×|✕|X/i.test((x.textContent||'').trim()));
+    if(b){b.click();return}
+    // fallback: hide closest large overlay/modal without affecting game state
+    let p=el;
+    for(let i=0;i<5 && p;i++,p=p.parentElement){
+      if(p.offsetHeight>innerHeight*.55 && p.offsetWidth>innerWidth*.75){p.style.display='none';break}
+    }
+    document.body.classList.remove('cd-modal-open');
+  }
+  function fix(){
+    const d=visibleDialogs()[0];
+    if(!d) return;
+    document.body.classList.add('cd-modal-open');
+    d.style.maxHeight='88dvh'; d.style.overflowY='auto';
+    if(!d.querySelector('.cd-close-061')){
+      const x=document.createElement('button');
+      x.className='cd-close-061'; x.textContent='✕'; x.setAttribute('aria-label','Fermer');
+      x.onclick=e=>{e.stopPropagation();close(d)};
+      d.prepend(x);
+    }
+  }
+  new MutationObserver(()=>setTimeout(fix,0)).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class']});
+  document.addEventListener('click',()=>setTimeout(fix,0),true);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=visibleDialogs()[0];if(d)close(d)}});
+  setTimeout(fix,300);
+});
+</script>
+
+
+<style id="responsive-062">
+:root{--safe-top:env(safe-area-inset-top);--safe-bottom:env(safe-area-inset-bottom)}
+html,body{min-height:100%;width:100%}
+body{padding-top:var(--safe-top);padding-bottom:var(--safe-bottom)}
+#app{width:min(100%,980px);margin:0 auto}
+
+/* Portrait */
+@media (orientation:portrait){
+  #app{max-width:680px;padding-left:8px;padding-right:8px}
+  #map{grid-template-columns:repeat(13,minmax(0,1fr))}
+  .panel.nav{grid-template-columns:repeat(2,1fr)}
+}
+
+/* Landscape phones/tablets */
+@media (orientation:landscape) and (max-height:700px){
+  body{overflow:auto}
+  #app{
+    max-width:none;
+    width:100%;
+    display:grid;
+    grid-template-columns:minmax(320px,1.25fr) minmax(300px,.9fr);
+    grid-auto-rows:auto;
+    gap:8px;
+    padding:8px 12px 14px;
+    align-items:start
+  }
+  #app>h1,#app>.sub{grid-column:1/-1}
+  #app>.stats{grid-column:2;grid-row:3}
+  #app>.panel:nth-of-type(2){grid-column:1;grid-row:3 / span 3}
+  #app>.panel:nth-of-type(3){grid-column:2;grid-row:4}
+  #battle{grid-column:2}
+  #eventPanel{grid-column:2}
+  .panel.nav{grid-column:2;grid-template-columns:repeat(2,1fr)}
+  #app>.panel:has(#log){grid-column:2}
+  #app>.panel:last-child{grid-column:2}
+  #map{max-height:calc(100dvh - 110px)}
+  .tile{font-size:13px}
+  button{min-height:40px}
+}
+
+/* Very wide landscape */
+@media (orientation:landscape) and (min-width:900px){
+  #app{grid-template-columns:minmax(420px,1.4fr) minmax(360px,1fr)}
+}
+
+/* Menus: always fit current orientation */
+.sheet,[role="dialog"],.modal>div,.overlay>div{
+  max-width:min(94vw,760px)!important;
+  max-height:86dvh!important;
+}
+@media (orientation:landscape){
+  .sheet,[role="dialog"],.modal>div,.overlay>div{
+    max-width:min(88vw,900px)!important;
+    max-height:82dvh!important;
+  }
 }
 </style>
+<script id="orientation-062">
+(function(){
+  function refreshOrientation(){
+    document.documentElement.dataset.orientation =
+      innerWidth>innerHeight ? "landscape" : "portrait";
+    // Re-render only if the game has initialized; state is preserved.
+    try{
+      if(typeof render==="function" && typeof p!=="undefined" && p){render();}
+    }catch(e){}
+  }
+  addEventListener("orientationchange",()=>setTimeout(refreshOrientation,120));
+  addEventListener("resize",()=>setTimeout(refreshOrientation,80));
+  addEventListener("DOMContentLoaded",refreshOrientation);
+})();
+</script>
+
+
+<style id="layout-fix-081">
+/* V0.8.1 — carte visible + menu non rogné */
+#app>.panel:nth-of-type(2){
+  display:block!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  transform:translate(-50%,-48%)!important;
+  width:min(68vw,980px)!important;
+  height:min(72dvh,620px)!important;
+  inset:auto!important;
+  z-index:5!important;
+  background:#0b0e13!important;
+  border:1px solid #39414f!important;
+  border-radius:16px!important;
+  padding:8px!important;
+  overflow:hidden!important;
+}
+#map{
+  position:relative!important;
+  left:auto!important;top:auto!important;transform:none!important;
+  width:100%!important;height:100%!important;
+  min-height:0!important;max-height:none!important;
+  display:grid!important;
+  grid-template-columns:repeat(13,minmax(0,1fr))!important;
+  grid-template-rows:repeat(13,minmax(0,1fr))!important;
+  gap:2px!important;
+}
+.tile{min-width:0!important;min-height:0!important}
+
+/* HUD compact */
+#app>.stats{
+  left:18px!important;top:64px!important;
+  width:min(36vw,520px)!important;
+  max-height:96px!important;overflow:hidden!important;
+  z-index:40!important
+}
+#app>h1{font-size:clamp(17px,1.7vw,28px)!important}
+#app>.sub{top:42px!important}
+
+/* Menu button fully inside safe area */
+#menu080{
+  top:max(12px,env(safe-area-inset-top))!important;
+  right:max(14px,env(safe-area-inset-right))!important;
+  width:50px!important;height:44px!important;
+  z-index:2000!important
+}
+
+/* Full-screen menu that fits */
+#rpgMenu080{
+  padding:max(16px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right))
+          max(16px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))!important;
+  overflow:auto!important;
+}
+#rpgMenu080 .menuCard{
+  width:min(94vw,980px)!important;
+  max-height:90dvh!important;
+  overflow:auto!important;
+  padding:14px!important;
+}
+#rpgMenu080 .menuGrid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+}
+#closeMenu080{min-width:120px!important}
+
+/* Smaller thumb controls */
+#joy080{width:150px!important;height:150px!important;left:18px!important;bottom:14px!important}
+#joy080 button{width:46px!important;height:46px!important;font-size:20px!important}
+#jU{left:52px!important;top:4px!important}
+#jD{left:52px!important;bottom:4px!important}
+#jL{left:4px!important;top:52px!important}
+#jR{right:4px!important;top:52px!important}
+#jC{left:52px!important;top:52px!important;font-size:10px!important}
+
+#mobileActions{
+  right:18px!important;bottom:18px!important;
+  grid-template-columns:72px 72px!important;gap:8px!important
+}
+#mobileActions button{width:72px!important;height:72px!important;font-size:11px!important}
+#mobileActions .primary{width:80px!important;height:80px!important;margin:-8px 0 0 -8px!important}
+
+@media (orientation:landscape) and (max-height:430px){
+  #app>.panel:nth-of-type(2){width:min(62vw,860px)!important;height:68dvh!important}
+  #app>.stats{width:34vw!important;font-size:9px!important;top:56px!important}
+  #joy080{transform:scale(.88);transform-origin:left bottom}
+  #mobileActions{transform:scale(.88);transform-origin:right bottom}
+}
+</style>
+
+
+
+
+<style id="consolidated-083">
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070a}
+body{touch-action:manipulation}
+#app{
+ position:relative!important;
+ width:100vw!important;height:100dvh!important;
+ max-width:none!important;margin:0!important;padding:0!important;
+ overflow:hidden!important;display:block!important
+}
+
+/* Header */
+#app>h1{
+ position:fixed!important;left:18px!important;top:10px!important;z-index:50!important;
+ margin:0!important;font-size:clamp(18px,2vw,30px)!important;pointer-events:none
+}
+#app>.sub{
+ position:fixed!important;left:20px!important;top:48px!important;z-index:50!important;
+ margin:0!important;font-size:clamp(9px,1vw,14px)!important;pointer-events:none
+}
+
+/* Compact stats only */
+#app>.stats{
+ position:fixed!important;left:18px!important;top:72px!important;z-index:60!important;
+ width:min(34vw,500px)!important;max-height:92px!important;overflow:hidden!important;
+ margin:0!important;padding:8px 12px!important;border-radius:12px!important;
+ background:rgba(17,21,29,.88)!important;backdrop-filter:blur(6px);
+ font-size:clamp(9px,1.05vw,15px)!important;line-height:1.35!important
+}
+
+/* Main map */
+#app>.panel:nth-of-type(2){
+ display:block!important;
+ position:fixed!important;
+ left:50%!important;top:52%!important;transform:translate(-50%,-50%)!important;
+ width:min(62vw,980px)!important;height:min(78dvh,640px)!important;
+ z-index:10!important;margin:0!important;padding:8px!important;
+ background:#0b0e13!important;border:1px solid #3d4553!important;border-radius:16px!important;
+ overflow:hidden!important
+}
+#map{
+ position:relative!important;left:auto!important;top:auto!important;transform:none!important;
+ width:100%!important;height:100%!important;display:grid!important;
+ grid-template-columns:repeat(13,minmax(0,1fr))!important;
+ grid-template-rows:repeat(13,minmax(0,1fr))!important;
+ gap:2px!important;visibility:visible!important;opacity:1!important
+}
+.tile{min-width:0!important;min-height:0!important;font-size:clamp(10px,1.2vw,18px)!important}
+
+/* Hide all old duplicated in-page controls/navigation/log */
+#app>.panel:nth-of-type(3){display:none!important}
+.panel.nav{display:none!important}
+#app>.panel:has(#log){display:none!important}
+#app>.panel:last-child{display:none!important}
+
+/* Left thumb control */
+#joy080{
+ position:fixed!important;
+ left:max(18px,env(safe-area-inset-left))!important;
+ bottom:max(16px,env(safe-area-inset-bottom))!important;
+ z-index:1000!important;width:150px!important;height:150px!important;
+ border-radius:50%!important;background:rgba(17,21,29,.82)!important;
+ border:1px solid #566171!important
+}
+#joy080 button{
+ position:absolute!important;width:46px!important;height:46px!important;
+ min-height:0!important;border-radius:50%!important;padding:0!important;
+ font-size:20px!important;background:rgba(31,37,48,.96)!important
+}
+#jU{left:52px!important;top:4px!important}
+#jD{left:52px!important;bottom:4px!important}
+#jL{left:4px!important;top:52px!important}
+#jR{right:4px!important;top:52px!important}
+#jC{left:52px!important;top:52px!important;font-size:10px!important}
+
+/* Only one context action on the right */
+#mobileActions{
+ position:fixed!important;
+ right:max(22px,env(safe-area-inset-right))!important;
+ bottom:max(22px,env(safe-area-inset-bottom))!important;
+ z-index:1000!important;display:block!important
+}
+#mobileActions button{display:none!important}
+#mobileActions .primary{
+ display:block!important;width:96px!important;height:96px!important;
+ min-height:0!important;border-radius:50%!important;margin:0!important;
+ font-size:12px!important;font-weight:700!important;
+ background:rgba(31,37,48,.96)!important;border:1px solid #687283!important
+}
+
+/* Safe menu button */
+#menu080{
+ position:fixed!important;
+ right:max(18px,env(safe-area-inset-right))!important;
+ top:max(14px,env(safe-area-inset-top))!important;
+ z-index:1500!important;width:52px!important;height:44px!important;
+ min-height:0!important;border-radius:12px!important;font-size:23px!important;padding:0!important
+}
+
+/* Compact battle/event card only when needed */
+#battle,#eventPanel{
+ position:fixed!important;left:50%!important;bottom:14px!important;transform:translateX(-50%)!important;
+ z-index:1200!important;width:min(44vw,620px)!important;max-height:28dvh!important;
+ overflow:auto!important;margin:0!important;padding:10px!important;background:rgba(17,21,29,.96)!important
+}
+
+/* Full menu */
+#rpgMenu080{
+ display:none;position:fixed!important;inset:0!important;z-index:5000!important;
+ background:#05070af2!important;
+ padding:max(16px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right))
+         max(16px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))!important;
+ overflow:auto!important
+}
+#rpgMenu080.open{display:block!important}
+#rpgMenu080 .menuCard{
+ width:min(94vw,1000px)!important;max-height:90dvh!important;overflow:auto!important;
+ margin:auto!important;background:#11151d!important;border:1px solid #4c5565!important;
+ border-radius:18px!important;padding:14px!important
+}
+#rpgMenu080 .menuGrid{
+ display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ gap:8px!important;margin:14px 0!important
+}
+#rpgMenu080 button{min-height:48px!important}
+#char080 .skills{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px 18px!important}
+
+/* Existing modal windows */
+#modal{z-index:7000!important;align-items:center!important;padding:3dvh 4vw!important}
+.sheet{
+ width:min(900px,90vw)!important;max-height:86dvh!important;overflow:auto!important;
+ padding:14px!important;border-radius:16px!important;-webkit-overflow-scrolling:touch
+}
+
+/* Portrait: rotate prompt */
+#rotate080{display:none!important}
+@media(orientation:portrait){
+ #rotate080{display:flex!important}
+}
+@media(orientation:landscape) and (max-height:430px){
+ #app>.panel:nth-of-type(2){width:min(58vw,860px)!important;height:76dvh!important}
+ #app>.stats{width:31vw!important;font-size:8.5px!important;top:62px!important}
+ #joy080{transform:scale(.86)!important;transform-origin:left bottom!important}
+ #mobileActions{transform:scale(.88)!important;transform-origin:right bottom!important}
+}
+</style>
+
 </head>
 <body>
-<div id="game">
-  <div id="header"><div id="title">☄ COSMIC DISTURBANCES</div><div id="meta">PROTO 0.9 · BLACKWATER · SEED <span id="seed">—</span> · PROF. <span id="depth">0</span></div></div>
-  <div id="hud"></div>
-  <div id="mapWrap"><canvas id="map"></canvas></div>
-  <button id="menuBtn" aria-label="Menu">☰</button>
-  <div id="joy"><button id="up">▲</button><button id="left">◀</button><button id="center">◎</button><button id="right">▶</button><button id="down">▼</button></div>
-  <div id="actions"><button id="investigate">ENQUÊTER</button><button id="wait">ATTENDRE</button></div>
-  <div id="combat"><div id="combatTop"><div><span id="enemyName"></span><div class="bar"><i id="enemyBar"></i></div></div><div id="combatInfo"></div></div><div id="combatBtns"><button id="attack">⚔ ATTAQUER</button><button id="defend">🛡 DÉFENDRE</button><button id="item">🧪 OBJET</button><button id="flee">↩ FUIR</button></div></div>
-  <div id="message"></div>
+<div id="app">
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.8.3 · BLACKWATER · SEED <span id="seed">—</span> · PROF. <span id="depth">0</span></div>
+<div class="panel stats" id="stats">Initialisation…</div>
+<div class="panel"><div id="map"></div></div>
+<div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">▼ profondeur · ▣ cache · ✦ autel · × piège · ☠ menace</div></div>
+<div class="panel" id="battle"><div class="title" id="battleTitle"></div><div id="battleInfo"></div><div class="actions"><button onclick="attack()">⚔ ATTAQUER</button><button onclick="defend()">🛡 DÉFENDRE</button><button onclick="useItem()">🧪 OBJET</button><button onclick="flee()">↩ FUIR</button></div></div>
+<div class="panel" id="eventPanel" style="display:none"><div id="eventText"></div><div id="eventChoices"></div></div>
+<div class="panel nav"><button onclick="openInventory()">🎒 INVENTAIRE</button><button onclick="openCodex()">📖 BESTIAIRE</button><button onclick="openItems()">📚 GUIDE OBJETS</button><button onclick="openAchievements()">🏆 SUCCÈS</button></div>
+<div class="panel"><b>Journal d'enquête</b><div id="log"></div></div><div class="panel"><button onclick="newGame()">☠ NOUVELLE RÉALITÉ</button></div>
 </div>
-<div id="menu"><div class="menuCard"><div class="menuTop"><h2>☾ MENU</h2><button id="closeMenu">✕ FERMER</button></div><div class="menuGrid"><button data-page="character">👤 PERSONNAGE</button><button data-page="inventory">🎒 INVENTAIRE</button><button data-page="bestiary">📖 BESTIAIRE</button><button data-page="journal">📝 JOURNAL</button><button data-page="achievements">🏆 SUCCÈS</button><button id="newRun">☠ NOUVELLE RÉALITÉ</button></div><div class="sheet" id="sheet"></div></div></div>
-<div id="rotate"><div><div style="font-size:64px">↻</div><h2>MODE HORIZONTAL</h2><p>Tournez l’iPhone pour jouer.</p></div></div>
+<div id="modal" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div><div id="toast"></div>
 <script>
-'use strict';
-const $=id=>document.getElementById(id);
-const canvas=$('map'),ctx=canvas.getContext('2d',{alpha:false});
-const N=15;
-let seed,rng,map,px,py,depth=0,player,enemy=null,battle=false,journal=[],discovered={},ach={};
-const foes={Cultiste:{hp:15,atk:4,glyph:'C'},Profond:{hp:22,atk:6,glyph:'P'},Goule:{hp:18,atk:7,glyph:'G'},'Mi-Go':{hp:26,atk:7,glyph:'M'},Byakhee:{hp:30,atk:8,glyph:'B'}};
-function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
-function ri(n){return Math.floor(rng()*n)}
-function note(s){journal.unshift(s);journal=journal.slice(0,60);toast(s)}
-let toastTimer;function toast(s){const m=$('message');m.textContent=s;m.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>m.classList.remove('show'),1700)}
-function unlock(s){if(!ach[s]){ach[s]=1;toast('🏆 '+s)}}
-function carve(x,y){if(x>0&&y>0&&x<N-1&&y<N-1)map[y][x]=0}
+"use strict";
+let rng,seed,map,px,py,p,battle=false,enemy=null,eventOpen=false;
+const bestiary=[
+{name:"Cultiste",cat:"Humain",desc:"Fanatique lié à un culte local.",traits:"Tactique, faible isolé."},
+{name:"Profond",cat:"Mythe",desc:"Humanoïde amphibie associé aux profondeurs marines.",traits:"Aquatique, robuste, variantes possibles."},
+{name:"Goule",cat:"Mythe",desc:"Créature nocturne vivant près des lieux funéraires.",traits:"Rapide, opportuniste."},
+{name:"Mi-Go",cat:"Mythe",desc:"Être extraterrestre lié à des sciences incompréhensibles.",traits:"Technologie anormale, grande mobilité."},
+{name:"Byakhee",cat:"Mythe",desc:"Créature volante des espaces cosmiques.",traits:"Rapide, rare, imprévisible."},
+{name:"Shoggoth",cat:"Mythe",desc:"Masse protoplasmique d'une puissance extrême.",traits:"Très résistante, menace majeure."},
+{name:"Chien de Tindalos",cat:"Mythe",desc:"Prédateur lié aux angles et aux géométries impossibles.",traits:"Apparitions atypiques, traque persistante."}
+];
+const itemDB=[
+{name:"Lampe à pétrole",type:"Outil",rarity:"Commun",slot:"outil",tags:["feu","lumière"],effect:"Restaure 6 SAN. Deux charges.",synergy:"Lumière contre Goule : l'ennemi hésite et perd une attaque."},
+{name:"Vieux revolver",type:"Arme",rarity:"Commun",slot:"arme",tags:["bruit","métal"],effect:"+2 dégâts lorsqu'il est équipé.",synergy:"Métal contre Cultiste : +2 dégâts supplémentaires."},
+{name:"Fragment noir",type:"Relique",rarity:"Rare",slot:"relique",tags:["cosmique","maudit"],effect:"Accroît le Mythe au prix de la SAN.",synergy:"Avec Symbole gravé : Résonance interdite, +3 ATQ mais -1 SAN par combat."},
+{name:"Œil humide",type:"Relique",rarity:"Rare",slot:"relique",tags:["profond","organique"],effect:"Peut être consommé pour restaurer 3 SAN.",synergy:"Équipé contre Profond : révèle sa faiblesse, +3 dégâts."},
+{name:"Symbole gravé",type:"Occulte",rarity:"Inhabituel",slot:"relique",tags:["occulte","ancien"],effect:"Indice rituel équipable.",synergy:"Avec Fragment noir : Résonance interdite."},
+{name:"Sel consacré",type:"Consommable",rarity:"Inhabituel",slot:null,tags:["sel","rituel"],effect:"Inflige 8 dégâts à une créature du Mythe.",synergy:"Très efficace contre les manifestations cosmiques."},
+{name:"Bandage militaire",type:"Consommable",rarity:"Commun",slot:null,tags:["soin","humain"],effect:"Restaure 8 PV.",synergy:"Aucune."},
+{name:"Clé d'obsidienne",type:"Objet de quête",rarity:"Rare",slot:null,tags:["clé","ancien"],effect:"Ouvre certains passages scellés.",synergy:"Peut éviter un combat de gardien."}
+];
+let codex=JSON.parse(localStorage.getItem("cd_codex_v04")||"{}");
+let itemsSeen=JSON.parse(localStorage.getItem("cd_items_v04")||"{}");
+let achievements=JSON.parse(localStorage.getItem("cd_ach_v04")||"{}");
+function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;}}
+function R(n){return Math.floor(rng()*n)}
+function saveMeta(){localStorage.setItem("cd_codex_v04",JSON.stringify(codex));localStorage.setItem("cd_items_v04",JSON.stringify(itemsSeen));localStorage.setItem("cd_ach_v04",JSON.stringify(achievements))}
+function toast(s){const t=document.getElementById("toast");t.textContent=s;t.style.display="block";setTimeout(()=>t.style.display="none",1800)}
+function log(s){const x=document.getElementById("log");x.textContent=s+"\n"+x.textContent}
+function seeItem(name){if(!itemsSeen[name]){itemsSeen[name]=1;saveMeta();toast("🎒 Objet découvert : "+name)}}
+function discover(name){if(!codex[name]){codex[name]=1;saveMeta();toast("📖 Bestiaire : "+name);if(Object.keys(codex).length>=3)unlock("Premier catalogue")}}
+function unlock(name){if(!achievements[name]){achievements[name]=Date.now();saveMeta();toast("🏆 Succès : "+name)}}
+function newGame(){
+ seed=100000+Math.floor(Math.random()*899999);rng=mulberry32(seed);
+ p={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,turn:0,depth:0,kills:0,
+ equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},
+ inv:[{n:"Lampe à pétrole",tag:"feu",uses:2},{n:"Vieux revolver",tag:"bruit",atk:2}]};
+ p.inv.forEach(i=>seeItem(i.n));battle=false;enemy=null;eventOpen=false;generateMap();
+ document.getElementById("log").textContent="";
+ log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");render()
+}
+function carve(x,y){if(x>0&&x<12&&y>0&&y<12)map[y][x]="floor"}
 function generateMap(){
- map=Array.from({length:N},()=>Array(N).fill(1));let x=7,y=7;carve(x,y);
- for(let i=0;i<360;i++){let d=ri(4);x=Math.max(1,Math.min(N-2,x+(d===0?1:d===1?-1:0)));y=Math.max(1,Math.min(N-2,y+(d===2?1:d===3?-1:0)));carve(x,y);if(rng()<.23){carve(x+1,y);carve(x-1,y);carve(x,y+1);carve(x,y-1)}}
- let floors=[];for(let yy=1;yy<N-1;yy++)for(let xx=1;xx<N-1;xx++)if(map[yy][xx]===0)floors.push([xx,yy]);
- const take=()=>floors.splice(ri(floors.length),1)[0];[px,py]=take();
- const types=[2,3,4,5];types.forEach(t=>{let q=take();if(q)map[q[1]][q[0]]=t});
- for(let i=0;i<8&&floors.length;i++){let q=take();map[q[1]][q[0]]=6}
+ map=Array.from({length:13},()=>Array(13).fill("wall"));
+ let x=6,y=6;carve(x,y);
+ for(let i=0;i<180;i++){const d=R(4);x=Math.max(1,Math.min(11,x+(d===0?1:d===1?-1:0)));y=Math.max(1,Math.min(11,y+(d===2?1:d===3?-1:0)));carve(x,y);if(rng()<.18){carve(x+1,y);carve(x-1,y);carve(x,y+1);carve(x,y-1)}}
+ const floors=[];for(let yy=1;yy<12;yy++)for(let xx=1;xx<12;xx++)if(map[yy][xx]==="floor")floors.push([xx,yy]);
+ const take=()=>floors.splice(R(floors.length),1)[0];
+ [px,py]=take(); const exit=take(), chest=take(), shrine=take(), trap=take();
+ map[exit[1]][exit[0]]="exit";map[chest[1]][chest[0]]="chest";map[shrine[1]][shrine[0]]="shrine";map[trap[1]][trap[0]]="trap";
+ for(let i=0;i<Math.min(5,floors.length);i++){const q=take();map[q[1]][q[0]]="water"}
 }
-function resizeCanvas(){
- const wrap=$('mapWrap').getBoundingClientRect();const side=Math.floor(Math.min(wrap.width,wrap.height));
- const dpr=Math.min(devicePixelRatio||1,2);canvas.style.width=side+'px';canvas.style.height=side+'px';canvas.width=Math.floor(side*dpr);canvas.height=Math.floor(side*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);drawMap();
-}
-function drawMap(){if(!map)return;const size=parseFloat(canvas.style.width)||500,ts=size/N;ctx.fillStyle='#07090d';ctx.fillRect(0,0,size,size);
- for(let y=0;y<N;y++)for(let x=0;x<N;x++){let t=map[y][x],c=t===1?'#080a0e':t===6?'#10202a':'#1a1f27';ctx.fillStyle=c;ctx.fillRect(x*ts+1,y*ts+1,ts-2,ts-2);if(t>1&&t<6){ctx.fillStyle=t===2?'#c6b16d':t===3?'#8f7ab7':t===4?'#8c5f52':'#7790a0';ctx.font=`${Math.max(10,ts*.48)}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t===2?'▣':t===3?'✦':t===4?'×':'▼',(x+.5)*ts,(y+.53)*ts)}}
- ctx.fillStyle='#f4e7b7';ctx.fillRect(px*ts+ts*.28,py*ts+ts*.22,ts*.44,ts*.56);ctx.fillStyle='#20242d';ctx.fillRect(px*ts+ts*.39,py*ts+ts*.08,ts*.22,ts*.18);
- if(enemy&&battle){ctx.fillStyle='#b75c66';ctx.font=`bold ${Math.max(12,ts*.58)}px monospace`;ctx.fillText('☠',(enemy.x+.5)*ts,(enemy.y+.54)*ts)}
-}
+function tileGlyph(t){return t==="exit"?"▼":t==="chest"?"▣":t==="shrine"?"✦":t==="trap"?"×":""}
 function render(){
- $('seed').textContent=seed;$('depth').textContent=depth;
- $('hud').innerHTML=`PV <span class="hp">${player.hp}/${player.maxhp}</span> · SAN <span class="san">${player.san}/${player.maxsan}</span> · MYTHE <span class="myth">${player.myth}%</span><br>Niv. ${player.lvl} · ATQ ${player.atk} · DEF ${player.def} · XP ${player.xp}/10`;
- $('combat').style.display=battle?'block':'none';$('actions').style.display=battle?'none':'flex';$('joy').style.opacity=battle?'.35':'1';
- if(battle){$('enemyName').textContent=enemy.name+'  '+enemy.hp+'/'+enemy.maxhp;$('enemyBar').style.width=Math.max(0,100*enemy.hp/enemy.maxhp)+'%';$('combatInfo').textContent='Vous : '+player.hp+' PV · '+player.san+' SAN'}
- drawMap();
+ document.getElementById("seed").textContent=seed;document.getElementById("depth").textContent=p.depth;
+ const m=document.getElementById("map");m.innerHTML="";
+ for(let y=0;y<13;y++)for(let x=0;x<13;x++){const d=document.createElement("div"),t=map[y][x];d.className="tile "+(t==="wall"?"wall":t==="water"?"water":"floor");
+ if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&x===enemy.x&&y===enemy.y){d.className+=" foe";d.textContent="☠"}else d.textContent=tileGlyph(t);m.appendChild(d)}
+ const syn=activeSynergies();
+ document.getElementById("stats").innerHTML=`PV <span class="hp">${p.hp}/${p.maxhp}</span> · SAN <span class="san">${p.san}/${p.maxsan}</span> · MYTHE <span class="myth">${p.myth}%</span><br>ATQ ${p.atk} · DEF ${p.def} · Niv. ${p.lvl} · XP ${p.xp}/10 · Prof. ${p.depth}<br>🎒 ${p.inv.map(i=>i.n).join(" · ")}${syn.length?`<br><span class="gold">SYNERGIE : ${syn.join(" · ")}</span>`:""}`;
+ document.getElementById("battle").style.display=battle?"block":"none";document.getElementById("eventPanel").style.display=eventOpen?"block":"none";if(battle)updateBattle()
 }
-function newGame(){seed=100000+Math.floor(Math.random()*900000);rng=mulberry32(seed);depth=0;player={hp:36,maxhp:36,san:34,maxsan:34,myth:0,atk:6,def:1,lvl:1,xp:0,inv:['Vieux revolver','Lampe à pétrole','Bandage']};enemy=null;battle=false;journal=[];generateMap();note('Blackwater vous attend dans la brume.');render();requestAnimationFrame(resizeCanvas)}
-function move(dx,dy){if(battle)return;let nx=px+dx,ny=py+dy;if(nx<0||ny<0||nx>=N||ny>=N||map[ny][nx]===1){toast('Passage bloqué.');return}px=nx;py=ny;resolveTile();if(!battle&&rng()<.12)spawnEnemy();render()}
-function resolveTile(){let t=map[py][px];if(t===2){map[py][px]=0;player.inv.push('Sel consacré');note('Cache : Sel consacré.')}else if(t===3){map[py][px]=0;player.myth+=4;player.san=Math.max(0,player.san-3);note('Autel impossible : +4% Mythe, -3 SAN.')}else if(t===4){map[py][px]=0;let d=3+ri(5);player.hp-=d;note('Piège : -'+d+' PV.');checkDeath()}else if(t===5){depth++;unlock('Première descente');note('Vous descendez sous Blackwater. Profondeur '+depth+'.');generateMap()}}
-function investigate(){if(battle)return;let t=map[py][px];if(t>=2&&t<=5){resolveTile();render();return}let r=rng();if(r<.42)spawnEnemy();else if(r<.68){player.san=Math.max(0,player.san-2);player.myth+=2;note('Une silhouette traverse la brume. -2 SAN.')}else{player.inv.push('Fragment noir');note('Vous trouvez un Fragment noir.')}render()}
-function waitTurn(){if(battle)return;if(rng()<.35)spawnEnemy();else note('Vous écoutez Blackwater respirer.');render()}
-function spawnEnemy(){let names=Object.keys(foes),name=names[Math.min(names.length-1,ri(Math.min(names.length,3+depth)))],f=foes[name],scale=depth*2;enemy={name,hp:f.hp+scale,maxhp:f.hp+scale,atk:f.atk+Math.floor(depth/2),x:px,y:py};battle=true;discovered[name]=1;note('☠ '+name+' surgit de la brume.');render()}
-function enemyTurn(){if(!battle)return;let d=Math.max(1,enemy.atk-player.def+ri(3)-1);player.hp-=d;if(rng()<.32)player.san=Math.max(0,player.san-1);note(enemy.name+' inflige '+d+' dégâts.');checkDeath()}
-function attack(){if(!battle)return;let d=player.atk+2+ri(5);enemy.hp-=d;note('Vous infligez '+d+' dégâts.');if(enemy.hp<=0)victory();else enemyTurn();render()}
-function defend(){if(!battle)return;player.def+=3;note('Vous vous mettez en garde.');enemyTurn();player.def-=3;render()}
-function useItem(){if(!battle)return;let i=player.inv.indexOf('Bandage');if(i>=0){player.inv.splice(i,1);player.hp=Math.min(player.maxhp,player.hp+8);note('Bandage : +8 PV.');enemyTurn()}else{let s=player.inv.indexOf('Sel consacré');if(s>=0&&enemy.name!=='Cultiste'){player.inv.splice(s,1);enemy.hp-=10;note('Sel consacré : 10 dégâts.');if(enemy.hp<=0)victory();else enemyTurn()}else toast('Aucun objet utile.')}render()}
-function flee(){if(!battle)return;if(rng()<.65){battle=false;enemy=null;note('Vous fuyez.')}else{note('La fuite échoue.');enemyTurn()}render()}
-function victory(){note('Victoire contre '+enemy.name+'. +5 XP.');battle=false;enemy=null;player.xp+=5;unlock('Première victoire');if(player.xp>=10){player.xp-=10;player.lvl++;player.atk++;player.maxhp+=3;player.hp=Math.min(player.maxhp,player.hp+8);note('Niveau '+player.lvl+' atteint.')}}
-function checkDeath(){if(player.hp<=0){player.hp=0;battle=false;enemy=null;unlock('Mourir à Blackwater');note('☠ Vous êtes mort. Ouvrez le menu pour une nouvelle réalité.')}}
-function menuPage(page){let s='';if(page==='character')s=`<h3>👤 INVESTIGATEUR</h3><div class="entry">Niveau <b>${player.lvl}</b><br>PV ${player.hp}/${player.maxhp} · SAN ${player.san}/${player.maxsan} · MYTHE ${player.myth}%<br>ATQ ${player.atk} · DEF ${player.def}<br><span class="gold">Investigation 65 · Observation 55 · Armes 60 · Occultisme 35</span></div>`;
- else if(page==='inventory')s='<h3>🎒 INVENTAIRE</h3>'+player.inv.map(x=>`<div class="entry">${x}</div>`).join('');
- else if(page==='bestiary')s='<h3>📖 BESTIAIRE</h3>'+Object.keys(foes).map(x=>`<div class="entry ${discovered[x]?'':'locked'}"><b>${discovered[x]?x:'ENTRÉE INCONNUE'}</b><br>${discovered[x]?'Observation enregistrée à Blackwater.':'Aucune donnée.'}</div>`).join('');
- else if(page==='journal')s='<h3>📝 JOURNAL</h3>'+journal.map(x=>`<div class="entry">${x}</div>`).join('');
- else if(page==='achievements')s='<h3>🏆 SUCCÈS</h3>'+['Première victoire','Première descente','Mourir à Blackwater'].map(x=>`<div class="entry ${ach[x]?'':'locked'}">${ach[x]?'✓':'?'} ${x}</div>`).join('');$('sheet').innerHTML=s}
-$('up').onclick=()=>move(0,-1);$('down').onclick=()=>move(0,1);$('left').onclick=()=>move(-1,0);$('right').onclick=()=>move(1,0);$('center').onclick=investigate;$('investigate').onclick=investigate;$('wait').onclick=waitTurn;$('attack').onclick=attack;$('defend').onclick=defend;$('item').onclick=useItem;$('flee').onclick=flee;
-$('menuBtn').onclick=()=>{$('menu').classList.add('open');menuPage('character')};$('closeMenu').onclick=()=>$('menu').classList.remove('open');document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>menuPage(b.dataset.page));$('newRun').onclick=()=>{$('menu').classList.remove('open');newGame()};
-addEventListener('resize',()=>requestAnimationFrame(resizeCanvas));addEventListener('orientationchange',()=>setTimeout(resizeCanvas,150));
+function move(dx,dy){
+ if(battle||eventOpen)return;const nx=px+dx,ny=py+dy;if(nx<1||nx>11||ny<1||ny>11||map[ny][nx]==="wall")return;
+ px=nx;py=ny;p.turn++;resolveTile();if(!battle&&!eventOpen&&rng()<0.10)spawnEnemy();sanityPressure();render()
+}
+function waitTurn(){if(!battle&&!eventOpen){p.turn++;if(rng()<.16)spawnEnemy();sanityPressure();render()}}
+function sanityPressure(){if(p.san<=0){p.hp-=3;p.myth+=3;log("Votre esprit cède. Une voix répond depuis le mur.")}if(p.hp<=0)die()}
+function resolveTile(){
+ const t=map[py][px];
+ if(t==="trap"){map[py][px]="floor";const d=3+R(5);p.hp-=d;log("Piège : "+d+" PV perdus.");}
+ else if(t==="chest"){map[py][px]="floor";lootChest()}
+ else if(t==="shrine"){map[py][px]="floor";openEvent("AUTEL IMPOSSIBLE","Les angles de la pierre changent lorsque vous clignez des yeux.","toucher","ignorer")}
+ else if(t==="exit"){openEvent("ESCALIER VERS LE BAS","Une haleine froide remonte des profondeurs.","descendre","rester")}
+}
+function lootChest(){
+ const pool=[{n:"Bandage militaire",tag:"soin"},{n:"Sel consacré",tag:"rituel"},{n:"Œil humide",tag:"profond"},{n:"Symbole gravé",tag:"occulte"},{n:"Fragment noir",tag:"cosmique"}];
+ const loot=pool[R(pool.length)];p.inv.push(loot);seeItem(loot.n);log("Cache découverte : "+loot.n+".")
+}
+function activeSynergies(){
+ const a=[];const names=p.inv.map(i=>i.n);
+ if(names.includes("Fragment noir")&&names.includes("Symbole gravé"))a.push("Résonance interdite");
+ if(p.equip&&p.equip.relique==="Œil humide")a.push("Vision des profondeurs");
+ return a
+}
+function spawnEnemy(){
+ const n=R(100),depth=p.depth;
+ const name=n<38?"Cultiste":n<65?"Profond":n<82?"Goule":n<93?"Mi-Go":n<98?"Byakhee":"Shoggoth";
+ const stats={"Cultiste":[13,4],"Profond":[20,6],"Goule":[17,7],"Mi-Go":[23,7],"Byakhee":[28,8],"Shoggoth":[45,10]},s=stats[name],scale=Math.floor(depth/2);
+ discover(name);enemy={name,hp:s[0]+depth*2,maxhp:s[0]+depth*2,atk:s[1]+scale,x:px,y:py,status:"",turn:0};battle=true;
+ if(activeSynergies().includes("Résonance interdite")){p.san=Math.max(0,p.san-1);log("La Résonance interdite exige son prix. -1 SAN.")}
+ log("☠ "+name+" surgit dans la brume.")
+}
+function updateBattle(){document.getElementById("battleTitle").textContent="⚔ "+enemy.name;document.getElementById("battleInfo").innerHTML=`PV ennemi <span class="hp">${enemy.hp}/${enemy.maxhp}</span> · ATQ ${enemy.atk} · Vous ${p.hp} PV · ${p.san} SAN${enemy.status?` · <span class="gold">${enemy.status}</span>`:""}`}
+function enemyTurn(){
+ if(!battle)return;
+ if(enemy.status==="aveuglé"){log(enemy.name+" hésite dans la lumière.");enemy.status="";return}
+ const d=Math.max(1,enemy.atk-p.def+(rng()<0.18?2:0));p.hp-=d;
+ const sanLoss=(enemy.name==="Shoggoth"?3:enemy.name==="Mi-Go"?2:1);if(rng()<0.38)p.san=Math.max(0,p.san-sanLoss);
+ log(enemy.name+" inflige "+d+" dégâts.");if(p.hp<=0)die()
+}
+function attack(){
+ if(!battle)return;let bonus=(p.equip&&p.equip.arme==="Vieux revolver")?2:0;
+ if(enemy.name==="Cultiste"&&p.equip.arme==="Vieux revolver")bonus+=2;
+ if(enemy.name==="Profond"&&p.equip.relique==="Œil humide")bonus+=3;
+ if(activeSynergies().includes("Résonance interdite"))bonus+=3;
+ const crit=rng()<.12,d=p.atk+bonus+R(4)+(crit?4:0);enemy.hp-=d;log((crit?"COUP CRITIQUE. ":"")+"Attaque : "+d+" dégâts.");
+ if(enemy.hp<=0)victory();else enemyTurn();render()
+}
+function defend(){if(!battle)return;p.def+=3;log("Vous vous mettez en garde. +3 DEF pour ce tour.");enemyTurn();p.def-=3;render()}
+function useItem(){
+ if(!battle)return;
+ const lamp=p.inv.find(i=>i.n==="Lampe à pétrole"&&(i.uses||0)>0);
+ const salt=p.inv.find(i=>i.n==="Sel consacré");
+ const band=p.inv.find(i=>i.n==="Bandage militaire");
+ if(p.san<12&&lamp){p.san=Math.min(p.maxsan,p.san+6);lamp.uses--;if(enemy.name==="Goule")enemy.status="aveuglé";log("La lampe repousse les ombres. +6 SAN.");if(lamp.uses<=0){p.inv.splice(p.inv.indexOf(lamp),1);if(p.equip.outil==="Lampe à pétrole")p.equip.outil=null}}
+ else if(enemy.name!=="Cultiste"&&salt){enemy.hp-=8;p.inv.splice(p.inv.indexOf(salt),1);log("Le sel consacré brûle la créature. 8 dégâts.");if(enemy.hp<=0){victory();render();return}}
+ else if(band){p.hp=Math.min(p.maxhp,p.hp+8);p.inv.splice(p.inv.indexOf(band),1);log("Bandage : +8 PV.")}
+ else{toast("Aucun objet de combat utile.");return}
+ enemyTurn();render()
+}
+function flee(){if(!battle)return;const chance=Math.max(.25,.70-p.depth*.04);if(rng()<chance){battle=false;log("Vous fuyez dans la brume.")}else{log("La fuite échoue.");enemyTurn()}render()}
+function victory(){
+ battle=false;p.xp+=5;p.myth+=2;p.kills++;
+ const pool=[{n:"Œil humide",tag:"profond"},{n:"Symbole gravé",tag:"occulte"},{n:"Bandage militaire",tag:"soin"},{n:"Sel consacré",tag:"rituel"}];
+ if(rng()<.75){const loot=pool[R(pool.length)];p.inv.push(loot);seeItem(loot.n);log("Victoire. Butin : "+loot.n+".")}else log("Victoire. Aucun butin.");
+ unlock("Première victoire");if(p.kills>=5)unlock("Chasseur de l'indicible");
+ if(p.xp>=10){p.xp-=10;p.lvl++;p.maxhp+=3;p.hp=Math.min(p.maxhp,p.hp+8);p.atk++;log("⬆ Niveau "+p.lvl+".");unlock("Le prix du savoir")}
+}
+function randomEvent(){const r=rng();if(r<.30){p.san=Math.max(0,p.san-2);p.myth+=2;log("Une silhouette traverse la brume. -2 SAN.")}else if(r<.55){lootChest()}else openEvent("MURMURE DANS LA PIERRE","Une voix prononce un souvenir que vous n'avez jamais vécu.","écouter","fuir")}
+function openEvent(t,txt,a,b){eventOpen=true;document.getElementById("eventText").innerHTML=`<b>${t}</b><br>${txt}`;const c=document.getElementById("eventChoices");c.innerHTML="";[a,b].forEach(v=>{const q=document.createElement("button");q.textContent=v.toUpperCase();q.onclick=()=>choice(v);c.appendChild(q)});render()}
+function choice(v){
+ eventOpen=false;
+ if(v==="descendre"){p.depth++;unlock(p.depth>=3?"Sous Blackwater":"Première descente");log("Vous descendez au niveau "+p.depth+".");generateMap()}
+ else if(v==="rester"){log("Vous restez à cet étage.")}
+ else if(v==="toucher"||v==="écouter"){p.myth+=5;p.san=Math.max(0,p.san-4);log("La réalité se plie. +5% Mythe, -4 SAN.");if(rng()<.35){p.inv.push({n:"Clé d'obsidienne",tag:"clé"});seeItem("Clé d'obsidienne");log("Une Clé d'obsidienne apparaît dans votre paume.")}}
+ else{p.san=Math.max(0,p.san-1);log("Vous refusez. Quelque chose frappe trois fois.")}
+ render()
+}
+function interact(){if(battle||eventOpen)return;const t=map[py][px];if(["exit","chest","shrine","trap"].includes(t)){resolveTile();render();return}log("Vous enquêtez. Odeur de sel, métal et chair.");if(rng()<.28)randomEvent();else if(rng()<.30)spawnEnemy();render()}
+function die(){battle=false;eventOpen=false;log("☠ VOUS ÊTES MORT. Une nouvelle réalité vous attend.");unlock("Mourir à Blackwater");render()}
+function openModal(html){document.getElementById("sheet").innerHTML=html;document.getElementById("modal").style.display="flex"}
+function closeModal(){document.getElementById("modal").style.display="none"}
+
+function itemInfo(name){return itemDB.find(i=>i.name===name)||{name:name,type:"Inconnu",rarity:"?",slot:null,tags:[],effect:"Effet inconnu.",synergy:"Aucune synergie connue."};}
+function itemCount(name){return p.inv.filter(i=>i.n===name).length;}
+function equippedSlot(name){if(!p.equip)p.equip={arme:null,outil:null,relique:null};return Object.keys(p.equip).find(k=>p.equip[k]===name)||null;}
+function openInventory(){
+ if(!p.equip)p.equip={arme:null,outil:null,relique:null};
+ const names=[...new Set(p.inv.map(i=>i.n))];
+ let s=`<h2>🎒 INVENTAIRE — ${p.inv.length} objet${p.inv.length>1?"s":""}</h2>`;
+ s+=`<div class="entry"><b>ÉQUIPEMENT</b><br>⚔ Arme : ${p.equip.arme||"—"}<br>🔦 Outil : ${p.equip.outil||"—"}<br>✦ Relique : ${p.equip.relique||"—"}</div>`;
+ if(!names.length)s+=`<div class="entry">Votre sac est vide.</div>`;
+ names.forEach(name=>{
+  const i=itemInfo(name),eq=equippedSlot(name),count=itemCount(name),safe=name.replace(/'/g,"\\'");
+  s+=`<div class="entry"><b>${i.name}${count>1?" ×"+count:""}</b> ${eq?`<span class="badge">ÉQUIPÉ · ${eq}</span>`:""}<br><span class="gold">${i.type} · ${i.rarity}</span><br>${i.effect}<br><span class="hint">Tags : ${i.tags.join(", ")||"—"}</span><br><b>Synergie :</b> ${i.synergy}<br><button onclick="inventoryAction('examine','${safe}')">EXAMINER</button> ${i.slot?`<button onclick="inventoryAction('equip','${safe}')">${eq?"DÉSÉQUIPER":"ÉQUIPER"}</button>`:""} <button onclick="inventoryAction('use','${safe}')">UTILISER</button> <button onclick="inventoryAction('drop','${safe}')">JETER</button></div>`;
+ });
+ openModal(s);
+}
+function inventoryAction(action,name){
+ const info=itemInfo(name),idx=p.inv.findIndex(i=>i.n===name);
+ if(idx<0){toast("Objet absent.");openInventory();return;}
+ if(action==="examine"){
+  seeItem(name);
+  let consequence="";
+  if(info.tags.includes("maudit")){
+    p.san=Math.max(0,p.san-2);p.myth+=2;
+    consequence="<br><br><b>Conséquence :</b> -2 SAN · +2% Mythe";
+    log("Vous examinez "+name+". Quelque chose vous examine en retour. -2 SAN, +2% Mythe.");
+  } else {
+    log("Vous examinez "+name+" : "+info.effect);
+  }
+  render();
+  openModal(`<h2>🔎 ${info.name}</h2>
+    <div class="entry"><span class="gold">${info.type} · ${info.rarity}</span><br><br>
+    <b>Effet :</b> ${info.effect}<br><br>
+    <b>Tags :</b> ${info.tags.join(", ")||"—"}<br><br>
+    <b>Synergie connue :</b> ${info.synergy}${consequence}</div>
+    <button onclick="openInventory()">← RETOUR À L'INVENTAIRE</button>`);
+  return;
+ } else if(action==="equip"){
+  if(!info.slot){toast("Cet objet ne s'équipe pas.");return;}
+  if(p.equip[info.slot]===name){p.equip[info.slot]=null;log(name+" déséquipé.");toast("Déséquipé : "+name);}
+  else{p.equip[info.slot]=name;log(name+" équipé : "+info.slot+".");toast("Équipé : "+name);}
+ } else if(action==="use"){
+  if(name==="Lampe à pétrole"){const o=p.inv[idx];if((o.uses||0)<=0){toast("La lampe est vide.");return;}p.san=Math.min(p.maxsan,p.san+6);o.uses--;log("Lampe : +6 SAN. Charges : "+o.uses+".");if(o.uses<=0){p.inv.splice(idx,1);if(p.equip.outil===name)p.equip.outil=null;}}
+  else if(name==="Œil humide"){p.san=Math.min(p.maxsan,p.san+3);p.inv.splice(idx,1);if(p.equip.relique===name)p.equip.relique=null;log("L'Œil humide se dissout. +3 SAN.");}
+  else if(name==="Fragment noir"){p.myth+=4;p.san=Math.max(0,p.san-3);log("Le Fragment pulse. +4% Mythe, -3 SAN.");}
+  else if(name==="Symbole gravé"){p.myth+=1;log("Le symbole réagit. +1% Mythe.");}
+  else if(name==="Bandage militaire"){p.hp=Math.min(p.maxhp,p.hp+8);p.inv.splice(idx,1);log("Bandage : +8 PV.");}
+  else if(name==="Sel consacré"){toast("Gardez-le pour un combat contre le Mythe.");return;}
+  else if(name==="Clé d'obsidienne"){toast("La clé attend une serrure qui n'existe pas encore.");return;}
+  else toast("Équipez cet objet pour profiter de son effet.");
+ } else if(action==="drop"){
+  p.inv.splice(idx,1);const slot=equippedSlot(name);if(slot)p.equip[slot]=null;log("Vous abandonnez "+name+".");
+ }
+ render();openInventory();
+}
+
+function openCodex(){let s=`<h2>📖 BESTIAIRE — ${Object.keys(codex).length}/${bestiary.length}</h2>`;bestiary.forEach(e=>{const known=!!codex[e.name];s+=`<div class="entry ${known?"":"locked"}"><b>${known?e.name:"ENTRÉE INCONNUE"}</b><br>${known?e.desc:"Vous n'avez pas encore observé cette entité."}${known?`<br><span class="gold">${e.cat}</span> · ${e.traits}`:""}</div>`});openModal(s)}
+function openItems(){let s=`<h2>🎒 GUIDE DES OBJETS — ${Object.keys(itemsSeen).length}/${itemDB.length}</h2>`;itemDB.forEach(i=>{const known=!!itemsSeen[i.name];s+=`<div class="entry ${known?"":"locked"}"><b>${known?i.name:"OBJET INCONNU"}</b>${known?`<br><span class="gold">${i.type} · ${i.rarity}</span><br>${i.effect}<br><span class="hint">Tags : ${i.tags.join(", ")}</span><br><b>Synergie :</b> ${i.synergy}`:"<br>Découvrez cet objet en exploration ou en combat."}</div>`});openModal(s)}
+function openAchievements(){const list=["Première victoire","Premier catalogue","Le prix du savoir","Première descente","Sous Blackwater","Chasseur de l'indicible","Mourir à Blackwater"];let s="<h2>🏆 SUCCÈS</h2>";list.forEach(x=>s+=`<div class="entry ${achievements[x]?"":"locked"}"><b>${achievements[x]?"✓":"?"} ${x}</b><br><span class="hint">${achievements[x]?"Débloqué":"Succès à découvrir"}</span></div>`);openModal(s)}
+window.addEventListener("error",e=>{document.getElementById("stats").textContent="Erreur JS : "+e.message});
 newGame();
-if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=090').catch(()=>{}))}
 </script>
+
+
+
+
+
+
+
+<style id="rpg-mobile-080">
+:root{--hud:#11151d;--line:#4c5565;--ink:#eee9df;--muted:#959cab}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070a}
+body{touch-action:manipulation}
+#app{
+ position:relative!important;width:100vw!important;height:100dvh!important;max-width:none!important;
+ margin:0!important;padding:0!important;overflow:hidden!important;display:block!important
+}
+#app>h1{position:absolute;left:18px;top:10px;z-index:10;margin:0!important;font-size:clamp(18px,2.1vw,32px)!important}
+#app>.sub{position:absolute;left:20px;top:52px;z-index:10;margin:0!important;font-size:clamp(9px,1vw,14px)!important}
+
+/* compact stats HUD */
+#app>.stats{
+ position:absolute!important;left:18px!important;top:78px!important;width:min(48vw,660px)!important;
+ z-index:20;margin:0!important;padding:8px 12px!important;border-radius:12px!important;
+ background:rgba(17,21,29,.88)!important;backdrop-filter:blur(6px);
+ font-size:clamp(10px,1.15vw,16px)!important;line-height:1.35!important
+}
+
+/* Map = main screen */
+#app>.panel:nth-of-type(2){
+ position:absolute!important;inset:0!important;margin:0!important;padding:0!important;border:0!important;
+ background:#05070a!important
+}
+#map{
+ position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-48%)!important;
+ width:min(72vw,calc(100dvh * 1.22))!important;height:min(78dvh,64vw)!important;
+ min-height:0!important;max-height:none!important;aspect-ratio:1.22!important;
+ border:2px solid #343c49!important;border-radius:14px!important;padding:6px!important
+}
+.tile{font-size:clamp(10px,1.3vw,18px)!important}
+
+/* Hide old controls/navigation/log/new-run from play HUD */
+#app>.panel:nth-of-type(3){display:none!important}
+.panel.nav{display:none!important}
+#app>.panel:has(#log){display:none!important}
+#app>.panel:last-child{display:none!important}
+
+/* right action cluster */
+#mobileActions{
+ position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom));
+ z-index:800;display:grid;grid-template-columns:82px 82px;gap:10px
+}
+#mobileActions button,#joy080 button,#menu080{
+ border:1px solid #687283;background:rgba(31,37,48,.92);color:var(--ink);
+ box-shadow:0 3px 12px #0008
+}
+#mobileActions button{width:82px;height:82px;border-radius:50%;font-size:12px;font-weight:700}
+#mobileActions .primary{width:92px;height:92px;margin:-10px 0 0 -10px;font-size:13px}
+
+/* thumb joystick */
+#joy080{
+ position:fixed;left:max(24px,env(safe-area-inset-left));bottom:max(20px,env(safe-area-inset-bottom));
+ z-index:800;width:184px;height:184px;border-radius:50%;background:#11151db8;border:1px solid #46505e
+}
+#joy080 button{position:absolute;width:58px;height:58px;border-radius:50%;font-size:24px;padding:0}
+#jU{left:63px;top:5px} #jD{left:63px;bottom:5px}
+#jL{left:5px;top:63px} #jR{right:5px;top:63px}
+#jC{left:63px;top:63px;font-size:11px!important}
+
+/* menu */
+#menu080{
+ position:fixed;right:max(18px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));
+ z-index:900;width:52px;height:44px;border-radius:12px;font-size:23px;padding:0
+}
+#rpgMenu080{
+ display:none;position:fixed;inset:0;z-index:5000;background:#05070aeF;padding:4dvh 5vw;
+ overflow:auto;color:var(--ink)
+}
+#rpgMenu080.open{display:block}
+#rpgMenu080 .menuCard{max-width:1000px;margin:auto;background:#11151d;border:1px solid #4c5565;border-radius:18px;padding:20px}
+#rpgMenu080 .menuTop{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#rpgMenu080 .menuGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+#rpgMenu080 button{min-height:54px}
+#char080{border-top:1px solid #343c49;padding-top:15px}
+#char080 .skills{display:grid;grid-template-columns:repeat(2,1fr);gap:5px 20px}
+.skillrow{display:grid;grid-template-columns:1fr 42px;gap:8px}
+.skillbar{grid-column:1/-1;height:5px;background:#252b35;border-radius:9px;overflow:hidden}
+.skillbar i{display:block;height:100%;background:#aeb6c5}
+
+/* existing modal: compact and always closable/scrollable */
+#modal{z-index:7000!important;align-items:center!important;padding:3dvh 4vw!important}
+.sheet{
+ width:min(900px,90vw)!important;max-height:88dvh!important;overflow:auto!important;
+ padding:16px!important;border-radius:16px!important;-webkit-overflow-scrolling:touch
+}
+.sheet h2{font-size:clamp(20px,2.5vw,34px)!important}
+.sheet button{min-height:38px!important;padding:7px 10px!important;font-size:clamp(10px,1.1vw,15px)!important}
+
+/* battle/event becomes compact contextual card */
+#battle,#eventPanel{
+ position:fixed!important;left:50%!important;bottom:16px!important;transform:translateX(-50%)!important;
+ z-index:1000!important;width:min(48vw,680px)!important;max-height:31dvh!important;overflow:auto!important;
+ margin:0!important;padding:10px!important;background:rgba(17,21,29,.95)!important
+}
+
+#rotate080{display:none;position:fixed;inset:0;z-index:99999;background:#05070a;color:#eee9df;
+ align-items:center;justify-content:center;text-align:center;font-family:monospace;padding:25px}
+@media(orientation:portrait){#rotate080{display:flex}}
+@media(max-height:480px) and (orientation:landscape){
+ #joy080{width:154px;height:154px;left:14px;bottom:10px}
+ #joy080 button{width:48px;height:48px}
+ #jU{left:53px}#jD{left:53px}#jL{top:53px}#jR{top:53px}#jC{left:53px;top:53px}
+ #mobileActions{right:14px;bottom:12px;grid-template-columns:68px 68px}
+ #mobileActions button{width:68px;height:68px}.mobileActions .primary{width:76px;height:76px}
+ #app>.stats{top:60px;width:43vw!important}
+ #map{height:86dvh!important;width:min(68vw,calc(100dvh * 1.22))!important}
+}
+</style>
+
+<button id="menu080" aria-label="Menu">☰</button>
+<div id="joy080" aria-label="Déplacement">
+ <button id="jU">▲</button><button id="jL">◀</button><button id="jC">◎</button><button id="jR">▶</button><button id="jD">▼</button>
+</div>
+<div id="mobileActions">
+ <button class="primary" id="act080">ENQUÊTER</button>
+ 
+</div>
+
+<div id="rpgMenu080">
+ <div class="menuCard">
+  <div class="menuTop"><h2>☾ MENU</h2><button id="closeMenu080">✕ FERMER</button></div>
+  <div class="menuGrid">
+   <button data-old="invBtn">🎒 INVENTAIRE</button>
+   <button data-old="bestiaryBtn">📖 BESTIAIRE</button>
+   <button data-old="guideBtn">📚 GUIDE OBJETS</button>
+   <button data-old="achBtn">🏆 SUCCÈS</button>
+   <button id="charBtn080">👤 PERSONNAGE</button>
+   <button id="newRun080">☠ NOUVELLE RÉALITÉ</button>
+  </div>
+  <section id="char080"></section>
+ </div>
+</div>
+<div id="rotate080"><div><div style="font-size:64px">↻</div><h2>MODE HORIZONTAL</h2><p>Tournez l’appareil pour jouer.</p></div></div>
+
+<script id="rpg-mobile-js-080">
+(function(){
+ const $=id=>document.getElementById(id);
+ const clickOld=id=>{const e=$(id);if(e)e.click()};
+ const menu=$("rpgMenu080");
+ $("menu080").onclick=()=>{menu.classList.add("open");drawChar()};
+ $("closeMenu080").onclick=()=>menu.classList.remove("open");
+ menu.querySelectorAll("[data-old]").forEach(b=>b.onclick=()=>{menu.classList.remove("open");clickOld(b.dataset.old)});
+ $("newRun080").onclick=()=>{menu.classList.remove("open"); const bs=[...document.querySelectorAll("button")].find(x=>/NOUVELLE RÉALITÉ/i.test(x.textContent)&&x.id!=="newRun080"); if(bs)bs.click()};
+
+ function findControl(rx){
+   return [...document.querySelectorAll("#app button")].find(b=>rx.test((b.textContent||"").trim()));
+ }
+ function fire(rx){const b=findControl(rx);if(b)b.click()}
+ $("jU").onclick=()=>fire(/^▲$/); $("jD").onclick=()=>fire(/^▼$/);
+ $("jL").onclick=()=>fire(/^◀$/); $("jR").onclick=()=>fire(/^▶$/);
+ $("jC").onclick=()=>fire(/ENQUÊTER/i); $("act080").onclick=()=>fire(/ENQUÊTER/i);
+ const first=["Elias","Walter","Edwin","Arthur","Samuel","Thomas","Henry","Clara","Evelyn","Mabel","Helen","Edith","Margaret","Alice"];
+ const last=["Ward","Blackwood","Marsh","Gilman","Derby","Carter","Whateley","Armitage","Danforth","Pickman","Waite","Talbot"];
+ const jobs=[
+  ["Détective","Investigation","Armes"],
+  ["Médecin","Médecine","Psychologie"],
+  ["Professeur","Érudition","Occultisme"],
+  ["Journaliste","Investigation","Psychologie"],
+  ["Marin","Endurance","Armes"],
+  ["Antiquaire","Occultisme","Érudition"],
+  ["Photographe","Observation","Investigation"],
+  ["Infirmière","Médecine","Observation"]
+ ];
+ const traits=["Sang-froid","Curieux","Méfiant","Insomniaque","Œil exercé","Volonté de fer","Superstitieux","Cicatrice étrange"];
+ const skillNames=["Investigation","Observation","Armes","Médecine","Psychologie","Occultisme","Érudition","Endurance"];
+ function hashSeed(s){let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+ function rng(seed){let x=seed||1;return()=>((x=Math.imul(1664525,x)+1013904223>>>0)/4294967296)}
+ function getSeed(){let m=(document.body.innerText.match(/SEED\s+(\d+)/i)||[])[1];return m||Date.now()}
+ function character(){
+   const r=rng(hashSeed(getSeed()));
+   const female=r()<.5, names=female?first.slice(7):first.slice(0,7);
+   const job=jobs[Math.floor(r()*jobs.length)];
+   // Equal total: 400 every run. Archetype biases redistribution, never total.
+   let vals=skillNames.map(()=>35);
+   const pref=[skillNames.indexOf(job[1]),skillNames.indexOf(job[2])];
+   vals[pref[0]]+=35; vals[pref[1]]+=25;
+   let remaining=400-vals.reduce((a,b)=>a+b,0);
+   while(remaining>0){let i=Math.floor(r()*vals.length);vals[i]++;remaining--}
+   return {name:names[Math.floor(r()*names.length)]+" "+last[Math.floor(r()*last.length)],
+     sex:female?"Femme":"Homme",job:job[0],trait:traits[Math.floor(r()*traits.length)],vals};
+ }
+ function drawChar(){
+   const c=character();
+   $("char080").innerHTML="<h3>👤 FEUILLE DE PERSONNAGE</h3>"+
+    "<p><b>"+c.name+"</b> · "+c.sex+" · <b>"+c.job+"</b> · Trait : <b>"+c.trait+"</b></p>"+
+    "<p style='color:#959cab'>Total des compétences : <b>400 points</b> — identique pour tous les investigateurs.</p>"+
+    "<div class='skills'>"+skillNames.map((s,i)=>"<div class='skillrow'><span>"+s+"</span><b>"+c.vals[i]+"</b><div class='skillbar'><i style='width:"+Math.min(100,c.vals[i])+"%'></i></div></div>").join("")+"</div>";
+ }
+ $("charBtn080").onclick=drawChar;
+})();
+</script>
+
+
+<script id="systems-082">
+(function(){
+ const firstM=["Elias","Walter","Edwin","Arthur","Samuel","Thomas","Henry","Nathaniel","Silas","George","Howard","Francis"];
+ const firstF=["Clara","Evelyn","Mabel","Helen","Edith","Margaret","Alice","Beatrice","Dorothy","Agnes","Rose","Irene"];
+ const last=["Ward","Blackwood","Marsh","Gilman","Derby","Carter","Whateley","Armitage","Danforth","Pickman","Waite","Talbot","Peaslee","Curwen"];
+ const jobs=[
+  {name:"Détective privé",focus:["Investigation","Armes"]},
+  {name:"Médecin",focus:["Médecine","Psychologie"]},
+  {name:"Professeur",focus:["Érudition","Occultisme"]},
+  {name:"Journaliste",focus:["Investigation","Psychologie"]},
+  {name:"Marin",focus:["Endurance","Armes"]},
+  {name:"Antiquaire",focus:["Occultisme","Érudition"]},
+  {name:"Photographe",focus:["Observation","Investigation"]},
+  {name:"Infirmière",focus:["Médecine","Observation"]},
+  {name:"Bibliothécaire",focus:["Érudition","Investigation"]},
+  {name:"Inspecteur de police",focus:["Armes","Observation"]}
+ ];
+ const traits=["Sang-froid","Curieux","Méfiant","Insomniaque","Œil exercé","Volonté de fer","Superstitieux","Cicatrice étrange","Empathique","Obsessionnel"];
+ const skills=["Investigation","Observation","Armes","Médecine","Psychologie","Occultisme","Érudition","Endurance"];
+
+ function makeChar(){
+   const female=Math.random()<.5, pool=female?firstF:firstM, job=jobs[Math.floor(Math.random()*jobs.length)];
+   let vals=Object.fromEntries(skills.map(s=>[s,35]));
+   vals[job.focus[0]]+=35; vals[job.focus[1]]+=25;
+   let remain=60;
+   while(remain-->0){vals[skills[Math.floor(Math.random()*skills.length)]]++}
+   return {name:pool[Math.floor(Math.random()*pool.length)]+" "+last[Math.floor(Math.random()*last.length)],
+           sex:female?"Femme":"Homme",job:job.name,trait:traits[Math.floor(Math.random()*traits.length)],skills:vals}
+ }
+ window.cdChar082=makeChar();
+
+ function drawChar(){
+   const box=document.getElementById("char080"); if(!box)return;
+   const c=window.cdChar082;
+   box.innerHTML="<h3>👤 FEUILLE DE PERSONNAGE</h3>"+
+   "<p><b>"+c.name+"</b> · "+c.sex+" · <b>"+c.job+"</b> · Trait : <b>"+c.trait+"</b></p>"+
+   "<p style='color:#959cab'>Total compétences : <b>400</b></p>"+
+   "<div class='skills'>"+Object.entries(c.skills).map(([s,v])=>"<div class='skillrow'><span>"+s+"</span><b>"+v+"</b><div class='skillbar'><i style='width:"+v+"%'></i></div></div>").join("")+"</div>";
+ }
+ window.drawChar082=drawChar;
+
+ document.addEventListener("click",e=>{
+   const t=(e.target.textContent||"").trim();
+   if(/NOUVELLE RÉALITÉ/i.test(t)){window.cdChar082=makeChar();setTimeout(drawChar,50)}
+   if(/PERSONNAGE/i.test(t))setTimeout(drawChar,20);
+ },true);
+ document.addEventListener("DOMContentLoaded",()=>setTimeout(drawChar,120));
+
+ function toast(msg){
+   let t=document.getElementById("toast082");
+   if(!t){t=document.createElement("div");t.id="toast082";Object.assign(t.style,{position:"fixed",left:"50%",bottom:"18px",transform:"translateX(-50%)",zIndex:"100000",background:"#20242d",border:"1px solid #626978",borderRadius:"10px",padding:"10px 14px",color:"#fff",fontFamily:"monospace"});document.body.appendChild(t)}
+   t.textContent=msg;t.style.display="block";clearTimeout(t._x);t._x=setTimeout(()=>t.style.display="none",1500)
+ }
+ document.addEventListener("click",e=>{
+   const b=e.target.closest("button"); if(!b)return;
+   const txt=(b.textContent||"").trim();
+   if(!/UTILISER|ÉQUIPER|DÉSÉQUIPER|JETER/.test(txt))return;
+   const entry=b.closest(".entry"); if(!entry)return;
+   const title=(entry.querySelector("b")?.textContent||"Objet").replace(/×\d+/g,"").replace(/ÉQUIPÉ.*$/,"").trim();
+   setTimeout(()=>toast((/JETER/.test(txt)?"Jeté : ":/DÉSÉQUIPER/.test(txt)?"Déséquipé : ":/ÉQUIPER/.test(txt)?"Équipé : ":"Utilisé : ")+title),30);
+ },true);
+})();
+</script>
+
+
+<script id="consolidated-js-083">
+(function(){
+  const $=id=>document.getElementById(id);
+
+  function oldButton(regex){
+    return [...document.querySelectorAll("#app button")].find(b=>regex.test((b.textContent||"").trim()));
+  }
+  function fire(regex){
+    const b=oldButton(regex);
+    if(b)b.click();
+  }
+
+  // tactile movement remains connected to actual game actions
+  if($("jU"))$("jU").onclick=()=>fire(/^▲$/);
+  if($("jD"))$("jD").onclick=()=>fire(/^▼$/);
+  if($("jL"))$("jL").onclick=()=>fire(/^◀$/);
+  if($("jR"))$("jR").onclick=()=>fire(/^▶$/);
+  if($("jC"))$("jC").onclick=()=>fire(/ENQUÊTER/i);
+  if($("act080"))$("act080").onclick=()=>fire(/ENQUÊTER/i);
+
+  // Menu controls
+  const menu=$("rpgMenu080");
+  if($("menu080"))$("menu080").onclick=()=>{menu.classList.add("open"); if(window.drawChar082)window.drawChar082();};
+  if($("closeMenu080"))$("closeMenu080").onclick=()=>menu.classList.remove("open");
+
+  // Make menu buttons call actual existing game functions, not dead placeholders.
+  const bindByText=(rx,fn)=>{
+    const b=[...menu.querySelectorAll("button")].find(x=>rx.test((x.textContent||"").trim()));
+    if(b)b.onclick=fn;
+  };
+  bindByText(/INVENTAIRE/i,()=>{menu.classList.remove("open"); if(typeof openInventory==="function")openInventory();});
+  bindByText(/BESTIAIRE/i,()=>{menu.classList.remove("open"); if(typeof openCodex==="function")openCodex();});
+  bindByText(/GUIDE OBJETS/i,()=>{menu.classList.remove("open"); if(typeof openItems==="function")openItems();});
+  bindByText(/SUCCÈS/i,()=>{menu.classList.remove("open"); if(typeof openAchievements==="function")openAchievements();});
+  bindByText(/NOUVELLE RÉALITÉ/i,()=>{
+    menu.classList.remove("open");
+    if(typeof newGame==="function")newGame();
+    if(window.cdChar082&&window.makeChar083)window.cdChar082=window.makeChar083();
+  });
+
+  // Actual per-run character generation with equal point total.
+  const firstM=["Elias","Walter","Edwin","Arthur","Samuel","Thomas","Henry","Nathaniel","Silas","George","Howard","Francis"];
+  const firstF=["Clara","Evelyn","Mabel","Helen","Edith","Margaret","Alice","Beatrice","Dorothy","Agnes","Rose","Irene"];
+  const last=["Ward","Blackwood","Marsh","Gilman","Derby","Carter","Whateley","Armitage","Danforth","Pickman","Waite","Talbot","Peaslee","Curwen"];
+  const jobs=[
+    {name:"Détective privé",focus:["Investigation","Armes"]},
+    {name:"Médecin",focus:["Médecine","Psychologie"]},
+    {name:"Professeur",focus:["Érudition","Occultisme"]},
+    {name:"Journaliste",focus:["Investigation","Psychologie"]},
+    {name:"Marin",focus:["Endurance","Armes"]},
+    {name:"Antiquaire",focus:["Occultisme","Érudition"]},
+    {name:"Photographe",focus:["Observation","Investigation"]},
+    {name:"Infirmière",focus:["Médecine","Observation"]},
+    {name:"Bibliothécaire",focus:["Érudition","Investigation"]},
+    {name:"Inspecteur de police",focus:["Armes","Observation"]}
+  ];
+  const traits=["Sang-froid","Curieux","Méfiant","Insomniaque","Œil exercé","Volonté de fer","Superstitieux","Cicatrice étrange","Empathique","Obsessionnel"];
+  const skills=["Investigation","Observation","Armes","Médecine","Psychologie","Occultisme","Érudition","Endurance"];
+
+  function makeChar(){
+    const female=Math.random()<.5, pool=female?firstF:firstM;
+    const job=jobs[Math.floor(Math.random()*jobs.length)];
+    let vals=Object.fromEntries(skills.map(s=>[s,35]));
+    vals[job.focus[0]]+=35; vals[job.focus[1]]+=25;
+    let remain=60;
+    while(remain-->0) vals[skills[Math.floor(Math.random()*skills.length)]]++;
+    return {
+      name:pool[Math.floor(Math.random()*pool.length)]+" "+last[Math.floor(Math.random()*last.length)],
+      sex:female?"Femme":"Homme",
+      job:job.name,
+      trait:traits[Math.floor(Math.random()*traits.length)],
+      skills:vals
+    };
+  }
+  window.makeChar083=makeChar;
+  window.cdChar082=makeChar();
+
+  window.drawChar082=function(){
+    const box=$("char080"); if(!box)return;
+    const c=window.cdChar082;
+    box.innerHTML="<h3>👤 FEUILLE DE PERSONNAGE</h3>"+
+      "<p><b>"+c.name+"</b> · "+c.sex+" · <b>"+c.job+"</b> · Trait : <b>"+c.trait+"</b></p>"+
+      "<p style='color:#959cab'>Total compétences : <b>400 points</b></p>"+
+      "<div class='skills'>"+
+      Object.entries(c.skills).map(([s,v])=>"<div class='skillrow'><span>"+s+"</span><b>"+v+"</b><div class='skillbar'><i style='width:"+v+"%'></i></div></div>").join("")+
+      "</div>";
+  };
+
+  // Regenerate character exactly when newGame is called through UI.
+  const originalNewGame=window.newGame;
+  if(typeof originalNewGame==="function"){
+    window.newGame=function(){
+      const r=originalNewGame.apply(this,arguments);
+      window.cdChar082=makeChar();
+      setTimeout(()=>window.drawChar082(),20);
+      return r;
+    };
+  }
+
+  // Force map render after startup / orientation.
+  function refresh(){
+    try{if(typeof render==="function"&&typeof p!=="undefined"&&p)render();}catch(e){}
+  }
+  addEventListener("orientationchange",()=>setTimeout(refresh,150));
+  addEventListener("resize",()=>setTimeout(refresh,80));
+  addEventListener("DOMContentLoaded",()=>setTimeout(refresh,180));
+})();
+</script>
+
 </body></html>
