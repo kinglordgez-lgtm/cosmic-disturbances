@@ -329,7 +329,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.10.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.10.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -661,6 +661,81 @@ function cdEnsureSkills(){
   player.skills={}; names.forEach((x,i)=>player.skills[x]=vals[i]);
 }
 window.addEventListener("load",()=>{try{cdEnsureSkills();log("0.10.0 : couche RPG activée.");render();}catch(e){console.error(e);}});
+</script>
+
+
+<script id="cd-content-0101">
+const CD_CONTENT_0101 = {
+  bestiary: [
+    {n:"Goule des caveaux",hp:18,atk:6,def:0,san:2,tags:["goule","souterrain"],weak:"lumière"},
+    {n:"Profond des vasières",hp:24,atk:7,def:1,san:3,tags:["profond","marin"],weak:"feu"},
+    {n:"Cultiste de Dagon",hp:17,atk:6,def:1,san:1,tags:["humain","culte"],weak:"psychologie"},
+    {n:"Mi-Go éclaireur",hp:23,atk:8,def:2,san:4,tags:["fongique","extraterrestre"],weak:"électricité"},
+    {n:"Chien de Tindalos",hp:29,atk:9,def:2,san:5,tags:["tindalos","prédateur"],weak:"symbole"},
+    {n:"Polype rampant",hp:31,atk:9,def:2,san:5,tags:["ancien","aérien"],weak:"occultisme"},
+    {n:"Byakhee affamé",hp:26,atk:8,def:1,san:4,tags:["byakhee","volant"],weak:"feu"},
+    {n:"Serviteur fongique",hp:20,atk:7,def:1,san:3,tags:["fongique","parasite"],weak:"médecine"},
+    {n:"Noyé de Blackwater",hp:19,atk:6,def:1,san:2,tags:["mort-vivant","marin"],weak:"sel"},
+    {n:"Veilleur sans visage",hp:25,atk:7,def:2,san:5,tags:["occulte","humanoïde"],weak:"observation"}
+  ],
+  items: [
+    {n:"Trousse médicale",type:"soin",desc:"+8 PV hors combat."},
+    {n:"Sels d'ammoniaque",type:"san",desc:"+5 SAN."},
+    {n:"Cartouches d'argent",type:"munition",desc:"Bonus contre certaines horreurs."},
+    {n:"Sel consacré",type:"rituel",desc:"Protection contre les créatures marines et les morts."},
+    {n:"Lentille de Mi-Go",type:"relique",desc:"Révèle parfois une case ou un indice caché."},
+    {n:"Clé de la morgue",type:"quête",desc:"Ouvre une porte qui devrait rester fermée."},
+    {n:"Idole d'obsidienne",type:"relique",desc:"+Occultisme, mais le Mythe vous remarque."},
+    {n:"Carnet détrempé",type:"indice",desc:"Pages couvertes de coordonnées et de noms."},
+    {n:"Flacon de kérosène",type:"outil",desc:"Recharge la lampe et renforce les effets de lumière."},
+    {n:"Amulette d'argent noirci",type:"relique",desc:"Résistance mentale contre certains événements."},
+    {n:"Photographie impossible",type:"indice",desc:"Le décor change quand on la regarde de nouveau."},
+    {n:"Craie rituelle",type:"outil",desc:"Permet de tracer un signe de protection."}
+  ],
+  quests: [
+    {title:"Les voix sous Blackwater",steps:["Trouver la bouche d'égout marquée","Interroger un habitant","Descendre sous la ville","Décider quoi faire du sanctuaire"]},
+    {title:"Le disparu du quai",steps:["Questionner les dockers","Chercher une trace dans une cache","Suivre la piste humide","Affronter ou éviter ce qui vit sous le quai"]},
+    {title:"La cloche sous la pierre",steps:["Localiser la chapelle condamnée","Déchiffrer les inscriptions","Interroger l'autel impossible","Empêcher ou accomplir la sonnerie"]},
+    {title:"Les morts ne dorment pas",steps:["Examiner la morgue","Retrouver le registre manquant","Identifier le corps sans nom","Choisir entre vérité et silence"]},
+    {title:"L'homme de la chambre 7",steps:["Trouver l'hôtel","Parler au réceptionniste","Entrer dans la chambre 7","Comprendre pourquoi la pièce est plus grande à l'intérieur"]},
+    {title:"Le phare éteint",steps:["Atteindre la côte","Réparer ou forcer l'accès","Explorer les niveaux du phare","Découvrir ce que la lumière retenait"]},
+    {title:"Une photographie de demain",steps:["Trouver le photographe","Comparer les lieux","Identifier la silhouette","Modifier ou accepter l'événement annoncé"]},
+    {title:"La marée noire",steps:["Inspecter les poissons morts","Prélever un échantillon","Suivre les traces vers les entrepôts","Découvrir l'origine de la contamination"]}
+  ],
+  encounters: [
+    "Une femme affirme vous avoir enterré la semaine dernière.",
+    "Un enfant dessine exactement la carte du niveau actuel.",
+    "Une radio éteinte diffuse votre propre voix.",
+    "Une pluie de petits poissons tombe pendant quelques secondes.",
+    "Une porte apparaît dans un mur aveugle puis disparaît.",
+    "Le reflet d'une vitrine continue de marcher quand vous vous arrêtez.",
+    "Une sirène de navire retentit sous vos pieds.",
+    "Un chien refuse de regarder une case précise de la rue.",
+    "Un passant vous remet une lettre écrite de votre main.",
+    "Les étoiles semblent visibles en plein jour au fond d'une flaque.",
+    "Une vieille horloge avance de treize minutes à chaque regard.",
+    "Quelqu'un frappe trois fois depuis l'intérieur d'un cercueil vide."
+  ],
+  dungeonThemes: [
+    "Égouts cyclopéens","Crypte inondée","Entrepôts du quai","Sanatorium abandonné",
+    "Galeries sous l'église","Caves de l'hôtel","Laboratoire clandestin","Grottes littorales"
+  ]
+};
+
+// Merge the pack into the existing data pools when compatible, without changing movement/touch code.
+window.addEventListener("load",()=>{
+  try{
+    if(window.CD_RPG){
+      CD_CONTENT_0101.items.forEach(o=>{ if(!CD_RPG.loot.includes(o.n)) CD_RPG.loot.push(o.n); });
+      CD_CONTENT_0101.encounters.forEach(e=>{ if(!CD_RPG.events.includes(e)) CD_RPG.events.push(e); });
+      CD_CONTENT_0101.bestiary.forEach(e=>{
+        if(!CD_RPG.enemies.some(x=>x[0]===e.n)) CD_RPG.enemies.push([e.n,e.hp,e.atk,e.def,e.weak]);
+      });
+    }
+    window.CD_CONTENT = CD_CONTENT_0101;
+    log("0.10.1 : contenu étendu — bestiaire, objets, quêtes, rencontres et donjons.");
+  }catch(e){console.error("Content pack 0.10.1",e);}
+});
 </script>
 
 </body>
