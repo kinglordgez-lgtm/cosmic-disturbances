@@ -254,10 +254,17 @@ let seed,rng,map,px,py,player,enemy=null,battle=false,journal=[],codex={},seenIt
 
 
 const creatures={
- "Cultiste":{hp:13,atk:4,cat:"Humain",desc:"Fanatique humain lié à un culte local."},
- "Profond":{hp:20,atk:6,cat:"Mythe",desc:"Humanoïde amphibie des profondeurs."},
- "Goule":{hp:17,atk:7,cat:"Mythe",desc:"Prédateur nocturne des lieux funéraires."},
- "Mi-Go":{hp:23,atk:7,cat:"Mythe",desc:"Entité extraterrestre aux sciences impossibles."}
+ "Cultiste":{hp:13,atk:4,cat:"Humain",desc:"Fanatique humain lié à un culte local.",weak:"psychologie",resist:"aucune"},
+ "Profond":{hp:20,atk:6,cat:"Mythe",desc:"Humanoïde amphibie des profondeurs.",weak:"feu",resist:"eau"},
+ "Goule":{hp:17,atk:7,cat:"Mythe",desc:"Prédateur nocturne des lieux funéraires.",weak:"lumière",resist:"peur"},
+ "Mi-Go":{hp:23,atk:7,cat:"Mythe",desc:"Entité extraterrestre aux sciences impossibles.",weak:"électricité",resist:"froid"},
+ "Noyé de Blackwater":{hp:19,atk:6,cat:"Mythe",desc:"Cadavre gonflé d'eau salée qui marche encore.",weak:"sel",resist:"peur"},
+ "Byakhee":{hp:26,atk:8,cat:"Mythe",desc:"Créature ailée famélique servant parfois de monture aux cultes.",weak:"feu",resist:"fuite"},
+ "Rejeton fongique":{hp:16,atk:6,cat:"Mythe",desc:"Masse parasitaire dont les spores réagissent à la chaleur.",weak:"feu",resist:"toxique"},
+ "Veilleur sans visage":{hp:25,atk:7,cat:"Mythe",desc:"Humanoïde qui semble exister seulement lorsqu'on détourne les yeux.",weak:"observation",resist:"métal"},
+ "Chien de Tindalos":{hp:29,atk:9,cat:"Mythe",desc:"Prédateur venu des angles du temps.",weak:"symbole",resist:"balles"},
+ "Polype rampant":{hp:31,atk:9,cat:"Mythe",desc:"Vestige d'une espèce préhumaine associée aux vents souterrains.",weak:"occultisme",resist:"physique"},
+ "Cultiste de Dagon":{hp:18,atk:6,cat:"Humain",desc:"Adepte des rites marins de l'Ordre Ésotérique.",weak:"psychologie",resist:"occulte"}
 };
 const itemDB={
  "Lampe à pétrole":{type:"Outil",slot:"outil",rarity:"Commun",desc:"Restaure 6 SAN. Deux charges.",tags:"feu, lumière"},
@@ -265,7 +272,17 @@ const itemDB={
  "Bandage militaire":{type:"Consommable",rarity:"Commun",desc:"Restaure 8 PV.",tags:"soin"},
  "Sel consacré":{type:"Consommable",rarity:"Inhabituel",desc:"Inflige 8 dégâts à une créature du Mythe.",tags:"rituel, sel"},
  "Fragment noir":{type:"Relique",slot:"relique",rarity:"Rare",desc:"Accroît le Mythe au prix de la SAN.",tags:"cosmique, maudit"},
- "Symbole gravé":{type:"Relique",slot:"relique",rarity:"Inhabituel",desc:"Relique occulte équipable.",tags:"occulte, ancien"}
+ "Symbole gravé":{type:"Relique",slot:"relique",rarity:"Inhabituel",desc:"Relique occulte équipable. Efficace contre certaines entités.",tags:"occulte, ancien"},
+ "Cartouches d'argent":{type:"Munition",rarity:"Inhabituel",desc:"La prochaine attaque gagne +3 dégâts.",tags:"argent, métal"},
+ "Laudanum trouble":{type:"Consommable",rarity:"Commun",desc:"Restaure 5 SAN, avec un risque de perdre 2 PV.",tags:"soin, drogue"},
+ "Clé de la morgue":{type:"Objet de quête",rarity:"Inhabituel",desc:"Clé glacée portant le sceau municipal de Blackwater.",tags:"clé, morgue"},
+ "Lentille de Mi-Go":{type:"Outil",slot:"outil",rarity:"Rare",desc:"Facilite certains tests d'Observation.",tags:"mi-go, optique"},
+ "Idole d'obsidienne":{type:"Relique",slot:"relique",rarity:"Rare",desc:"Objet occulte qui renforce les connaissances interdites.",tags:"occulte, maudit"},
+ "Carnet détrempé":{type:"Indice",rarity:"Commun",desc:"Facilite certaines recherches d'Investigation.",tags:"indice, écrit"},
+ "Flacon de kérosène":{type:"Consommable",rarity:"Commun",desc:"Recharge une lampe à pétrole.",tags:"feu, carburant"},
+ "Amulette d'argent noirci":{type:"Relique",slot:"relique",rarity:"Rare",desc:"Réduit certaines pertes de SAN.",tags:"argent, protection"},
+ "Photographie impossible":{type:"Indice",rarity:"Rare",desc:"Peut révéler une autre branche d'une enquête.",tags:"indice, temporel"},
+ "Craie rituelle":{type:"Consommable",rarity:"Inhabituel",desc:"Protection temporaire : +3 DEF.",tags:"rituel, protection"}
 };
 
 const firstM=["Elias","Walter","Edwin","Arthur","Samuel","Thomas","Henry","Nathaniel","Silas","George"];
@@ -329,7 +346,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.10.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.11.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -353,7 +370,7 @@ function renderQuestTracker(){
  const box=document.getElementById("questTrackerBody"); if(!box)return;
  let qhtml="";
  if(player.quest){
-   qhtml=`<div class="qtQuest"><b>${player.quest.done?"✓ ":""}${player.quest.title}</b><div class="qtObj">${player.quest.done?"Terminée":player.quest.objective}</div></div>`;
+   qhtml=`<div class="qtQuest"><b>${player.quest.done?"✓ ":""}${player.quest.title}</b><div class="qtObj">${player.quest.done?"Terminée":`Étape ${(player.quest.step||0)+1}/${player.quest.steps.length} · ${currentQuestStep().objective}`}</div></div>`;
  }else{
    qhtml=`<div class="qtQuest"><b>Aucune quête active</b><div class="qtObj">Parlez aux habitants ☺</div></div>`;
  }
@@ -416,29 +433,61 @@ function skillCheck(skill,difficulty){
  log(`${skill} : ${roll}/${target} ${ok?"✓":"✗"}`);return ok
 }
 function questTemplates(){return[
- {title:"La cloche sous la pierre",objective:"Interroger l'autel impossible",target:"shrine",skill:"Occultisme",reward:"Fragment noir",desc:"Un son de cloche vient de sous Blackwater."},
- {title:"Le disparu du quai",objective:"Chercher une trace dans une cache",target:"chest",skill:"Investigation",reward:"Bandage militaire",desc:"Un docker a disparu après avoir parlé d'yeux dans l'eau."},
- {title:"Le carnet du professeur",objective:"Étudier le symbole marqué !",target:"quest",skill:"Érudition",reward:"Sel consacré",desc:"Des notes mentionnent une géométrie impossible."}
+ {title:"La cloche sous la pierre",desc:"Un son de cloche vient de sous Blackwater.",reward:"Fragment noir",steps:[
+  {objective:"Parler à un habitant ☺",target:"npc",skill:"Psychologie"},
+  {objective:"Étudier le symbole marqué !",target:"quest",skill:"Érudition"},
+  {objective:"Interroger l'autel impossible ✦",target:"shrine",skill:"Occultisme"}]},
+ {title:"Le disparu du quai",desc:"Un docker a disparu après avoir parlé d'yeux dans l'eau.",reward:"Bandage militaire",steps:[
+  {objective:"Questionner un habitant ☺",target:"npc",skill:"Investigation"},
+  {objective:"Chercher une trace dans une cache ▣",target:"chest",skill:"Observation"},
+  {objective:"Étudier le symbole marqué !",target:"quest",skill:"Investigation"}]},
+ {title:"Les morts ne dorment pas",desc:"Le registre de la morgue comporte un nom écrit demain.",reward:"Clé de la morgue",steps:[
+  {objective:"Obtenir un témoignage ☺",target:"npc",skill:"Psychologie"},
+  {objective:"Fouiller une cache ▣",target:"chest",skill:"Investigation"},
+  {objective:"Examiner l'autel ✦",target:"shrine",skill:"Médecine"}]},
+ {title:"Une photographie de demain",desc:"Une image montre Blackwater après un événement qui n'a pas encore eu lieu.",reward:"Photographie impossible",steps:[
+  {objective:"Trouver un témoin ☺",target:"npc",skill:"Observation"},
+  {objective:"Comparer le lieu marqué !",target:"quest",skill:"Observation"},
+  {objective:"Décider ce que signifie l'autel ✦",target:"shrine",skill:"Occultisme"}]},
+ {title:"Le phare éteint",desc:"Une lumière semble briller sous la ville plutôt qu'au-dessus de la mer.",reward:"Lentille de Mi-Go",steps:[
+  {objective:"Recueillir une rumeur ☺",target:"npc",skill:"Investigation"},
+  {objective:"Récupérer du matériel dans une cache ▣",target:"chest",skill:"Endurance"},
+  {objective:"Déchiffrer le signe !",target:"quest",skill:"Érudition"}]}
 ]}
+function currentQuestStep(){
+ if(!player.quest||player.quest.done)return null;
+ return player.quest.steps[player.quest.step||0]||null
+}
 function startQuest(){
  const q=questTemplates()[R(questTemplates().length)];
- player.quest={...q,done:false};log("Quête : "+q.title+" — "+q.objective+".");toast("Nouvelle quête")
+ player.quest={...q,step:0,done:false,history:[]};
+ log("Quête : "+q.title+" — "+currentQuestStep().objective+".");toast("Nouvelle quête")
 }
-
 function changeQuest(reason){
- const old=player.quest;
- const templates=questTemplates().filter(q=>!old || q.title!==old.title);
- const q=templates[R(templates.length)];
- player.quest={...q,done:false,changedFrom:old?old.title:null};
- log(`La piste change : ${reason}. Nouvelle quête : ${q.title} — ${q.objective}.`);
- toast("La quête a changé")
+ if(!player.quest){startQuest();return}
+ const q=player.quest,old=currentQuestStep();
+ q.history.push("Échec : "+old.objective+" — "+reason);
+ if(q.step<q.steps.length-1){
+   q.step++;log("La piste bifurque : "+reason+". Nouvel objectif : "+currentQuestStep().objective+".");toast("La piste a changé")
+ }else{
+   const alt=questTemplates().filter(x=>x.title!==q.title),nq=alt[R(alt.length)];
+   player.quest={...nq,step:0,done:false,history:[`La piste « ${q.title} » s'est refermée.`]};
+   log("Une autre piste s'ouvre : "+player.quest.title+" — "+currentQuestStep().objective+".");toast("Nouvelle piste")
+ }
 }
-
+function advanceQuest(){
+ if(!player.quest||player.quest.done)return;
+ const q=player.quest,s=currentQuestStep();
+ q.history.push("Réussi : "+s.objective);
+ if(q.step<q.steps.length-1){q.step++;log("Objectif accompli. Nouvelle étape : "+currentQuestStep().objective+".");toast("Quête mise à jour")}
+ else completeQuest()
+}
 function completeQuest(){
  if(!player.quest||player.quest.done)return;
- player.quest.done=true;player.xp+=5;player.reputation++;
+ player.quest.done=true;player.xp+=7;player.reputation++;
  player.inv.push({n:player.quest.reward});seenItems[player.quest.reward]=true;
- log("Quête accomplie : "+player.quest.title+". Récompense : "+player.quest.reward+".");toast("Quête accomplie")
+ log("Quête accomplie : "+player.quest.title+". Récompense : "+player.quest.reward+". +7 XP.");toast("Quête accomplie");
+ if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}
 }
 function npcEncounter(){
  const c=player.char;
@@ -458,46 +507,59 @@ function closeModalOnly(){document.getElementById("modal").classList.remove("ope
 function npcChoice(choice){
  const skill=choice==="questionner"?"Investigation":choice==="rassurer"?"Psychologie":"Armes";
  const ok=skillCheck(skill,15);
- if(ok){player.san=Math.min(player.maxsan,player.san+1);player.reputation++;log("Le PNJ vous confie un indice.");if(!player.quest||player.quest.done)startQuest()}
- else{
-   player.san=Math.max(0,player.san-2);player.reputation--;
-   log("La discussion tourne mal. -2 SAN.");
-   if(player.quest&&!player.quest.done) changeQuest("votre interlocuteur refuse de poursuivre cette piste");
-   else startQuest();
+ if(ok){
+   player.san=Math.min(player.maxsan,player.san+1);player.reputation++;log("Le PNJ vous confie un indice.");
+   if(!player.quest||player.quest.done)startQuest();else if(currentQuestStep()&&currentQuestStep().target==="npc")advanceQuest()
+ }else{
+   player.san=Math.max(0,player.san-2);player.reputation--;log("La discussion tourne mal. -2 SAN.");
+   if(player.quest&&!player.quest.done)changeQuest("votre interlocuteur refuse cette approche");else startQuest()
  }
  closeModalOnly();render()
 }
 function investigate(){
  if(battle)return;
- const t=map[py][px];
+ const t=map[py][px],step=currentQuestStep();
  if(t==="npc"){npcEncounter();return}
  if(t==="quest"){
-  if(player.quest&&!player.quest.done&&player.quest.target==="quest"){
-   if(skillCheck(player.quest.skill,10))completeQuest();
-   else{player.san=Math.max(0,player.san-2);log("L'indice vous échappe. -2 SAN.");changeQuest("l'indice mène ailleurs")}
-  }else log("Ce symbole semble important.");
-  render();return
+   if(step&&step.target==="quest"){
+     let diff=10;
+     if(player.inv.some(i=>i.n==="Carnet détrempé")&&step.skill==="Investigation")diff=0;
+     if(player.equip.outil==="Lentille de Mi-Go"&&step.skill==="Observation")diff=0;
+     if(skillCheck(step.skill,diff))advanceQuest();
+     else{player.san=Math.max(0,player.san-2);log("L'indice vous échappe. -2 SAN.");changeQuest("l'indice conduit ailleurs")}
+   }else log("Ce symbole semble important, mais pas pour votre piste actuelle.");
+   render();return
  }
  if(["chest","shrine","trap","exit"].includes(t)){
-  if(player.quest&&!player.quest.done&&player.quest.target===t){
-    if(skillCheck(player.quest.skill,10))completeQuest();
-    else changeQuest("la piste se révèle fausse");
-  }
-  resolveTile();render();return
+   if(step&&step.target===t){if(skillCheck(step.skill,10))advanceQuest();else changeQuest("la piste se révèle différente")}
+   resolveTile();render();return
  }
- if(rng()<.38)spawnEnemy();else if(rng()<.42)loot();else{player.san=Math.max(0,player.san-1);log("Vous fouillez les lieux. -1 SAN.");render()}
+ if(rng()<.34)spawnEnemy();
+ else if(rng()<.47)loot();
+ else{
+   const sk=rng()<.5?"Observation":"Investigation";
+   if(skillCheck(sk,15)){log("Vous découvrez un détail utile.");if(rng()<.35)loot()}
+   else{player.san=Math.max(0,player.san-1);log("Vous fouillez sans succès. -1 SAN.")}
+   render()
+ }
 }
 
 function loot(){
- const pool=["Bandage militaire","Sel consacré","Fragment noir","Symbole gravé","Cartouches d'argent","Laudanum trouble","Clé de la morgue","Lentille de Mi-Go"];
- const n=pool[R(pool.length)];
- player.inv.push({n});
- seenItems[n]=true;
- log("Objet trouvé : "+n+".");
- toast("Objet : "+n);
+ const pool=["Bandage militaire","Sel consacré","Fragment noir","Symbole gravé","Cartouches d'argent","Laudanum trouble","Clé de la morgue","Lentille de Mi-Go","Idole d'obsidienne","Carnet détrempé","Flacon de kérosène","Amulette d'argent noirci","Photographie impossible","Craie rituelle"];
+ const weights=[16,10,5,8,9,10,3,4,3,10,9,3,3,7];
+ let roll=R(weights.reduce((a,b)=>a+b,0)),n=pool[0];
+ for(let i=0;i<pool.length;i++){if(roll<weights[i]){n=pool[i];break}roll-=weights[i]}
+ player.inv.push({n});seenItems[n]=true;log("Objet trouvé : "+n+".");toast("Objet : "+n)
 }
 
-function spawnEnemy(){let names=Object.keys(creatures),name=names[R(names.length)],b=creatures[name];codex[name]=true;enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),x:px,y:py};battle=true;log("☠ "+name+" surgit.")}
+function spawnEnemy(){
+ const names=Object.keys(creatures);
+ let name=names[R(names.length)];
+ if(player.depth>=2&&rng()<.45){const hard=["Mi-Go","Byakhee","Chien de Tindalos","Polype rampant","Veilleur sans visage"];name=hard[R(hard.length)]}
+ const b=creatures[name];codex[name]=true;
+ enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),def:b.def||0,x:px,y:py,weak:b.weak,resist:b.resist};
+ battle=true;log("☠ "+name+" surgit.")
+}
 function renderContext(){
  const c=document.getElementById("context");
  const a=document.getElementById("actionBtn");
@@ -519,7 +581,16 @@ function renderContext(){
    <button onclick="flee()">FUIR</button>
  </div>`;
 }
-function attack(){let bonus=player.equip.arme==="Vieux revolver"?2:0,d=player.atk+bonus+R(4);enemy.hp-=d;log("Attaque : "+d+" dégâts.");if(enemy.hp<=0)win();else enemyTurn();render()}
+function attack(){
+ let bonus=player.equip.arme==="Vieux revolver"?2:0,notes=[];
+ const ammo=player.inv.findIndex(i=>i.n==="Cartouches d'argent");
+ if(ammo>=0){bonus+=3;player.inv.splice(ammo,1);notes.push("argent")}
+ if(player.equip.relique==="Symbole gravé"&&enemy.weak==="symbole"){bonus+=5;notes.push("symbole")}
+ if(player.equip.outil==="Lampe à pétrole"&&(enemy.weak==="lumière"||enemy.weak==="feu")){bonus+=4;notes.push("lumière")}
+ const d=Math.max(1,player.atk+bonus+R(4)-(enemy.def||0));
+ enemy.hp-=d;log("Attaque : "+d+" dégâts"+(notes.length?" ["+notes.join("+")+"]":"")+".");
+ if(enemy.hp<=0)win();else enemyTurn();render()
+}
 function defend(){player.def+=3;enemyTurn();player.def-=3;render()}
 function enemyTurn(){let d=Math.max(1,enemy.atk-player.def);player.hp-=d;if(rng()<.3)player.san=Math.max(0,player.san-1);log(enemy.name+" inflige "+d+" dégâts.");if(player.hp<=0)death()}
 function combatItem(){
@@ -560,16 +631,30 @@ function openCharacter(){document.getElementById("mainMenu").classList.remove("o
 function openInventory(){document.getElementById("mainMenu").classList.remove("open");let names=[...new Set(player.inv.map(i=>i.n))];modal(`<h2>🎒 INVENTAIRE — ${player.inv.length}</h2><p>⚔ ${player.equip.arme||"—"} · 🔦 ${player.equip.outil||"—"} · ✦ ${player.equip.relique||"—"}</p>${names.map(n=>itemCard(n)).join("")}`)}
 function itemCard(n){let db=itemDB[n]||{type:"Objet",rarity:"?",desc:"",tags:""},count=player.inv.filter(i=>i.n===n).length,eq=Object.values(player.equip).includes(n);return `<div class=entry><b>${n}${count>1?" ×"+count:""}</b> ${eq?"· ÉQUIPÉ":""}<br><span class=gold>${db.type} · ${db.rarity}</span><br>${db.desc}<br><span style="color:var(--muted)">Tags : ${db.tags}</span><div class=itemActions><button onclick="useInv('${n.replaceAll("'","\\'")}')">UTILISER</button>${db.slot?`<button onclick="equipInv('${n.replaceAll("'","\\'")}')">${eq?"DÉSÉQUIPER":"ÉQUIPER"}</button>`:""}<button onclick="dropInv('${n.replaceAll("'","\\'")}')">JETER</button></div></div>`}
 function equipInv(n){let db=itemDB[n];if(!db?.slot)return;if(player.equip[db.slot]===n)player.equip[db.slot]=null;else player.equip[db.slot]=n;render();openInventory()}
-function useInv(n){let i=player.inv.findIndex(x=>x.n===n);if(i<0)return;if(n==="Bandage militaire"){player.hp=Math.min(player.maxhp,player.hp+8);player.inv.splice(i,1);toast("+8 PV")}else if(n==="Lampe à pétrole"){let o=player.inv[i];o.uses=o.uses??2;if(o.uses>0){player.san=Math.min(player.maxsan,player.san+6);o.uses--;toast("+6 SAN");if(o.uses<=0){player.inv.splice(i,1);player.equip.outil=null}}}else if(n==="Fragment noir"){player.myth+=4;player.san=Math.max(0,player.san-3);toast("+4% Mythe · -3 SAN")}else if(n==="Symbole gravé"){player.myth+=1;toast("+1% Mythe")}else toast("Objet à équiper.");render();openInventory()}
+function useInv(n){
+ let i=player.inv.findIndex(x=>x.n===n);if(i<0)return;
+ if(n==="Bandage militaire"){player.hp=Math.min(player.maxhp,player.hp+8);player.inv.splice(i,1);toast("+8 PV")}
+ else if(n==="Laudanum trouble"){player.san=Math.min(player.maxsan,player.san+5);player.inv.splice(i,1);toast("+5 SAN");if(rng()<.25){player.hp=Math.max(1,player.hp-2);log("Effet secondaire : -2 PV.")}}
+ else if(n==="Lampe à pétrole"){let o=player.inv[i];o.uses=o.uses??2;if(o.uses>0){player.san=Math.min(player.maxsan,player.san+6);o.uses--;toast("+6 SAN");if(o.uses<=0){player.inv.splice(i,1);player.equip.outil=null}}}
+ else if(n==="Flacon de kérosène"){let lamp=player.inv.find(x=>x.n==="Lampe à pétrole");if(lamp){lamp.uses=(lamp.uses??0)+2;player.inv.splice(i,1);toast("Lampe +2 charges")}else toast("Aucune lampe")}
+ else if(n==="Fragment noir"){player.myth+=4;player.san=Math.max(0,player.san-3);toast("+4% Mythe · -3 SAN")}
+ else if(n==="Symbole gravé"){player.myth+=1;toast("+1% Mythe")}
+ else if(n==="Photographie impossible"){if(player.quest&&!player.quest.done){changeQuest("la photographie révèle une autre possibilité");player.inv.splice(i,1)}else toast("Aucune enquête active")}
+ else if(n==="Craie rituelle"){player.def+=3;player.inv.splice(i,1);log("Cercle rituel : +3 DEF.");toast("+3 DEF")}
+ else toast("Objet à équiper ou à conserver.");
+ render();openInventory()
+}
 function dropInv(n){let i=player.inv.findIndex(x=>x.n===n);if(i>=0)player.inv.splice(i,1);for(let k in player.equip)if(player.equip[k]===n)player.equip[k]=null;render();openInventory()}
-function openBestiary(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>📖 BESTIAIRE</h2>${Object.keys(creatures).map(n=>`<div class=entry><b>${codex[n]?n:"???"}</b><br>${codex[n]?creatures[n].desc:"Créature non découverte."}</div>`).join("")}`)}
-function openGuide(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>📚 GUIDE DES OBJETS</h2>${Object.keys(itemDB).map(n=>`<div class=entry><b>${seenItems[n]?n:"???"}</b><br>${seenItems[n]?itemDB[n].desc:"Objet non découvert."}</div>`).join("")}`)}
+function openBestiary(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>📖 BESTIAIRE</h2>${Object.keys(creatures).map(n=>{const c=creatures[n];return `<div class=entry><b>${codex[n]?n:"???"}</b><br>${codex[n]?`${c.desc}<br><span class=gold>PV ${c.hp} · ATQ ${c.atk} · Faiblesse : ${c.weak||"?"} · Résistance : ${c.resist||"?"}</span>`:"Créature non découverte."}</div>`}).join("")}`)}
+function openGuide(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>📚 GUIDE DES OBJETS</h2>${Object.keys(itemDB).map(n=>{const i=itemDB[n];return `<div class=entry><b>${seenItems[n]?n:"???"}</b><br>${seenItems[n]?`${i.desc}<br><span class=gold>${i.type} · ${i.rarity} · ${i.tags}</span>`:"Objet non découvert."}</div>`}).join("")}`)}
 function openAchievements(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>🏆 SUCCÈS</h2><div class=entry>Première victoire ${player.xp>0||player.lvl>1?"✓":"?"}</div><div class=entry>Descendre sous Blackwater ${player.depth>0?"✓":"?"}</div></div>`)}
 function openQuest(){
  document.getElementById("mainMenu").classList.remove("open");
  if(!player.quest){modal(`<h2>❗ QUÊTE</h2><p>Aucune quête active. Cherchez un habitant ☺.</p>`);return}
- const q=player.quest;
- modal(`<h2>❗ ${q.title}</h2><div class="questBox"><b>${q.objective}</b><br>${q.desc}<br><br>Compétence : <b>${q.skill}</b><br>Récompense : <b>${q.reward}</b><br>État : <b>${q.done?"Terminée":"En cours"}</b>${q.changedFrom?`<br><br><span style="color:#959cab">Cette piste remplace : ${q.changedFrom}</span>`:""}</div>`)
+ const q=player.quest,current=currentQuestStep();
+ const steps=q.steps.map((s,i)=>`<div class=entry>${i<q.step?"✓":i===q.step&&!q.done?"➤":"○"} ${s.objective} <span style="color:var(--muted)">[${s.skill}]</span></div>`).join("");
+ const hist=(q.history||[]).slice(-5).map(x=>`<div style="color:var(--muted);font-size:11px">${x}</div>`).join("");
+ modal(`<h2>❗ ${q.title}</h2><div class="questBox">${q.desc}<br><br><b>${q.done?"Terminée":"Objectif : "+current.objective}</b><br>Récompense : <b>${q.reward}</b></div>${steps}${hist}`)
 }
 function openJournal(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>📝 JOURNAL</h2>${journal.map(x=>`<div class=entry>${x}</div>`).join("")}`)}
 
@@ -664,79 +749,7 @@ window.addEventListener("load",()=>{try{cdEnsureSkills();log("0.10.0 : couche RP
 </script>
 
 
-<script id="cd-content-0101">
-const CD_CONTENT_0101 = {
-  bestiary: [
-    {n:"Goule des caveaux",hp:18,atk:6,def:0,san:2,tags:["goule","souterrain"],weak:"lumière"},
-    {n:"Profond des vasières",hp:24,atk:7,def:1,san:3,tags:["profond","marin"],weak:"feu"},
-    {n:"Cultiste de Dagon",hp:17,atk:6,def:1,san:1,tags:["humain","culte"],weak:"psychologie"},
-    {n:"Mi-Go éclaireur",hp:23,atk:8,def:2,san:4,tags:["fongique","extraterrestre"],weak:"électricité"},
-    {n:"Chien de Tindalos",hp:29,atk:9,def:2,san:5,tags:["tindalos","prédateur"],weak:"symbole"},
-    {n:"Polype rampant",hp:31,atk:9,def:2,san:5,tags:["ancien","aérien"],weak:"occultisme"},
-    {n:"Byakhee affamé",hp:26,atk:8,def:1,san:4,tags:["byakhee","volant"],weak:"feu"},
-    {n:"Serviteur fongique",hp:20,atk:7,def:1,san:3,tags:["fongique","parasite"],weak:"médecine"},
-    {n:"Noyé de Blackwater",hp:19,atk:6,def:1,san:2,tags:["mort-vivant","marin"],weak:"sel"},
-    {n:"Veilleur sans visage",hp:25,atk:7,def:2,san:5,tags:["occulte","humanoïde"],weak:"observation"}
-  ],
-  items: [
-    {n:"Trousse médicale",type:"soin",desc:"+8 PV hors combat."},
-    {n:"Sels d'ammoniaque",type:"san",desc:"+5 SAN."},
-    {n:"Cartouches d'argent",type:"munition",desc:"Bonus contre certaines horreurs."},
-    {n:"Sel consacré",type:"rituel",desc:"Protection contre les créatures marines et les morts."},
-    {n:"Lentille de Mi-Go",type:"relique",desc:"Révèle parfois une case ou un indice caché."},
-    {n:"Clé de la morgue",type:"quête",desc:"Ouvre une porte qui devrait rester fermée."},
-    {n:"Idole d'obsidienne",type:"relique",desc:"+Occultisme, mais le Mythe vous remarque."},
-    {n:"Carnet détrempé",type:"indice",desc:"Pages couvertes de coordonnées et de noms."},
-    {n:"Flacon de kérosène",type:"outil",desc:"Recharge la lampe et renforce les effets de lumière."},
-    {n:"Amulette d'argent noirci",type:"relique",desc:"Résistance mentale contre certains événements."},
-    {n:"Photographie impossible",type:"indice",desc:"Le décor change quand on la regarde de nouveau."},
-    {n:"Craie rituelle",type:"outil",desc:"Permet de tracer un signe de protection."}
-  ],
-  quests: [
-    {title:"Les voix sous Blackwater",steps:["Trouver la bouche d'égout marquée","Interroger un habitant","Descendre sous la ville","Décider quoi faire du sanctuaire"]},
-    {title:"Le disparu du quai",steps:["Questionner les dockers","Chercher une trace dans une cache","Suivre la piste humide","Affronter ou éviter ce qui vit sous le quai"]},
-    {title:"La cloche sous la pierre",steps:["Localiser la chapelle condamnée","Déchiffrer les inscriptions","Interroger l'autel impossible","Empêcher ou accomplir la sonnerie"]},
-    {title:"Les morts ne dorment pas",steps:["Examiner la morgue","Retrouver le registre manquant","Identifier le corps sans nom","Choisir entre vérité et silence"]},
-    {title:"L'homme de la chambre 7",steps:["Trouver l'hôtel","Parler au réceptionniste","Entrer dans la chambre 7","Comprendre pourquoi la pièce est plus grande à l'intérieur"]},
-    {title:"Le phare éteint",steps:["Atteindre la côte","Réparer ou forcer l'accès","Explorer les niveaux du phare","Découvrir ce que la lumière retenait"]},
-    {title:"Une photographie de demain",steps:["Trouver le photographe","Comparer les lieux","Identifier la silhouette","Modifier ou accepter l'événement annoncé"]},
-    {title:"La marée noire",steps:["Inspecter les poissons morts","Prélever un échantillon","Suivre les traces vers les entrepôts","Découvrir l'origine de la contamination"]}
-  ],
-  encounters: [
-    "Une femme affirme vous avoir enterré la semaine dernière.",
-    "Un enfant dessine exactement la carte du niveau actuel.",
-    "Une radio éteinte diffuse votre propre voix.",
-    "Une pluie de petits poissons tombe pendant quelques secondes.",
-    "Une porte apparaît dans un mur aveugle puis disparaît.",
-    "Le reflet d'une vitrine continue de marcher quand vous vous arrêtez.",
-    "Une sirène de navire retentit sous vos pieds.",
-    "Un chien refuse de regarder une case précise de la rue.",
-    "Un passant vous remet une lettre écrite de votre main.",
-    "Les étoiles semblent visibles en plein jour au fond d'une flaque.",
-    "Une vieille horloge avance de treize minutes à chaque regard.",
-    "Quelqu'un frappe trois fois depuis l'intérieur d'un cercueil vide."
-  ],
-  dungeonThemes: [
-    "Égouts cyclopéens","Crypte inondée","Entrepôts du quai","Sanatorium abandonné",
-    "Galeries sous l'église","Caves de l'hôtel","Laboratoire clandestin","Grottes littorales"
-  ]
-};
 
-// Merge the pack into the existing data pools when compatible, without changing movement/touch code.
-window.addEventListener("load",()=>{
-  try{
-    if(window.CD_RPG){
-      CD_CONTENT_0101.items.forEach(o=>{ if(!CD_RPG.loot.includes(o.n)) CD_RPG.loot.push(o.n); });
-      CD_CONTENT_0101.encounters.forEach(e=>{ if(!CD_RPG.events.includes(e)) CD_RPG.events.push(e); });
-      CD_CONTENT_0101.bestiary.forEach(e=>{
-        if(!CD_RPG.enemies.some(x=>x[0]===e.n)) CD_RPG.enemies.push([e.n,e.hp,e.atk,e.def,e.weak]);
-      });
-    }
-    window.CD_CONTENT = CD_CONTENT_0101;
-    log("0.10.1 : contenu étendu — bestiaire, objets, quêtes, rencontres et donjons.");
-  }catch(e){console.error("Content pack 0.10.1",e);}
-});
-</script>
 
 </body>
 </html>
