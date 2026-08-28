@@ -3,8 +3,10 @@
   "short_name": "Cosmic",
   "start_url": "./",
   "display": "standalone",
+  "orientation": "landscape",
   "background_color": "#05070a",
   "theme_color": "#07090d",
+  "lang": "fr",
   "icons": [
     {
       "src": "./icon.svg",
