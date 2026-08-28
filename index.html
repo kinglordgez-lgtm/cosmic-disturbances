@@ -124,6 +124,12 @@ h1{font-size:clamp(18px,2vw,30px);letter-spacing:2px;margin:0}
 }
 </style>
 
+<style id="movement-fix-095">
+#joy{z-index:70!important;pointer-events:auto!important}
+#joy button{pointer-events:auto!important;touch-action:manipulation!important}
+#actionBtn{z-index:70!important;pointer-events:auto!important}
+#questTracker{z-index:25!important}
+</style>
 </head>
 <body>
 <div id="game">
@@ -175,10 +181,14 @@ const firstM=["Elias","Walter","Edwin","Arthur","Samuel","Thomas","Henry","Natha
 const firstF=["Clara","Evelyn","Mabel","Helen","Edith","Margaret","Alice","Beatrice","Dorothy","Agnes"];
 const lastN=["Ward","Blackwood","Marsh","Gilman","Derby","Carter","Whateley","Armitage","Danforth","Pickman","Waite"];
 const jobs=[
- {name:"Détective privé",focus:["Investigation","Armes"]},{name:"Médecin",focus:["Médecine","Psychologie"]},
- {name:"Professeur",focus:["Érudition","Occultisme"]},{name:"Journaliste",focus:["Investigation","Psychologie"]},
- {name:"Marin",focus:["Endurance","Armes"]},{name:"Antiquaire",focus:["Occultisme","Érudition"]},
- {name:"Photographe",focus:["Observation","Investigation"]},{name:"Infirmière",focus:["Médecine","Observation"]}
+ {m:"Détective privé",f:"Détective privée",focus:["Investigation","Armes"]},
+ {m:"Médecin",f:"Médecin",focus:["Médecine","Psychologie"]},
+ {m:"Professeur",f:"Professeure",focus:["Érudition","Occultisme"]},
+ {m:"Journaliste",f:"Journaliste",focus:["Investigation","Psychologie"]},
+ {m:"Marin",f:"Marine",focus:["Endurance","Armes"]},
+ {m:"Antiquaire",f:"Antiquaire",focus:["Occultisme","Érudition"]},
+ {m:"Photographe",f:"Photographe",focus:["Observation","Investigation"]},
+ {m:"Infirmier",f:"Infirmière",focus:["Médecine","Observation"]}
 ];
 const traits=["Sang-froid","Curieux","Méfiant","Insomniaque","Œil exercé","Volonté de fer","Superstitieux","Cicatrice étrange"];
 const skills=["Investigation","Observation","Armes","Médecine","Psychologie","Occultisme","Érudition","Endurance"];
@@ -195,7 +205,7 @@ function makeCharacter(){
  const female=Math.random()<.5,pool=female?firstF:firstM,job=jobs[Math.floor(Math.random()*jobs.length)];
  let v=Object.fromEntries(skills.map(s=>[s,35]));v[job.focus[0]]+=35;v[job.focus[1]]+=25;let rem=60;
  while(rem-->0)v[skills[Math.floor(Math.random()*skills.length)]]++;
- return {name:pool[Math.floor(Math.random()*pool.length)]+" "+lastN[Math.floor(Math.random()*lastN.length)],sex:female?"Femme":"Homme",job:job.name,trait:traits[Math.floor(Math.random()*traits.length)],skills:v}
+ return {name:pool[Math.floor(Math.random()*pool.length)]+" "+lastN[Math.floor(Math.random()*lastN.length)],sex:female?"Femme":"Homme",job:female?job.f:job.m,trait:traits[Math.floor(Math.random()*traits.length)],skills:v}
 }
 function newRun(){
  closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
@@ -212,7 +222,7 @@ function generateMap(){
 }
 function glyph(t){return t==="exit"?"▼":t==="chest"?"▣":t==="shrine"?"✦":t==="trap"?"×":t==="npc"?"☺":t==="quest"?"!":""}
 function render(){
- document.getElementById("sub").textContent=`PROTO 0.9.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.9.5 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
  let m=document.getElementById("map");m.innerHTML="";
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){let t=map[y][x],d=document.createElement("div");d.className="tile "+(t==="wall"?"wall":t==="water"?"water":"floor");if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&enemy.x===x&&enemy.y===y){d.className+=" enemy";d.textContent="☠"}else{d.textContent=glyph(t);if(d.textContent)d.className+=" feature";if(t==="npc")d.className+=" npc";if(t==="quest")d.className+=" quest"}m.appendChild(d)}
@@ -232,12 +242,12 @@ function renderQuestTracker(){
  box.innerHTML=qhtml+`<div class="qtRecent">${recent}</div>`
 }
 function move(dx,dy){
- const now=Date.now();
- if(now-lastMoveAt<150)return;
- lastMoveAt=now;
  if(battle)return;
- let nx=px+dx,ny=py+dy;
- if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall")return;
+ const now=performance.now();
+ if(now-lastMoveAt<80)return;
+ lastMoveAt=now;
+ const nx=px+dx,ny=py+dy;
+ if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){toast("Passage bloqué");return}
  px=nx;py=ny;
  resolveTile();
  if(!battle&&rng()<.10)spawnEnemy();
@@ -340,7 +350,12 @@ function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else en
 function win(){battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}render()}
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.");render()}
 
-document.getElementById("up").onclick=()=>move(0,-1);document.getElementById("down").onclick=()=>move(0,1);document.getElementById("left").onclick=()=>move(-1,0);document.getElementById("right").onclick=()=>move(1,0);document.getElementById("center").onclick=investigate;document.getElementById("actionBtn").onclick=investigate;
+function bindTap(id,fn){
+ const el=document.getElementById(id);
+ el.onclick=null;
+ el.addEventListener("pointerup",e=>{e.preventDefault();e.stopPropagation();fn()},{passive:false});
+}
+bindTap("up",()=>move(0,-1));bindTap("down",()=>move(0,1));bindTap("left",()=>move(-1,0));bindTap("right",()=>move(1,0));bindTap("center",investigate);bindTap("actionBtn",investigate);
 document.getElementById("menuBtn").onclick=()=>document.getElementById("mainMenu").classList.add("open");
 
 function modal(html){document.getElementById("sheetContent").innerHTML=html;document.getElementById("modal").classList.add("open")}
