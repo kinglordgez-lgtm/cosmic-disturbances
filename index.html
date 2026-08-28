@@ -173,6 +173,13 @@ h1{font-size:clamp(18px,2vw,30px);letter-spacing:2px;margin:0}
 </div></div></div>
 <div id="modal" class="overlay"><div class="sheet" id="sheet"><button class="close" data-close="modal">✕</button><div id="sheetContent"></div></div></div>
 <div id="toast"></div>
+
+<div id="runtimeError" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(80vw,720px);background:#28151a;border:1px solid #9b5964;border-radius:14px;padding:14px;color:#fff;font-family:monospace">
+ <b>ERREUR DE JEU</b>
+ <div id="runtimeErrorText" style="margin:8px 0;white-space:pre-wrap"></div>
+ <button onclick="recoverGame()" style="min-height:42px;padding:8px 12px">REPRENDRE</button>
+</div>
+
 <div id="rotate"><div><div style="font-size:60px">↻</div><h2>MODE HORIZONTAL</h2><p>Tournez l’appareil pour jouer.</p></div></div>
 
 <script>
@@ -226,7 +233,7 @@ function makeCharacter(){
  return {name:pool[Math.floor(Math.random()*pool.length)]+" "+lastN[Math.floor(Math.random()*lastN.length)],sex:female?"Femme":"Homme",job:female?job.f:job.m,trait:traits[Math.floor(Math.random()*traits.length)],skills:v}
 }
 function newRun(){
- closeOverlays();inputBusy=false;renderQueued=false;seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
+ closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
  player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0};
  seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(Math.random()<.35)startQuest();render()
 }
@@ -240,7 +247,7 @@ function generateMap(){
 }
 function glyph(t){return t==="exit"?"▼":t==="chest"?"▣":t==="shrine"?"✦":t==="trap"?"×":t==="npc"?"☺":t==="quest"?"!":""}
 let mapCells=[];
-let renderQueued=false;
+
 
 function initMapDOM(){
  const m=document.getElementById("map");
@@ -254,10 +261,9 @@ function initMapDOM(){
    mapCells.push(d);
  }
 }
-function renderNow(){
- renderQueued=false;
+function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.9.8 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.9.9 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -276,11 +282,6 @@ function renderNow(){
  }
  renderContext();
  renderQuestTracker();
-}
-function render(){
- if(renderQueued)return;
- renderQueued=true;
- requestAnimationFrame(renderNow);
 }
 function renderQuestTracker(){
  const box=document.getElementById("questTrackerBody"); if(!box)return;
@@ -319,21 +320,23 @@ function resolveTile(){
  }
 }
 
-let inputBusy=false;
+
 function move(dx,dy){
- if(battle||inputBusy)return;
- inputBusy=true;
- const nx=px+dx,ny=py+dy;
- if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){
-   toast("Passage bloqué");
-   requestAnimationFrame(()=>inputBusy=false);
-   return
+ if(battle)return;
+ try{
+   const nx=px+dx,ny=py+dy;
+   if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){
+     toast("Passage bloqué");
+     return
+   }
+   px=nx;py=ny;
+   resolveTile();
+   if(!battle&&rng()<.10)spawnEnemy();
+   render();
+ }catch(err){
+   console.error(err);
+   showRuntimeError(err);
  }
- px=nx;py=ny;
- resolveTile();
- if(!battle&&rng()<.10)spawnEnemy();
- render();
- requestAnimationFrame(()=>inputBusy=false);
 }
 
 function skillCheck(skill,difficulty){
@@ -438,7 +441,7 @@ function bindTap(id,fn){
  el.addEventListener("pointerup",e=>{
    e.preventDefault();
    e.stopPropagation();
-   fn();
+   try{fn()}catch(err){console.error(err);showRuntimeError(err)}
  },{passive:false});
 }
 bindTap("up",()=>move(0,-1));
@@ -447,11 +450,9 @@ bindTap("left",()=>move(-1,0));
 bindTap("right",()=>move(1,0));
 bindTap("center",investigate);
 bindTap("actionBtn",investigate);
-document.addEventListener("visibilitychange",()=>{
- if(!document.hidden){inputBusy=false;renderQueued=false;render()}
-});
-window.addEventListener("pageshow",()=>{inputBusy=false;renderQueued=false;render()});
-window.addEventListener("orientationchange",()=>setTimeout(()=>{inputBusy=false;renderQueued=false;render()},120));
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
+window.addEventListener("pageshow",()=>render());
+window.addEventListener("orientationchange",()=>setTimeout(render,120));
 document.getElementById("menuBtn").onclick=()=>document.getElementById("mainMenu").classList.add("open");
 
 function modal(html){document.getElementById("sheetContent").innerHTML=html;document.getElementById("modal").classList.add("open")}
@@ -473,6 +474,25 @@ function openQuest(){
 function openJournal(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>📝 JOURNAL</h2>${journal.map(x=>`<div class=entry>${x}</div>`).join("")}`)}
 
 newRun();
+
+function showRuntimeError(err){
+ const p=document.getElementById("runtimeError");
+ document.getElementById("runtimeErrorText").textContent=String(err&&err.message?err.message:err);
+ p.style.display="block";
+}
+function recoverGame(){
+ document.getElementById("runtimeError").style.display="none";
+ try{render()}catch(e){console.error(e)}
+}
+window.addEventListener("error",e=>{
+ console.error(e.error||e.message);
+ showRuntimeError(e.error||e.message);
+});
+window.addEventListener("unhandledrejection",e=>{
+ console.error(e.reason);
+ showRuntimeError(e.reason);
+});
+
 </script>
 </body>
 </html>
