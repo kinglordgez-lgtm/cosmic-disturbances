@@ -237,6 +237,42 @@ header{left:18px!important}
 }
 </style>
 
+
+<style id="journal-fix-0112">
+/* Correctif réel : le journal utilise .qtRecent, pas #qtLog */
+#questTracker,
+#questTrackerBody,
+#questTracker .qtQuest,
+#questTracker .qtObj,
+#questTracker .qtRecent{
+  min-width:0!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+}
+#questTracker .qtQuest,
+#questTracker .qtObj,
+#questTracker .qtRecent,
+#questTracker .qtRecent div{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}
+#questTracker .qtRecent{
+  max-height:17vh!important;
+  overflow-y:auto!important;
+  padding-right:8px!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+#questTracker .qtRecent div{
+  display:block!important;
+  width:100%!important;
+  line-height:1.35!important;
+  margin:4px 0!important;
+}
+</style>
+
 </head>
 <body>
 <div id="game">
@@ -369,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.11.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.11.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
