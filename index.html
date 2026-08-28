@@ -139,13 +139,13 @@ function generateMap(){
 }
 function glyph(t){return t==="exit"?"▼":t==="chest"?"▣":t==="shrine"?"✦":t==="trap"?"×":t==="npc"?"☺":t==="quest"?"!":""}
 function render(){
- document.getElementById("sub").textContent=`PROTO 0.9 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.9.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
  let m=document.getElementById("map");m.innerHTML="";
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){let t=map[y][x],d=document.createElement("div");d.className="tile "+(t==="wall"?"wall":t==="water"?"water":"floor");if(x===px&&y===py){d.className+=" player";d.textContent="☉"}else if(enemy&&enemy.x===x&&enemy.y===y){d.className+=" enemy";d.textContent="☠"}else{d.textContent=glyph(t);if(d.textContent)d.className+=" feature";if(t==="npc")d.className+=" npc";if(t==="quest")d.className+=" quest"}m.appendChild(d)}
  renderContext()
 }
-function move(dx,dy){if(battle)return;let nx=px+dx,ny=py+dy;if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall")return;px=nx;py=ny;resolveTile();if(!battle&&rng()<.10)spawnEnemy();render()}
+function move(dx,dy){if(document.getElementById("context").dataset.mode==="dialogue")closeDialogue();if(battle)return;let nx=px+dx,ny=py+dy;if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall")return;px=nx;py=ny;resolveTile();if(!battle&&rng()<.10)spawnEnemy();render()}
 function resolveTile(){
  let t=map[py][px];
  if(t==="trap"){map[py][px]="floor";let d=3+R(5);player.hp-=d;log("Piège : -"+d+" PV.");if(player.hp<=0)death()}
@@ -190,17 +190,30 @@ function npcEncounter(){
    `Un policier pâle murmure : « N'allez pas plus bas. J'ai vu ce qui remonte. »`
  ];
  const text=lines[R(lines.length)];
- const html=`<b>RENCONTRE</b><br>${text}<div class="choiceGrid">
+ const html=`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+ <b>RENCONTRE</b><button onclick="closeDialogue()" style="min-height:32px;padding:4px 10px">✕</button></div>
+ <br>${text}<div class="choiceGrid">
  <button onclick="npcChoice('questionner')">QUESTIONNER</button>
  <button onclick="npcChoice('rassurer')">RASSURER</button>
  <button onclick="npcChoice('menacer')">MENACER</button>
  <button onclick="npcChoice('partir')">PARTIR</button>
  </div>`;
- let cbox=document.getElementById("context");cbox.style.display="block";cbox.innerHTML=html
+ let cbox=document.getElementById("context");cbox.dataset.mode="dialogue";cbox.style.display="block";cbox.innerHTML=html
+}
+function closeDialogue(){
+ let c=document.getElementById("context");
+ c.style.display="none";
+ c.innerHTML="";
+ delete c.dataset.mode;
 }
 function npcChoice(choice){
  let skill=choice==="questionner"?"Investigation":choice==="rassurer"?"Psychologie":choice==="menacer"?"Armes":"";
- if(choice==="partir"){log("Vous mettez fin à la conversation.");render();return}
+ if(choice==="partir"){
+   log("Vous mettez fin à la conversation.");
+   closeDialogue();
+   render();
+   return
+ }
  const ok=skillCheck(skill,15);
  if(ok){
    player.san=Math.min(player.maxsan,player.san+1);player.reputation++;
@@ -210,6 +223,7 @@ function npcChoice(choice){
    player.san=Math.max(0,player.san-2);player.reputation--;
    log("La conversation tourne mal. -2 SAN.")
  }
+ closeDialogue();
  render()
 }
 
@@ -241,7 +255,10 @@ function loot(){
 function spawnEnemy(){let names=Object.keys(creatures),name=names[R(names.length)],b=creatures[name];codex[name]=true;enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),x:px,y:py};battle=true;log("☠ "+name+" surgit.");render()}
 function renderContext(){
  let c=document.getElementById("context");
- if(!battle){if(!/RENCONTRE/.test(c.textContent||""))c.style.display="none";return}
+ if(!battle){
+   if(c.dataset.mode!=="dialogue") c.style.display="none";
+   return
+ }
  c.style.display="block";c.innerHTML=`<b>⚔ ${enemy.name}</b> · PV ${enemy.hp}/${enemy.maxhp}<div class=actions><button onclick=attack()>ATTAQUER</button><button onclick=defend()>DÉFENDRE</button><button onclick=combatItem()>OBJET</button><button onclick=flee()>FUIR</button></div>`
 }
 function attack(){let bonus=player.equip.arme==="Vieux revolver"?2:0,d=player.atk+bonus+R(4);enemy.hp-=d;log("Attaque : "+d+" dégâts.");if(enemy.hp<=0)win();else enemyTurn();render()}
@@ -258,7 +275,7 @@ function win(){battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.");render()}
 
 document.getElementById("up").onclick=()=>move(0,-1);document.getElementById("down").onclick=()=>move(0,1);document.getElementById("left").onclick=()=>move(-1,0);document.getElementById("right").onclick=()=>move(1,0);document.getElementById("center").onclick=investigate;document.getElementById("actionBtn").onclick=investigate;
-document.getElementById("menuBtn").onclick=()=>document.getElementById("mainMenu").classList.add("open");
+document.getElementById("menuBtn").onclick=()=>{closeDialogue();document.getElementById("mainMenu").classList.add("open")};
 
 function modal(html){document.getElementById("sheetContent").innerHTML=html;document.getElementById("modal").classList.add("open")}
 function openCharacter(){document.getElementById("mainMenu").classList.remove("open");let c=player.char;modal(`<h2>👤 ${c.name}</h2><p>${c.sex} · <b>${c.job}</b> · Trait : <b>${c.trait}</b></p><p>Total compétences : <b>400 points</b></p><div class=skills>${Object.entries(c.skills).map(([s,v])=>`<div class=skill><span>${s}</span><b>${v}</b><div class=bar><i style="width:${v}%"></i></div></div>`).join("")}</div>`)}
