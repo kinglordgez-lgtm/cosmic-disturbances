@@ -198,6 +198,22 @@ header{left:18px!important}
 }
 </style>
 
+
+<style id="combat-visibility-0911">
+#context{
+ position:fixed!important;
+ left:50%!important;
+ bottom:max(12px,env(safe-area-inset-bottom))!important;
+ transform:translateX(-50%)!important;
+ z-index:900!important;
+ width:min(46vw,650px)!important;
+ max-height:32dvh!important;
+ overflow:auto!important;
+ box-shadow:0 8px 30px #000c!important;
+}
+#context .actions button{touch-action:manipulation!important}
+#actionBtn.combatMode{background:#4d2028!important;border-color:#a35e69!important}
+</style>
 </head>
 <body>
 <div id="game">
@@ -313,7 +329,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.9.10 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.9.11 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -372,7 +388,11 @@ function resolveTile(){
 
 
 function move(dx,dy){
- if(battle)return;
+ if(battle){
+   toast("Combat en cours — attaquez ou fuyez");
+   renderContext();
+   return
+ }
  try{
    const nx=px+dx,ny=py+dy;
    if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){
@@ -478,9 +498,25 @@ function loot(){
 
 function spawnEnemy(){let names=Object.keys(creatures),name=names[R(names.length)],b=creatures[name];codex[name]=true;enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),x:px,y:py};battle=true;log("☠ "+name+" surgit.")}
 function renderContext(){
- let c=document.getElementById("context");
- if(!battle){c.style.display="none";return}
- c.style.display="block";c.innerHTML=`<b>⚔ ${enemy.name}</b> · PV ${enemy.hp}/${enemy.maxhp}<div class=actions><button onclick=attack()>ATTAQUER</button><button onclick=defend()>DÉFENDRE</button><button onclick=combatItem()>OBJET</button><button onclick=flee()>FUIR</button></div>`
+ const c=document.getElementById("context");
+ const a=document.getElementById("actionBtn");
+ if(!battle){
+   c.style.display="none";
+   c.innerHTML="";
+   a.textContent="ENQUÊTER";
+   a.classList.remove("combatMode");
+   return
+ }
+ a.textContent="ATTAQUER";
+ a.classList.add("combatMode");
+ c.style.display="block";
+ c.innerHTML=`<b>⚔ COMBAT — ${enemy.name}</b> · PV ${enemy.hp}/${enemy.maxhp}
+ <div class=actions>
+   <button onclick="attack()">ATTAQUER</button>
+   <button onclick="defend()">DÉFENDRE</button>
+   <button onclick="combatItem()">OBJET</button>
+   <button onclick="flee()">FUIR</button>
+ </div>`;
 }
 function attack(){let bonus=player.equip.arme==="Vieux revolver"?2:0,d=player.atk+bonus+R(4);enemy.hp-=d;log("Attaque : "+d+" dégâts.");if(enemy.hp<=0)win();else enemyTurn();render()}
 function defend(){player.def+=3;enemyTurn();player.def-=3;render()}
@@ -509,7 +545,10 @@ bindTap("down",()=>move(0,1));
 bindTap("left",()=>move(-1,0));
 bindTap("right",()=>move(1,0));
 bindTap("center",investigate);
-bindTap("actionBtn",investigate);
+bindTap("actionBtn",()=>{
+ if(battle) attack();
+ else investigate();
+});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)render()});
 window.addEventListener("pageshow",()=>render());
 window.addEventListener("orientationchange",()=>setTimeout(render,120));
@@ -562,7 +601,7 @@ window.addEventListener("unhandledrejection",e=>{
 
 
 function validateCore(){
- const required=["move","resolveTile","loot","spawnEnemy","render","investigate"];
+ const required=["move","resolveTile","loot","spawnEnemy","render","investigate","attack","flee","renderContext"];
  const missing=required.filter(n=>typeof window[n]!=="function");
  if(missing.length){
    showRuntimeError("Fonction(s) manquante(s) : "+missing.join(", "));
@@ -572,6 +611,13 @@ function validateCore(){
 }
 window.addEventListener("load",()=>{validateCore();render()});
 
+
+setInterval(()=>{
+ if(battle){
+   const c=document.getElementById("context");
+   if(!c || c.style.display==="none" || !c.innerHTML.trim()) renderContext();
+ }
+},1000);
 </script>
 </body>
 </html>
