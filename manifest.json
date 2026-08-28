@@ -6,13 +6,5 @@
   "orientation": "landscape",
   "background_color": "#05070a",
   "theme_color": "#05070a",
-  "lang": "fr",
-  "icons": [
-    {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ]
+  "lang": "fr"
 }

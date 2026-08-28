@@ -329,7 +329,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.9.11 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.10.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -402,7 +402,8 @@ function move(dx,dy){
    px=nx;py=ny;
    resolveTile();
    if(!battle&&rng()<.10)spawnEnemy();
-   render();
+   cdAtmosphere();
+  render();
  }catch(err){
    console.error(err);
    showRuntimeError(err);
@@ -488,7 +489,7 @@ function investigate(){
 }
 
 function loot(){
- const pool=["Bandage militaire","Sel consacré","Fragment noir","Symbole gravé"];
+ const pool=["Bandage militaire","Sel consacré","Fragment noir","Symbole gravé","Cartouches d'argent","Laudanum trouble","Clé de la morgue","Lentille de Mi-Go"];
  const n=pool[R(pool.length)];
  player.inv.push({n});
  seenItems[n]=true;
@@ -619,5 +620,48 @@ setInterval(()=>{
  }
 },1000);
 </script>
+
+<script id="cd-rpg-0100">
+const CD_RPG = {
+  enemies: [
+    ["Profond des vasières",22,7,1,"feu"],["Goule des caveaux",17,7,0,"lumière"],
+    ["Cultiste de l'Étoile Noire",18,6,1,"psychologie"],["Mi-Go éclaireur",24,8,2,"électricité"],
+    ["Rejeton fongique",16,6,0,"feu"],["Chien de Tindalos",28,9,2,"symbole"]
+  ],
+  loot: ["Bandage militaire","Sel consacré","Fragment noir","Symbole gravé",
+         "Cartouches d'argent","Laudanum trouble","Clé de la morgue","Lentille de Mi-Go"],
+  events: [
+    "Un téléphone sonne dans une maison abandonnée.","Une odeur d'iode envahit soudainement la rue.",
+    "Une silhouette vous observe derrière une fenêtre murée.","Toutes les horloges proches s'arrêtent à la même seconde.",
+    "Des empreintes humides apparaissent devant vous.","Un murmure prononce votre nom depuis une bouche d'égout."
+  ]
+};
+function cdSkillCheck(name,diff=0){
+  const s=(player.skills&&player.skills[name])||45, r=1+Math.floor(Math.random()*100);
+  const ok=r<=Math.max(5,Math.min(95,s-diff));
+  log(`${name} : ${r}/${s} — ${ok?"réussite":"échec"}.`); return ok;
+}
+function cdAtmosphere(){
+  if(typeof battle!=="undefined"&&battle)return;
+  if(Math.random()<0.045){
+    log("ÉVÉNEMENT : "+CD_RPG.events[Math.floor(Math.random()*CD_RPG.events.length)]);
+    if(Math.random()<0.30){player.san=Math.max(0,player.san-1);log("-1 SAN.");}
+  }
+}
+function cdEnsureSkills(){
+  if(player.skills)return;
+  const names=["Investigation","Observation","Armes","Médecine","Psychologie","Occultisme","Érudition","Endurance"];
+  let vals=[50,50,50,50,50,50,50,50];
+  const job=(player.job||player.profession||"").toLowerCase();
+  const b=job.includes("médec")||job.includes("infirm")?[3,1,0,6,2,0,0,4]:
+          job.includes("détect")||job.includes("journal")?[6,5,1,0,4,0,3,1]:
+          job.includes("antiqu")||job.includes("prof")?[3,2,0,0,1,6,6,2]:[4,4,3,2,3,2,2,0];
+  let n=b.reduce((a,x)=>a+x,0); b.forEach((x,i)=>vals[i]+=x);
+  let k=0; while(n>0){let i=k%8;if(b[i]<=2){vals[i]--;n--;}k++;}
+  player.skills={}; names.forEach((x,i)=>player.skills[x]=vals[i]);
+}
+window.addEventListener("load",()=>{try{cdEnsureSkills();log("0.10.0 : couche RPG activée.");render();}catch(e){console.error(e);}});
+</script>
+
 </body>
 </html>
