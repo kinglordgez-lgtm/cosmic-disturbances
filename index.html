@@ -385,10 +385,113 @@ body{touch-action:manipulation}
 }
 </style>
 
+
+<style id="playable-084">
+/* V0.8.4 — gameplay first, no obsolete top menu */
+#app>.panel:nth-of-type(3),
+#app>.panel:nth-of-type(4),
+#app>.panel:nth-of-type(5),
+#app>.panel:nth-of-type(6){
+  display:none!important;
+}
+
+/* Main map: always visible and centered */
+#app>.panel:nth-of-type(2){
+  display:block!important;
+  position:fixed!important;
+  left:50%!important;
+  top:52%!important;
+  transform:translate(-50%,-50%)!important;
+  width:min(64vw,980px)!important;
+  height:min(78dvh,650px)!important;
+  z-index:20!important;
+  margin:0!important;
+  padding:8px!important;
+  background:#0b0e13!important;
+  border:1px solid #3d4553!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+}
+#map{
+  display:grid!important;
+  position:relative!important;
+  width:100%!important;
+  height:100%!important;
+  left:auto!important;top:auto!important;transform:none!important;
+  grid-template-columns:repeat(13,minmax(0,1fr))!important;
+  grid-template-rows:repeat(13,minmax(0,1fr))!important;
+  gap:2px!important;
+  visibility:visible!important;
+  opacity:1!important;
+  z-index:21!important;
+}
+.tile{min-width:0!important;min-height:0!important}
+
+/* Small HUD */
+#app>.stats{
+  position:fixed!important;
+  top:66px!important;left:18px!important;
+  width:min(32vw,470px)!important;
+  max-height:82px!important;
+  overflow:hidden!important;
+  z-index:100!important;
+  background:rgba(17,21,29,.9)!important;
+}
+
+/* Joystick left */
+#joy080{
+  position:fixed!important;
+  left:max(18px,env(safe-area-inset-left))!important;
+  bottom:max(16px,env(safe-area-inset-bottom))!important;
+  z-index:1200!important;
+}
+
+/* One contextual action right */
+#mobileActions{
+  position:fixed!important;
+  right:max(22px,env(safe-area-inset-right))!important;
+  bottom:max(22px,env(safe-area-inset-bottom))!important;
+  z-index:1200!important;
+  display:block!important;
+}
+#mobileActions button{display:none!important}
+#mobileActions .primary{
+  display:block!important;
+  width:96px!important;height:96px!important;
+  border-radius:50%!important;margin:0!important
+}
+
+/* Menu icon only */
+#menu080{
+  position:fixed!important;
+  right:max(18px,env(safe-area-inset-right))!important;
+  top:max(14px,env(safe-area-inset-top))!important;
+  z-index:1500!important;
+}
+
+/* Events/combat overlay over bottom-center, not top */
+#battle,#eventPanel{
+  position:fixed!important;
+  left:50%!important;
+  bottom:14px!important;
+  transform:translateX(-50%)!important;
+  width:min(45vw,640px)!important;
+  max-height:28dvh!important;
+  overflow:auto!important;
+  z-index:1300!important;
+}
+
+/* If browser preserves old controls in DOM, kill them explicitly */
+button[onclick*="waitTurn"],
+button[onclick*="move("]{
+  /* only old in-page controls; joystick buttons have no inline onclick */
+}
+</style>
+
 </head>
 <body>
 <div id="app">
-<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.8.3 · BLACKWATER · SEED <span id="seed">—</span> · PROF. <span id="depth">0</span></div>
+<h1>☄ COSMIC DISTURBANCES</h1><div class="sub">PROTO 0.8.4 · BLACKWATER · SEED <span id="seed">—</span> · PROF. <span id="depth">0</span></div>
 <div class="panel stats" id="stats">Initialisation…</div>
 <div class="panel"><div id="map"></div></div>
 <div class="panel"><div class="controls"><button onclick="move(0,-1)">▲</button><button onclick="interact()">◉ ENQUÊTER</button><button onclick="move(0,1)">▼</button><button onclick="move(-1,0)">◀</button><button onclick="waitTurn()">ATTENDRE</button><button onclick="move(1,0)">▶</button></div><div class="hint">▼ profondeur · ▣ cache · ✦ autel · × piège · ☠ menace</div></div>
@@ -976,6 +1079,49 @@ body{touch-action:manipulation}
   addEventListener("orientationchange",()=>setTimeout(refresh,150));
   addEventListener("resize",()=>setTimeout(refresh,80));
   addEventListener("DOMContentLoaded",()=>setTimeout(refresh,180));
+})();
+</script>
+
+
+<script id="direct-controls-084">
+(function(){
+  function safeMove(dx,dy){
+    try{
+      if(typeof move==="function"){ move(dx,dy); return; }
+    }catch(e){}
+  }
+  function safeInteract(){
+    try{
+      if(typeof interact==="function"){ interact(); return; }
+    }catch(e){}
+  }
+  addEventListener("DOMContentLoaded",()=>{
+    const U=document.getElementById("jU"),D=document.getElementById("jD"),
+          L=document.getElementById("jL"),R=document.getElementById("jR"),
+          C=document.getElementById("jC"),A=document.getElementById("act080");
+    if(U)U.onclick=()=>safeMove(0,-1);
+    if(D)D.onclick=()=>safeMove(0,1);
+    if(L)L.onclick=()=>safeMove(-1,0);
+    if(R)R.onclick=()=>safeMove(1,0);
+    if(C)C.onclick=safeInteract;
+    if(A)A.onclick=safeInteract;
+
+    // remove leftover ATTENDRE mobile action if any
+    [...document.querySelectorAll("#mobileActions button")].forEach(b=>{
+      if(/ATTENDRE/i.test(b.textContent||"")) b.remove();
+    });
+
+    // remove the obsolete visible in-page control panel completely
+    const panels=[...document.querySelectorAll("#app>.panel")];
+    panels.forEach(p=>{
+      const t=(p.textContent||"");
+      if(/ENQUÊTER/.test(t)&&/ATTENDRE/.test(t)&&/[▲▼◀▶]/.test(t) && !p.querySelector("#map")){
+        p.remove();
+      }
+    });
+
+    try{ if(typeof render==="function") render(); }catch(e){}
+  });
 })();
 </script>
 
