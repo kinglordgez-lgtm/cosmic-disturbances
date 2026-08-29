@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.30.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.31.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1812,6 +1812,86 @@ win=function(){
    }else log("TROPHÉE — "+eliteName+" vaincu. +3 XP.");
    render();
  }
+ return r;
+};
+
+
+/* === V0.31.0 : anomalies de profondeur + exploration à risque/récompense === */
+const cd31Anomalies=[
+ {min:1,name:"Brouillard saumâtre",text:"Un brouillard froid avale les repères.",san:1},
+ {min:2,name:"Chant sous les quais",text:"Une mélodie impossible remonte des eaux noires.",san:2},
+ {min:4,name:"Géométrie malade",text:"Les murs semblent changer d'angle lorsque vous détournez les yeux.",san:2},
+ {min:6,name:"Spores inconnues",text:"Une poussière pâle flotte dans l'air immobile.",hp:2},
+ {min:8,name:"Regard extérieur",text:"Quelque chose, très loin derrière le monde, vous remarque.",san:3,myth:1}
+];
+let cd31Steps=0, cd31LastAnomaly=-99;
+function cd31Depth(){return (player&&player.depth)||0}
+function cd31Eligible(){
+ const d=cd31Depth();
+ return cd31Anomalies.filter(a=>d>=a.min);
+}
+function cd31Anomaly(){
+ if(!player||battle||cd31Depth()<1||cd31Steps-cd31LastAnomaly<9||rng()>.10)return;
+ const pool=cd31Eligible(); if(!pool.length)return;
+ const a=pool[R(pool.length)]; cd31LastAnomaly=cd31Steps;
+ if(a.san) player.san=Math.max(0,player.san-a.san);
+ if(a.hp) player.hp=Math.max(1,player.hp-a.hp);
+ if(a.myth) player.myth=Math.min(100,(player.myth||0)+a.myth);
+ log("ANOMALIE — "+a.name+" : "+a.text+
+     (a.san?" -"+a.san+" SAN.":"")+(a.hp?" -"+a.hp+" PV.":"")+(a.myth?" +"+a.myth+"% Mythe.":""));
+ toast("ANOMALIE : "+a.name);
+}
+const cd31OldMove=move;
+move=function(dx,dy){
+ const ox=px,oy=py;
+ const r=cd31OldMove.apply(this,arguments);
+ if(px!==ox||py!==oy){cd31Steps++; try{cd31Anomaly()}catch(e){console.warn("cd31 anomaly",e)}}
+ return r;
+};
+
+/* Investigation gains depth-dependent discoveries, without replacing existing tile logic. */
+const cd31Discoveries=[
+ "Une date est gravée plusieurs fois, avec des décennies d'écart.",
+ "Des traces humides s'arrêtent brutalement au milieu du passage.",
+ "Une odeur d'iode persiste loin de toute eau.",
+ "Les mêmes trois initiales apparaissent sur des pierres d'époques différentes.",
+ "Votre ombre accuse un léger retard.",
+ "Un courant d'air vient d'un mur parfaitement plein.",
+ "Quelqu'un a dessiné Blackwater avec une rue qui n'existe pas.",
+ "Une prière est écrite à l'envers dans une langue que vous comprenez pourtant."
+];
+const cd31OldInvestigate=investigate;
+investigate=function(){
+ const beforeMyth=player&&player.myth;
+ const r=cd31OldInvestigate.apply(this,arguments);
+ if(player&&!battle&&cd31Depth()>=2&&rng()<.16){
+   const clue=cd31Discoveries[R(cd31Discoveries.length)];
+   log("INDICE ÉTRANGE — "+clue);
+   if(rng()<.30){
+     player.myth=Math.min(100,(player.myth||0)+1);
+     log("Votre compréhension de l'inconnu progresse. +1% Mythe.");
+   }
+ }
+ return r;
+};
+
+/* Deep-level pressure: enemies receive a modest, bounded scaling.
+   Existing elites/mini-bosses remain compatible. */
+const cd31OldSpawn=spawnEnemy;
+spawnEnemy=function(){
+ const r=cd31OldSpawn.apply(this,arguments);
+ if(enemy&&battle){
+   const d=cd31Depth();
+   const bonus=Math.min(5,Math.floor(d/2));
+   if(bonus>0&&!enemy.cd31scaled){
+     enemy.cd31scaled=true;
+     enemy.atk=(enemy.atk||1)+Math.floor(bonus/2);
+     const extra=bonus*2;
+     enemy.hp=(enemy.hp||1)+extra;
+     enemy.maxhp=(enemy.maxhp||enemy.hp)+extra;
+   }
+ }
+ renderContext();
  return r;
 };
 
