@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.16.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.17.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -531,15 +531,10 @@ function startQuest(){
 }
 function changeQuest(reason){
  if(!player.quest){startQuest();return}
- const q=player.quest,old=currentQuestStep();
- q.history.push("Échec : "+old.objective+" — "+reason);
- if(q.step<q.steps.length-1){
-   q.step++;log("La piste bifurque : "+reason+". Nouvel objectif : "+currentQuestStep().objective+".");toast("La piste a changé")
- }else{
-   const alt=questTemplates().filter(x=>x.title!==q.title),nq=alt[R(alt.length)];
-   player.quest={...nq,step:0,done:false,history:[`La piste « ${q.title} » s'est refermée.`]};
-   log("Une autre piste s'ouvre : "+player.quest.title+" — "+currentQuestStep().objective+".");toast("Nouvelle piste")
- }
+ if(typeof cd17Branch==="function"&&cd17Branch(reason))return;
+ const q=player.quest,old=currentQuestStep();q.history.push("Échec : "+old.objective+" — "+reason);
+ if(q.step<q.steps.length-1){q.step++;log("La piste bifurque : "+reason+". Nouvel objectif : "+currentQuestStep().objective+".");toast("La piste a changé")}
+ else{const alt=questTemplates().filter(x=>x.title!==q.title),nq=alt[R(alt.length)];player.quest={...nq,step:0,done:false,history:[`La piste « ${q.title} » s'est refermée.`]};log("Une autre piste s'ouvre : "+player.quest.title+" — "+currentQuestStep().objective+".");toast("Nouvelle piste")}
 }
 function advanceQuest(){
  if(!player.quest||player.quest.done)return;
@@ -1088,5 +1083,27 @@ function cd16BossReward(){
 }
 </script>
 
+
+<script id="quest-branches-0170">
+const CD17_BRANCHES={
+"La cloche sous la pierre":[["Suivre les vibrations jusqu'à une cache ▣","Observation","chest"],["Convaincre un témoin de parler ☺","Psychologie","npc"],["Tracer un contre-signe sur l'autel ✦","Occultisme","shrine"]],
+"Le disparu du quai":[["Reconstituer l'itinéraire du disparu !","Investigation","quest"],["Faire parler un docker terrifié ☺","Psychologie","npc"],["Chercher ses effets dans une cache ▣","Observation","chest"]],
+"Les morts ne dorment pas":[["Comparer les blessures d'un nouveau corps ✦","Médecine","shrine"],["Trouver le registre volé ▣","Investigation","chest"],["Questionner celui qui prétend avoir vu les morts ☺","Psychologie","npc"]],
+"Une photographie de demain":[["Retrouver l'angle exact de la photographie !","Observation","quest"],["Interroger une personne présente sur l'image ☺","Psychologie","npc"],["Comparer l'image à un symbole rituel ✦","Occultisme","shrine"]],
+"Le phare éteint":[["Trouver une pièce de rechange ▣","Endurance","chest"],["Identifier qui a saboté le phare ☺","Investigation","npc"],["Déchiffrer les marques laissées sur la lentille !","Érudition","quest"]]
+};
+function cd17Branch(reason){
+ if(!player.quest)return false;const pool=CD17_BRANCHES[player.quest.title]||[];if(!pool.length)return false;
+ const old=currentQuestStep(),b=pool[R(pool.length)],idx=player.quest.step||0;
+ player.quest.steps[idx]={objective:b[0],skill:b[1],target:b[2],branch:true};player.quest.history=player.quest.history||[];
+ player.quest.history.push("Piste abandonnée : "+(old?old.objective:"?")+" — "+reason);
+ log("LA PISTE BIFURQUE : "+b[0]+".");toast("Nouvelle piste");renderQuestTracker();return true
+}
+function cd17ShowHistory(){
+ if(!player.quest){toast("Aucune enquête");return}
+ document.getElementById("overlay").classList.add("show");document.getElementById("overlayTitle").textContent="CARNET D'ENQUÊTE";
+ document.getElementById("overlayBody").innerHTML=`<div class=entry><b>${player.quest.title}</b><br><br>${(player.quest.history||[]).slice(-8).map(x=>"• "+x).join("<br>")||"Aucun événement majeur."}</div>`
+}
+</script>
 </body>
 </html>
