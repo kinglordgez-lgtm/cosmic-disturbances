@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.29.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.30.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1743,6 +1743,77 @@ function cd29DialogueOutcome(choice){
  renderQuestTracker();
  render();
 }
+
+
+/* === V0.30.0 : biomes/profondeurs + mini-boss procéduraux === */
+const cd30Biomes=[
+ {min:0,n:"Rues de Blackwater",desc:"Façades humides, ruelles étroites et lampes vacillantes."},
+ {min:2,n:"Quartier des quais",desc:"L'iode, les entrepôts et le ressac étouffent les bruits de pas."},
+ {min:4,n:"Sous-sols noyés",desc:"La pierre suinte. Des tunnels plus anciens que la ville s'enfoncent sous l'eau."},
+ {min:6,n:"Catacombes cyclopéennes",desc:"Les angles deviennent faux et les inscriptions ne semblent plus humaines."},
+ {min:8,n:"Seuil de l'Indicible",desc:"L'espace lui-même paraît malade. Blackwater n'est peut-être plus au-dessus de vous."}
+];
+function cd30Biome(){
+ const d=(player&&player.depth)||0;
+ let b=cd30Biomes[0];for(const x of cd30Biomes)if(d>=x.min)b=x;return b;
+}
+let cd30LastDepth=-1;
+function cd30AnnounceDepth(){
+ if(!player||player.depth===cd30LastDepth)return;
+ cd30LastDepth=player.depth;
+ const b=cd30Biome();
+ log("ZONE — "+b.n+" : "+b.desc);
+ toast(b.n);
+}
+const cd30OldRender=render;
+render=function(){
+ cd30AnnounceDepth();
+ return cd30OldRender.apply(this,arguments);
+};
+
+/* Elite/mini-boss depth scaling without altering normal combat flow. */
+const cd30Titles=["Abomination","Gardien","Héraut","Dévoreur","Veilleur"];
+function cd30PromoteEnemy(){
+ if(!enemy||enemy.elite||battle!==true)return;
+ const d=(player&&player.depth)||0;
+ if(d<3||rng()>.10)return;
+ const base=enemy.base||enemy.name;
+ enemy.base=base;
+ enemy.elite=true;
+ enemy.name=cd30Titles[R(cd30Titles.length)]+" — "+base;
+ enemy.maxhp=Math.max(enemy.maxhp||enemy.hp,Math.round(enemy.hp*(1.45+d*.04)));
+ enemy.hp=enemy.maxhp;
+ enemy.atk=Math.max(1,(enemy.atk||1)+1+Math.floor(d/4));
+ enemy.weak=enemy.weak||(creatures[base]&&creatures[base].weak);
+ enemy.resist=enemy.resist||(creatures[base]&&creatures[base].resist);
+ log("PRÉSENCE MAJEURE — "+enemy.name+" bloque votre route.");
+ toast("MINI-BOSS");
+}
+const cd30OldSpawn=spawnEnemy;
+spawnEnemy=function(){
+ const r=cd30OldSpawn.apply(this,arguments);
+ try{cd30PromoteEnemy()}catch(e){console.warn("cd30 elite",e)}
+ renderContext();
+ return r;
+};
+
+/* Rewards are additive and safe. */
+const cd30OldWin=win;
+win=function(){
+ const wasElite=!!(enemy&&enemy.elite), eliteName=enemy&&enemy.name;
+ const r=cd30OldWin.apply(this,arguments);
+ if(wasElite&&player){
+   player.xp+=3;
+   if(rng()<.45){
+     const rewards=["Sel consacré","Bandage militaire","Craie rituelle","Cartouches d'argent"];
+     const n=rewards[R(rewards.length)];
+     player.inv.push({n}); if(typeof seenItems!=="undefined")seenItems[n]=true;
+     log("TROPHÉE — "+eliteName+" laisse : "+n+". +3 XP.");
+   }else log("TROPHÉE — "+eliteName+" vaincu. +3 XP.");
+   render();
+ }
+ return r;
+};
 
 </script>
 
