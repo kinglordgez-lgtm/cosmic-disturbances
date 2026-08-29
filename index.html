@@ -396,7 +396,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.18.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.18.5 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -509,7 +509,7 @@ function renderContext(){
  if(!battle){
    c.style.display="none";
    c.innerHTML="";
-   a.textContent=(map&&map[py]&&map[py][px]==="npc")?"PARLER":"ENQUÊTER";
+   a.textContent=(typeof map!=="undefined"&&map[py]&&map[py][px]==="npc")?"PARLER":"ENQUÊTER";
    a.classList.remove("combatMode");
    return
  }
@@ -552,6 +552,34 @@ function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else en
 function win(){
  if(typeof cd16BossReward==="function")cd16BossReward();battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.")}
+
+
+function move(dx,dy){
+ if(battle){
+   toast("Combat en cours — attaquez ou fuyez");
+   renderContext();
+   return
+ }
+ try{
+   const nx=px+dx,ny=py+dy;
+   if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){
+     toast("Passage bloqué");
+     return
+   }
+   px=nx;py=ny;
+   resolveTile();
+   if(!battle&&rng()<.10)spawnEnemy();
+   cdAtmosphere();
+   cd12Tick();
+   if(cd12BossChance())return;
+   if(typeof cd13ZoneEvent==="function")cd13ZoneEvent();
+   if(typeof cd15Event==="function")cd15Event();
+   render();
+ }catch(err){
+   console.error(err);
+   showRuntimeError(err);
+ }
+}
 
 function bindTap(id,fn){
  const el=document.getElementById(id);
