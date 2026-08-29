@@ -273,10 +273,6 @@ header{left:18px!important}
 }
 </style>
 
-<style id="single-close-0211">
-.overlay .panel>.close~.close,
-.overlay .panel .panelHead .close~.close{display:none!important}
-</style>
 </head>
 <body>
 <div id="game">
@@ -511,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.21.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.21.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1214,7 +1210,7 @@ function cd18NpcPanel(){
 function cdOpenPanel(title,body){
  const modal=document.getElementById("modal"),content=document.getElementById("sheetContent");
  if(!modal||!content){toast("Fenêtre de dialogue indisponible");return false}
- content.innerHTML=`<div class="row"><b>${title}</b><button class="close" onclick="closeOverlays()">✕</button></div>${body}`;
+ content.innerHTML=`<div class="row"><b>${title}</b></div>${body}`;
  modal.classList.add("open");
  modal.style.display="flex";
  return true
