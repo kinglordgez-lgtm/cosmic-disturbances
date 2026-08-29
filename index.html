@@ -273,7 +273,11 @@ header{left:18px!important}
 }
 </style>
 
-</head>
+<style>
+.cd34-status{margin-top:7px;padding:7px 9px;border:1px solid rgba(255,255,255,.22);border-radius:7px;background:rgba(0,0,0,.34);font-size:12px;line-height:1.35}
+.cd34-ability{margin-top:5px;font-weight:700}.cd34-event{margin-top:6px;padding:6px 8px;border-left:3px solid currentColor;background:rgba(255,255,255,.08);font-weight:800}
+.cd34-cond{display:inline-block;margin:5px 5px 0 0;padding:3px 6px;border:1px solid rgba(255,255,255,.25);border-radius:999px}
+</style></head>
 <body>
 <div id="game">
 <header><h1>☄ COSMIC DISTURBANCES</h1><div id="sub"></div></header>
@@ -507,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.33.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.34.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2069,6 +2073,38 @@ renderContext=function(){
  }
  return r;
 };
+
+
+/* === V0.34.0 : capacités et états enfin visibles === */
+let cd34LastEvent="",cd34EventTurns=0;
+const cd34AbilityNames={
+"Goule":"🩸 LACÉRATION — peut provoquer Hémorragie","Profond":"🧠 CHANT ABYSSAL — attaque directement la SAN",
+"Mi-Go":"⌬ ANALYSE MI-GO — renforce sa DEF","Chien de Tindalos":"◈ ANGLE IMPOSSIBLE — attaque soudaine",
+"Byakhee":"⚡ CRI STRIDENT — augmente son ATQ","Polype rampant":"🧠 PRESSION PSYCHIQUE — attaque la SAN",
+"Veilleur sans visage":"👁 ANTICIPATION — réduit votre DEF","Cultiste":"✦ RITUEL NOIR — peut récupérer des PV",
+"Cultiste de Dagon":"✦ RITUEL NOIR — peut récupérer des PV"};
+function cd34Ability(){return cd34AbilityNames[cd32EnemyKey()]||"☠ COMPORTEMENT INCONNU — étudiez la créature"}
+const cd34FinalSpecial=cd32Special;
+cd32Special=function(){const k=cd32EnemyKey(),r=cd34FinalSpecial.apply(this,arguments);if(r){cd34LastEvent=cd34AbilityNames[k]||"CAPACITÉ SPÉCIALE";cd34EventTurns=3}return r}
+function cd34ConditionHtml(){
+ if(!player||!player.conditions||!player.conditions.length)return '<span class="small">Aucun état négatif actif.</span>';
+ return player.conditions.map(c=>{const d=cd33Conditions[c.id]||{name:c.id};const i=c.id==="bleeding"?"🩸":c.id==="shaken"?"🧠":c.id==="marked"?"👁":"⚠";return `<span class="cd34-cond">${i} <b>${d.name}</b> · ${Math.max(0,c.turns)} tour${c.turns>1?"s":""}</span>`}).join("")
+}
+const cd34FinalRenderContext=renderContext;
+renderContext=function(){
+ const r=cd34FinalRenderContext.apply(this,arguments);if(!battle||!enemy)return r;
+ const el=document.getElementById("context");if(!el)return r;
+ const old=document.getElementById("cd34CombatInfo");if(old)old.remove();
+ const box=document.createElement("div");box.id="cd34CombatInfo";box.className="cd34-status";
+ box.innerHTML=`<div><b>CAPACITÉ DE LA CRÉATURE</b></div><div class="cd34-ability">${cd34Ability()}</div>
+ <div style="margin-top:6px"><b>ÉTATS DU PERSONNAGE</b></div><div>${cd34ConditionHtml()}</div>
+ ${cd34EventTurns>0?`<div class="cd34-event">⚠ ACTIVATION : ${cd34LastEvent}</div>`:""}`;
+ el.appendChild(box);return r
+};
+const cd34FinalAttack=attack;
+attack=function(){const r=cd34FinalAttack.apply(this,arguments);if(cd34EventTurns>0)cd34EventTurns--;renderContext();return r};
+const cd34FinalDefend=defend;
+defend=function(){const r=cd34FinalDefend.apply(this,arguments);if(cd34EventTurns>0)cd34EventTurns--;renderContext();return r};
 
 </script>
 
