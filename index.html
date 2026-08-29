@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.39.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.40.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2498,6 +2498,83 @@ function cd39Maybe(){
 }
 const cd39Move=move;
 move=function(dx,dy){const x=px,y=py,r=cd39Move.apply(this,arguments);if(px!==x||py!==y)try{cd39Maybe()}catch(e){console.warn(e)}return r};
+
+
+/* === V0.40.0 : quêtes procédurales à embranchements === */
+const CD40_BRANCHES={
+ npc:[
+  {ok:"Le témoin vous remet une adresse griffonnée.",next:"quest",txt:"Suivre l'adresse indiquée !"},
+  {ok:"Le témoin évoque une cache près des quais.",next:"chest",txt:"Fouiller la cache signalée ▣"}
+ ],
+ quest:[
+  {ok:"Les marques désignent un lieu de culte.",next:"shrine",txt:"Examiner le lieu de culte ✦"},
+  {ok:"La piste mène vers un autre habitant.",next:"npc",txt:"Retrouver le second témoin ☺"}
+ ],
+ chest:[
+  {ok:"Parmi les objets se trouve un symbole inquiétant.",next:"shrine",txt:"Comparer l'objet à l'autel ✦"},
+  {ok:"Une note désigne un témoin encore vivant.",next:"npc",txt:"Interroger le témoin mentionné ☺"}
+ ],
+ shrine:[
+  {ok:"L'autel révèle une dernière marque dans la ville.",next:"quest",txt:"Rejoindre la marque révélée !"},
+  {ok:"Une inscription évoque un objet dissimulé.",next:"chest",txt:"Retrouver l'objet rituel ▣"}
+ ]
+};
+function cd40BranchStep(){
+ if(!player.quest||player.quest.done)return false;
+ const s=currentQuestStep();if(!s)return false;
+ const pool=CD40_BRANCHES[s.target];if(!pool||!pool.length)return false;
+ const b=pool[R(pool.length)];
+ player.quest.history=player.quest.history||[];
+ player.quest.history.push("Bifurcation : "+b.ok);
+ /* Remplace la prochaine étape, sans rallonger indéfiniment une quête. */
+ if((player.quest.step||0)<player.quest.steps.length-1){
+   const next=player.quest.steps[(player.quest.step||0)+1];
+   next.target=b.next;next.objective=b.txt;
+   if(b.next==="npc")next.skill=rng()<.5?"Psychologie":"Investigation";
+   if(b.next==="quest")next.skill=rng()<.5?"Observation":"Érudition";
+   if(b.next==="chest")next.skill=rng()<.5?"Investigation":"Observation";
+   if(b.next==="shrine")next.skill=rng()<.5?"Occultisme":"Érudition";
+   log("CONSÉQUENCE — "+b.ok+" La suite de l'enquête change.");
+   toast("LA QUÊTE BIFURQUE");
+ }
+ return true
+}
+
+/* Une réussite de quête peut maintenant modifier réellement l'étape suivante. */
+const cd40Advance=advanceQuest;
+advanceQuest=function(){
+ const q=player.quest,step=q&&!q.done?currentQuestStep():null;
+ if(q&&step)try{cd40BranchStep()}catch(e){console.warn("cd40 branch",e)}
+ return cd40Advance.apply(this,arguments)
+};
+
+/* Les choix des événements V0.39 laissent aussi une trace dans la quête active. */
+const cd40EventApply=cd39Apply;
+cd39Apply=function(c,ok){
+ if(player.quest&&!player.quest.done){
+   player.quest.history=player.quest.history||[];
+   player.quest.history.push((ok?"Décision réussie : ":"Décision risquée : ")+(cd39Current?cd39Current.name:"rencontre"));
+   if(ok&&c.skill&&rng()<.35){
+     log("PISTE — Cette rencontre éclaire votre enquête actuelle.");
+     player.xp=(player.xp||0)+1;
+   }
+ }
+ return cd40EventApply.apply(this,arguments)
+};
+
+/* Affiche les deux dernières conséquences dans les infos de quête. */
+const cd40Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ const r=cd40Tracker.apply(this,arguments);
+ const box=document.getElementById("questTrackerBody");
+ if(!box||!player.quest||!player.quest.history||!player.quest.history.length)return r;
+ let old=document.getElementById("cd40Consequences");if(old)old.remove();
+ const lines=player.quest.history.slice(-2);
+ const d=document.createElement("div");d.id="cd40Consequences";
+ d.style.cssText="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.16);font-size:11px;opacity:.88";
+ d.innerHTML="<b>CONSÉQUENCES</b><br>"+lines.map(x=>"↳ "+x).join("<br>");
+ box.appendChild(d);return r
+};
 
 </script>
 
