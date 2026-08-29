@@ -367,7 +367,7 @@ function log(s){journal.unshift(s);journal=journal.slice(0,60)}
 function closeOverlays(){document.querySelectorAll(".overlay").forEach(o=>{o.classList.remove("open");o.style.display=""})}
 function newRun(){
  closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
- player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0};
+ player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0,npc:null,status:[]};
  seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();if(typeof cd14GenerateGeometry==='function')cd14GenerateGeometry();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(Math.random()<.35)startQuest();render()
 }
 function generateMap(){
@@ -395,8 +395,9 @@ function initMapDOM(){
  }
 }
 function render(){
+ if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.18.5 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.18.6 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -555,6 +556,10 @@ function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous
 
 
 function move(dx,dy){
+ if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py)||!Array.isArray(map[py])){
+   try{newRun()}catch(e){console.error(e);showRuntimeError(e)}
+   return
+ }
  if(battle){
    toast("Combat en cours — attaquez ou fuyez");
    renderContext();
@@ -562,7 +567,7 @@ function move(dx,dy){
  }
  try{
    const nx=px+dx,ny=py+dy;
-   if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){
+   if(nx<0||ny<0||nx>12||ny>12||!Array.isArray(map[ny])||map[ny][nx]==="wall"){
      toast("Passage bloqué");
      return
    }
@@ -641,7 +646,14 @@ function openQuest(){
 }
 function openJournal(){document.getElementById("mainMenu").classList.remove("open");modal(`<h2>📝 JOURNAL</h2>${journal.map(x=>`<div class=entry>${x}</div>`).join("")}`)}
 
-newRun();
+function bootGame(){
+ try{
+   if(!player||!Array.isArray(map))newRun();
+   else render();
+ }catch(e){console.error(e);showRuntimeError(e)}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bootGame,{once:true});
+else bootGame();
 
 function showRuntimeError(err){
  const p=document.getElementById("runtimeError");
@@ -678,7 +690,7 @@ function validateCore(){
  }
  return true;
 }
-window.addEventListener("load",()=>{validateCore();render()});
+window.addEventListener("load",()=>{validateCore();bootGame()});
 
 
 setInterval(()=>{
