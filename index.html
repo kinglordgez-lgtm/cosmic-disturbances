@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.14.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.15.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -485,6 +485,7 @@ function move(dx,dy){
   cd12Tick();
    if(cd12BossChance())return;
    if(typeof cd13ZoneEvent==="function")cd13ZoneEvent();
+   if(typeof cd15Event==="function")cd15Event();
    render();
  }catch(err){
    console.error(err);
@@ -602,6 +603,7 @@ function investigate(){
  if(rng()<.34)spawnEnemy();
  else if(rng()<.47)loot();
  else{
+   if(typeof cd15SearchRoom==="function"&&rng()<.28){cd15SearchRoom();return}
    const sk=rng()<.5?"Observation":"Investigation";
    if(skillCheck(sk,15)){log("Vous découvrez un détail utile.");if(rng()<.20)cd12Discover();if(rng()<.35)loot()}
    else{player.san=Math.max(0,player.san-1);log("Vous fouillez sans succès. -1 SAN.")}
@@ -643,7 +645,7 @@ function renderContext(){
  c.innerHTML=`<b>⚔ COMBAT — ${enemy.name}</b> · PV ${enemy.hp}/${enemy.maxhp}
  <div class=actions>
    <button onclick="attack()">ATTAQUER</button>
-   <button onclick="defend()">DÉFENDRE</button>
+   <button onclick="defend()">DÉFENDRE</button><button onclick="cd15StudyEnemy()">ÉTUDIER</button>
    <button onclick="combatItem()">OBJET</button>
    <button onclick="flee()">FUIR</button>
  </div>`;
@@ -983,6 +985,64 @@ function cd14GenerateGeometry(){
  cd14PlaceSpecials();
  log("PLAN : "+z+" — architecture spécifique générée.");
 }
+</script>
+
+
+<script id="investigation-0150">
+const CD15_EVENTS=[
+ {t:"Un survivant barricadé vous fait signe.",skill:"Psychologie",ok:"Il révèle un raccourci et vous remet un bandage.",bad:"Il panique et attire quelque chose."},
+ {t:"Des glyphes frais couvrent le sol.",skill:"Occultisme",ok:"Vous comprenez comment neutraliser le signe.",bad:"Le motif s'imprime dans votre mémoire."},
+ {t:"Un corps tient encore une clé dans sa main.",skill:"Médecine",ok:"Vous récupérez l'objet sans déclencher le piège.",bad:"Quelque chose bouge sous le cadavre."},
+ {t:"Une porte a été condamnée de l'intérieur.",skill:"Investigation",ok:"Vous découvrez le mécanisme caché.",bad:"Vos recherches font trop de bruit."},
+ {t:"Une silhouette disparaît au bout du couloir.",skill:"Observation",ok:"Vous remarquez ce qu'elle essayait de vous faire éviter.",bad:"Vous la suivez trop longtemps."},
+ {t:"Le passage est presque effondré.",skill:"Endurance",ok:"Vous forcez le passage et trouvez une cache.",bad:"Les pierres vous blessent."}
+];
+function cd15Event(){
+ if(battle||Math.random()>.055)return;
+ const e=CD15_EVENTS[R(CD15_EVENTS.length)];
+ const ok=skillCheck(e.skill,12);
+ log("RENCONTRE : "+e.t);
+ if(ok){
+   log(e.ok);
+   if(e.skill==="Médecine"||e.skill==="Investigation")loot();
+   else if(e.skill==="Occultisme"){player.myth=Math.min(100,player.myth+1);player.san=Math.min(player.maxsan,player.san+1)}
+   else if(e.skill==="Psychologie"){player.inv.push({n:"Bandage militaire"});seenItems["Bandage militaire"]=true}
+   else if(e.skill==="Observation")player.xp+=2;
+   else player.hp=Math.min(player.maxhp,player.hp+2);
+ }else{
+   log(e.bad);
+   if(e.skill==="Endurance"){player.hp=Math.max(1,player.hp-3)}
+   else if(e.skill==="Occultisme"){player.san=Math.max(0,player.san-3);player.myth=Math.min(100,player.myth+2)}
+   else if(Math.random()<.55)spawnEnemy();
+   else player.san=Math.max(0,player.san-1);
+ }
+ render()
+}
+function cd15SearchRoom(){
+ if(battle)return;
+ const skill=player.skills.Observation>=player.skills.Investigation?"Observation":"Investigation";
+ if(skillCheck(skill,18)){
+   log("FOUILLE : vous trouvez quelque chose qui avait échappé au premier regard.");
+   if(rng()<.55)loot();else{player.xp+=2;log("+2 XP pour la découverte.")}
+ }else{
+   log("FOUILLE : rien d'utile.");
+   if(rng()<.22){player.san=Math.max(0,player.san-1);log("Le silence devient oppressant. -1 SAN.")}
+ }
+ render()
+}
+function cd15StudyEnemy(){
+ if(!battle||!enemy)return;
+ const skill=(enemy.name.includes("Cultiste")?"Psychologie":player.skills.Occultisme>=player.skills.Observation?"Occultisme":"Observation");
+ if(skillCheck(skill,10)){
+   const c=creatures[enemy.name]||enemy;
+   log("ÉTUDE : "+enemy.name+" · faiblesse "+(c.weak||enemy.weak||"?")+" · résistance "+(c.resist||enemy.resist||"?")+".");
+   player.xp+=1;toast("Faiblesse identifiée")
+ }else{
+   player.san=Math.max(0,player.san-1);log("L'observation vous trouble. -1 SAN.");enemyTurn()
+ }
+ render()
+}
+window.addEventListener("load",()=>{try{log("0.15.0 : rencontres à compétences et fouille approfondie actives.");}catch(e){console.error(e)}});
 </script>
 
 </body>
