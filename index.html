@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.24.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.25.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -526,6 +526,8 @@ function render(){
  }
  renderContext();
  renderQuestTracker();
+
+ if(typeof cd25EnterZone==="function")cd25EnterZone();
 }
 function renderQuestTracker(){
  const zn=document.getElementById("zoneNow");if(zn&&typeof cd13Zone==="function")zn.textContent="ZONE · "+cd13Zone().name;
@@ -697,6 +699,7 @@ function move(dx,dy){
    if(typeof cd13ZoneEvent==="function")cd13ZoneEvent();
    if(typeof cd15Event==="function")cd15Event();
    if(typeof cd22SpawnElite==="function"&&cd22SpawnElite())return;
+   if(typeof cd25ZoneEvent==="function")cd25ZoneEvent();
    render();
  }catch(err){
    console.error(err);
@@ -1448,6 +1451,43 @@ function cd24CombatIntel(){
  const key=enemy.base||enemy.name,c=creatures[key]||{};
  const known=(typeof codex!=="undefined"&&codex[key]);
  return `<div style="margin-top:6px;color:var(--muted)">${known?`DOSSIER : faiblesse ${c.weak||enemy.weak||"?"} · résistance ${c.resist||enemy.resist||"?"}`:"DOSSIER : informations insuffisantes — utilisez ÉTUDIER."}</div>`
+}
+</script>
+
+
+<script id="zones-0250">
+const CD25_ZONES=[
+ {name:"Rues noyées",min:0,desc:"Brume saline, pavés humides et maisons condamnées.",san:0},
+ {name:"Catacombes de Blackwater",min:2,desc:"Cryptes effondrées, ossements et passages murés.",san:1},
+ {name:"Égouts cyclopéens",min:4,desc:"Canaux noirs et maçonnerie bien antérieure à la ville.",san:1},
+ {name:"Quartier impossible",min:6,desc:"Les rues se replient selon une géométrie qui refuse l'espace.",san:2},
+ {name:"Seuil abyssal",min:8,desc:"La réalité devient mince. Quelque chose attend derrière.",san:2}
+];
+function cd25Zone(){
+ let z=CD25_ZONES[0];
+ for(const x of CD25_ZONES)if(player.depth>=x.min)z=x;
+ return z
+}
+function cd25EnterZone(){
+ const z=cd25Zone();
+ if(player._cd25zone===z.name)return;
+ player._cd25zone=z.name;
+ log("◆ ZONE : "+z.name+" — "+z.desc);
+ if(z.san&&player.depth>0){player.san=Math.max(0,player.san-z.san);log("L'atmosphère vous atteint. -"+z.san+" SAN.")}
+ toast(z.name)
+}
+function cd25ZoneEvent(){
+ if(battle||rng()>.07)return;
+ const z=cd25Zone().name;
+ const events={
+  "Rues noyées":["Une sirène de navire retentit sous les pavés.","Des fenêtres s'allument dans une maison pourtant murée."],
+  "Catacombes de Blackwater":["Un cercueil porte votre nom gravé récemment.","Une procession invisible passe derrière le mur."],
+  "Égouts cyclopéens":["L'eau remonte à contre-pente.","Des glyphes luisent sous la vase noire."],
+  "Quartier impossible":["Une rue ramène exactement à son propre commencement.","Votre ombre tourne au coin avant vous."],
+  "Seuil abyssal":["Les étoiles semblent visibles sous vos pieds.","Une pulsation immense traverse la pierre."]
+ };
+ const a=events[z]||events["Rues noyées"];
+ log("LIEU : "+a[R(a.length)]);
 }
 </script>
 
