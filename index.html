@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.26.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.26.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -652,14 +652,20 @@ function attack(){
 function defend(){player.def+=3;enemyTurn();player.def-=3;render()}
 function enemyTurn(){let d=Math.max(1,enemy.atk-player.def);player.hp-=d;if(rng()<.3)player.san=Math.max(0,player.san-1);log(enemy.name+" inflige "+d+" dégâts.");if(player.hp<=0)death()}
 function combatItem(){
- let salt=player.inv.findIndex(i=>i.n==="Sel consacré"),band=player.inv.findIndex(i=>i.n==="Bandage militaire");
- if(salt>=0&&creatures[enemy.name].cat==="Mythe"){enemy.hp-=8;player.inv.splice(salt,1);log("Sel consacré : 8 dégâts.");if(enemy.hp<=0)win()}
- else if(band>=0){player.hp=Math.min(player.maxhp,player.hp+8);player.inv.splice(band,1);log("Bandage : +8 PV.");enemyTurn()}
- else toast("Aucun objet utile.");render()
-
- if(player.hp>0&&typeof cd22EliteTurn==="function")cd22EliteTurn();
-
- if(typeof cd24AfterEnemyTurn==="function")cd24AfterEnemyTurn();
+ if(!battle||!enemy)return;
+ const i=player.inv.findIndex(x=>x.n==="Sel consacré");
+ if(i<0){toast("Aucun objet de combat utile");return}
+ const key=enemy.base||enemy.name;
+ const c=creatures[key]||creatures[enemy.name]||enemy;
+ const isMyth=(c.cat==="Mythe"||enemy.elite||["Profond","Mi-Go","Byakhee","Chien de Tindalos","Polype rampant","Veilleur sans visage"].includes(key));
+ const weak=(enemy.weak||c.weak)==="sel";
+ const d=weak?10:(isMyth?8:4);
+ enemy.hp-=d;
+ player.inv.splice(i,1);
+ log("Sel consacré : "+d+" dégâts"+(weak?" (FAIBLESSE)":"")+".");
+ toast(weak?"FAIBLESSE !":"Objet utilisé");
+ if(enemy.hp<=0)win();else enemyTurn();
+ render()
 }
 function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else enemyTurn();render()
  if(player.hp>0&&rng()<.12)cd12AddStatus("Saignement");
@@ -1133,7 +1139,7 @@ function cd16CureInfection(){
  return false
 }
 function cd16BossReward(){
- if(!enemy||!creatures[enemy.name]||creatures[enemy.name].cat!=="Boss")return;
+ if(!enemy||!creatures[enemy.name]||((creatures[enemy.base||enemy.name]||creatures[enemy.name]||enemy).cat)!=="Boss")return;
  player.xp+=8;player.myth=Math.min(100,player.myth+3);
  const rewards=["Amulette d'argent noirci","Idole d'obsidienne","Lentille de Mi-Go","Craie rituelle"];
  const n=rewards[R(rewards.length)];player.inv.push({n});seenItems[n]=true;
