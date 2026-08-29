@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.23.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.24.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -655,6 +655,8 @@ function combatItem(){
  else toast("Aucun objet utile.");render()
 
  if(player.hp>0&&typeof cd22EliteTurn==="function")cd22EliteTurn();
+
+ if(typeof cd24AfterEnemyTurn==="function")cd24AfterEnemyTurn();
 }
 function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else enemyTurn();render()
  if(player.hp>0&&rng()<.12)cd12AddStatus("Saignement");
@@ -663,6 +665,7 @@ function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else en
  if(player.hp>0&&typeof cd16EnemySpecial==="function")cd16EnemySpecial();
 }
 function win(){
+ if(typeof cd24RecordEncounter==="function")cd24RecordEncounter();
  if(typeof cd23RecordKill==="function")cd23RecordKill();
  if(typeof cd22EliteReward==="function")cd22EliteReward();
  if(typeof cd16BossReward==="function")cd16BossReward();battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
@@ -1409,6 +1412,42 @@ function cd23OpenAchievements(){
  document.getElementById("mainMenu")?.classList.remove("open");
  const body=CD23_ACH.map(a=>`<div class=entry>${cd23Stats.ach[a.id]?"✓":"○"} <b>${a.name}</b><br>${a.desc}</div>`).join("");
  modal(`<h2>🏆 SUCCÈS</h2><div class=entry>${Object.keys(cd23Stats.ach).length}/${CD23_ACH.length} débloqués</div>${body}`)
+}
+</script>
+
+
+<script id="combat-depth-0240">
+/* V0.24 — blessures mentales temporaires + adaptation aux rencontres */
+let cd24State={streak:0,last:null};
+
+function cd24AfterEnemyTurn(){
+ if(!battle||!enemy||player.hp<=0)return;
+ if(player.san<=10 && rng()<.16){
+   const effects=[
+    ["PANique",()=>{player.def=Math.max(0,player.def-1);log("PANique : votre garde vacille. -1 DEF pour ce combat.")}],
+    ["VISION",()=>{player.san=Math.max(0,player.san-1);log("VISION : une géométrie impossible vous arrache 1 SAN.")}],
+    ["OBSESSION",()=>{player.myth=Math.min(100,(player.myth||0)+1);log("OBSESSION : +1% Mythe.")}]
+   ];
+   const e=effects[R(effects.length)]; e[1](); toast(e[0])
+ }
+}
+
+function cd24RecordEncounter(){
+ if(!enemy)return;
+ const k=enemy.base||enemy.name;
+ if(cd24State.last===k)cd24State.streak++;else{cd24State.last=k;cd24State.streak=1}
+ if(cd24State.streak>=3){
+   player.xp+=1;
+   log("ADAPTATION : après plusieurs rencontres avec "+k+", vous anticipez mieux ses gestes. +1 XP.");
+   cd24State.streak=0;
+ }
+}
+
+function cd24CombatIntel(){
+ if(!battle||!enemy)return "";
+ const key=enemy.base||enemy.name,c=creatures[key]||{};
+ const known=(typeof codex!=="undefined"&&codex[key]);
+ return `<div style="margin-top:6px;color:var(--muted)">${known?`DOSSIER : faiblesse ${c.weak||enemy.weak||"?"} · résistance ${c.resist||enemy.resist||"?"}`:"DOSSIER : informations insuffisantes — utilisez ÉTUDIER."}</div>`
 }
 </script>
 
