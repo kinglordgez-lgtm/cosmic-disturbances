@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.23.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.23.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1062,7 +1062,7 @@ function cd15Event(){
 }
 function cd15SearchRoom(){
  if(battle)return;
- const skill=player.skills.Observation>=player.skills.Investigation?"Observation":"Investigation";
+ const skill=player.char.skills.Observation>=player.char.skills.Investigation?"Observation":"Investigation";
  if(skillCheck(skill,18)){
    log("FOUILLE : vous trouvez quelque chose qui avait échappé au premier regard.");
    if(rng()<.55)loot();else{player.xp+=2;log("+2 XP pour la découverte.")}
@@ -1074,13 +1074,20 @@ function cd15SearchRoom(){
 }
 function cd15StudyEnemy(){
  if(!battle||!enemy)return;
- const skill=(enemy.name.includes("Cultiste")?"Psychologie":player.skills.Occultisme>=player.skills.Observation?"Occultisme":"Observation");
+ const skills=(player&&player.char&&player.char.skills)?player.char.skills:{};
+ const occult=skills.Occultisme||0,obs=skills.Observation||0;
+ const skill=enemy.name.includes("Cultiste")?"Psychologie":(occult>=obs?"Occultisme":"Observation");
  if(skillCheck(skill,10)){
-   const c=creatures[enemy.name]||enemy;
+   const key=enemy.base||enemy.name;
+   const c=creatures[key]||creatures[enemy.name]||enemy;
    log("ÉTUDE : "+enemy.name+" · faiblesse "+(c.weak||enemy.weak||"?")+" · résistance "+(c.resist||enemy.resist||"?")+".");
-   player.xp+=1;toast("Faiblesse identifiée")
+   player.xp+=1;
+   if(typeof codex!=="undefined")codex[key]=true;
+   toast("Faiblesse identifiée")
  }else{
-   player.san=Math.max(0,player.san-1);log("L'observation vous trouble. -1 SAN.");enemyTurn()
+   player.san=Math.max(0,player.san-1);
+   log("L'observation vous trouble. -1 SAN.");
+   enemyTurn()
  }
  render()
 }
