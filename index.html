@@ -377,7 +377,7 @@ function makeCharacter(){
 function newRun(){
  closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
  player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0};
- seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(Math.random()<.35)startQuest();render()
+ seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();if(typeof cd14GenerateGeometry==='function')cd14GenerateGeometry();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(Math.random()<.35)startQuest();render()
 }
 function generateMap(){
  map=Array.from({length:13},()=>Array(13).fill("wall"));let x=6,y=6;map[y][x]="floor";
@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.13.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.14.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -460,6 +460,7 @@ function resolveTile(){
    player.depth++;
    log("Vous descendez au niveau "+player.depth+".");
    generateMap();
+   if(typeof cd14GenerateGeometry==="function")cd14GenerateGeometry();
    if(typeof cd13Zone==="function")log("ZONE : "+cd13Zone().name+".");
  }
 }
@@ -918,6 +919,70 @@ function cd13PickEnemy(){
  return names[Math.floor(Math.random()*names.length)]
 }
 window.addEventListener("load",()=>{try{log("ZONE : "+cd13Zone().name+".")}catch(e){console.error(e)}});
+</script>
+
+
+<script id="geometry-0140">
+function cd14Inside(x,y){return x>0&&y>0&&x<12&&y<12}
+function cd14Floor(x,y){if(cd14Inside(x,y))map[y][x]="floor"}
+function cd14Wall(x,y){if(cd14Inside(x,y))map[y][x]="wall"}
+function cd14Room(x0,y0,x1,y1){
+ for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)cd14Floor(x,y)
+}
+function cd14Corridor(x0,y0,x1,y1){
+ let x=x0,y=y0;cd14Floor(x,y);
+ while(x!==x1){x+=x<x1?1:-1;cd14Floor(x,y)}
+ while(y!==y1){y+=y<y1?1:-1;cd14Floor(x,y)}
+}
+function cd14FindFloor(){
+ const a=[];for(let y=1;y<12;y++)for(let x=1;x<12;x++)if(map[y][x]==="floor")a.push([x,y]);
+ return a
+}
+function cd14PlaceSpecials(){
+ let a=cd14FindFloor().filter(([x,y])=>!(x===px&&y===py));
+ const take=(type,n)=>{for(let k=0;k<n&&a.length;k++){let i=R(a.length),p=a.splice(i,1)[0];map[p[1]][p[0]]=type}};
+ take("exit",1);take("npc",2);take("quest",2);take("chest",2);take("shrine",1);take("trap",2);
+}
+function cd14GenerateGeometry(){
+ if(!window.map||!Array.isArray(map)||map.length<13)return;
+ const z=(typeof cd13Zone==="function"?cd13Zone().name:"Rues noyées de Blackwater");
+ for(let y=0;y<13;y++)for(let x=0;x<13;x++)map[y][x]="wall";
+
+ if(z.includes("Rues")){
+   cd14Room(2,2,5,5);cd14Room(7,2,10,4);cd14Room(3,7,6,10);cd14Room(8,7,11,10);
+   cd14Corridor(4,4,8,3);cd14Corridor(4,5,4,8);cd14Corridor(6,8,9,8);
+ }else if(z.includes("Égouts")){
+   cd14Corridor(1,2,11,2);cd14Corridor(2,2,2,10);cd14Corridor(2,6,10,6);cd14Corridor(10,3,10,10);cd14Corridor(4,10,10,10);
+   cd14Room(5,5,7,7);
+ }else if(z.includes("Crypte")){
+   cd14Room(4,4,8,8);
+   cd14Room(1,1,3,3);cd14Room(9,1,11,3);cd14Room(1,9,3,11);cd14Room(9,9,11,11);
+   cd14Corridor(3,2,5,4);cd14Corridor(10,3,8,5);cd14Corridor(3,10,5,8);cd14Corridor(10,9,8,7);
+ }else if(z.includes("Entrepôts")){
+   cd14Room(1,2,5,5);cd14Room(7,2,11,5);cd14Room(1,7,5,10);cd14Room(7,7,11,10);
+   cd14Corridor(5,3,7,3);cd14Corridor(3,5,3,7);cd14Corridor(9,5,9,7);cd14Corridor(5,9,7,9);
+ }else if(z.includes("Sanatorium")){
+   cd14Corridor(6,1,6,11);cd14Corridor(1,6,11,6);
+   for(let y of [2,4,8,10]){cd14Room(2,y,4,y+1);cd14Room(8,y,10,y+1);cd14Corridor(4,y,6,y);cd14Corridor(6,y,8,y)}
+ }else if(z.includes("Galeries")){
+   cd14Room(5,5,7,7);
+   cd14Corridor(6,1,6,5);cd14Corridor(6,7,6,11);cd14Corridor(1,6,5,6);cd14Corridor(7,6,11,6);
+   cd14Room(1,1,3,3);cd14Room(9,1,11,3);cd14Room(1,9,3,11);cd14Room(9,9,11,11);
+   cd14Corridor(3,3,5,5);cd14Corridor(9,3,7,5);cd14Corridor(3,9,5,7);cd14Corridor(9,9,7,7);
+ }else if(z.includes("Grottes")){
+   let x=6,y=6;cd14Floor(x,y);
+   for(let i=0;i<150;i++){x=Math.max(1,Math.min(11,x+(R(3)-1)));y=Math.max(1,Math.min(11,y+(R(3)-1)));cd14Floor(x,y);if(rng()<.35){cd14Floor(x+1,y);cd14Floor(x,y+1)}}
+ }else{
+   cd14Room(2,2,10,10);
+   for(let x=4;x<=8;x+=4)for(let y=2;y<=10;y++)if(y!==6)cd14Wall(x,y);
+   for(let y=4;y<=8;y+=4)for(let x=2;x<=10;x++)if(x!==6)cd14Wall(x,y);
+   cd14Corridor(6,2,6,10);cd14Corridor(2,6,10,6);
+ }
+ let floors=cd14FindFloor();if(!floors.length){cd14Room(4,4,8,8);floors=cd14FindFloor()}
+ const p=floors[R(floors.length)];px=p[0];py=p[1];map[py][px]="floor";
+ cd14PlaceSpecials();
+ log("PLAN : "+z+" — architecture spécifique générée.");
+}
 </script>
 
 </body>
