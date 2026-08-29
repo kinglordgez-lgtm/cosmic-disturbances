@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.12.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.13.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -426,6 +426,7 @@ function render(){
  renderQuestTracker();
 }
 function renderQuestTracker(){
+ const zn=document.getElementById("zoneNow");if(zn&&typeof cd13Zone==="function")zn.textContent="ZONE · "+cd13Zone().name;
  const box=document.getElementById("questTrackerBody"); if(!box)return;
  let qhtml="";
  if(player.quest){
@@ -459,6 +460,7 @@ function resolveTile(){
    player.depth++;
    log("Vous descendez au niveau "+player.depth+".");
    generateMap();
+   if(typeof cd13Zone==="function")log("ZONE : "+cd13Zone().name+".");
  }
 }
 
@@ -481,6 +483,7 @@ function move(dx,dy){
    cdAtmosphere();
   cd12Tick();
    if(cd12BossChance())return;
+   if(typeof cd13ZoneEvent==="function")cd13ZoneEvent();
    render();
  }catch(err){
    console.error(err);
@@ -614,12 +617,14 @@ function loot(){
 }
 
 function spawnEnemy(){
- const names=Object.keys(creatures);
- let name=names[R(names.length)];
- if(player.depth>=2&&rng()<.45){const hard=["Mi-Go","Byakhee","Chien de Tindalos","Polype rampant","Veilleur sans visage"];name=hard[R(hard.length)]}
+ let name=typeof cd13PickEnemy==="function"?cd13PickEnemy():Object.keys(creatures)[R(Object.keys(creatures).length)];
+ if(player.depth>=2&&rng()<.28){
+   const hard=["Mi-Go","Byakhee","Chien de Tindalos","Polype rampant","Veilleur sans visage"].filter(n=>creatures[n]);
+   if(hard.length)name=hard[R(hard.length)]
+ }
  const b=creatures[name];codex[name]=true;
  enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),def:b.def||0,x:px,y:py,weak:b.weak,resist:b.resist};
- battle=true;log("☠ "+name+" surgit.")
+ battle=true;log("☠ "+name+" surgit dans "+(typeof cd13Zone==="function"?cd13Zone().name:"les ténèbres")+".")
 }
 function renderContext(){
  const c=document.getElementById("context");
@@ -885,6 +890,34 @@ window.addEventListener("load",()=>{
    log("0.12.0 : états, découvertes et présences majeures actifs.");
  }catch(e){console.error(e)}
 });
+</script>
+
+
+<script id="zones-0130">
+const CD13_ZONES=[
+ {name:"Rues noyées de Blackwater",min:1,enemyBias:["Profond","Noyé de Blackwater","Cultiste de Dagon"],event:"Une sirène de navire résonne entre les maisons."},
+ {name:"Égouts cyclopéens",min:2,enemyBias:["Goule","Rejeton fongique","Profond"],event:"Quelque chose nage à contre-courant sous les grilles."},
+ {name:"Crypte inondée",min:3,enemyBias:["Goule","Noyé de Blackwater","Veilleur sans visage"],event:"Une pierre tombale porte votre nom."},
+ {name:"Entrepôts du quai",min:4,enemyBias:["Cultiste","Cultiste de Dagon","Mi-Go"],event:"Des coups viennent d'une caisse clouée de l'intérieur."},
+ {name:"Sanatorium abandonné",min:5,enemyBias:["Veilleur sans visage","Rejeton fongique","Mi-Go"],event:"Un haut-parleur appelle un patient mort depuis trente ans."},
+ {name:"Galeries sous l'église",min:6,enemyBias:["Chien de Tindalos","Cultiste de Dagon","Byakhee"],event:"Les angles des murs semblent se rapprocher."},
+ {name:"Grottes littorales",min:7,enemyBias:["Profond","Byakhee","Polype rampant"],event:"La marée monte sans que l'eau ne bouge."},
+ {name:"Laboratoire clandestin",min:8,enemyBias:["Mi-Go","Rejeton fongique","Veilleur sans visage"],event:"Une machine imprime votre rythme cardiaque avant votre arrivée."}
+];
+function cd13Zone(){let z=CD13_ZONES[0],d=Math.max(1,player.depth||1);for(const q of CD13_ZONES)if(d>=q.min)z=q;return z}
+function cd13ZoneEvent(){
+ if(!battle&&Math.random()<.07){
+  const z=cd13Zone();log("ZONE : "+z.event);
+  if(Math.random()<.25){player.san=Math.max(0,player.san-1);log("-1 SAN.")}
+ }
+}
+function cd13PickEnemy(){
+ const z=cd13Zone(),pool=z.enemyBias.filter(n=>creatures[n]);
+ if(pool.length&&Math.random()<.72)return pool[Math.floor(Math.random()*pool.length)];
+ const names=Object.keys(creatures).filter(n=>creatures[n].cat!=="Boss");
+ return names[Math.floor(Math.random()*names.length)]
+}
+window.addEventListener("load",()=>{try{log("ZONE : "+cd13Zone().name+".")}catch(e){console.error(e)}});
 </script>
 
 </body>
