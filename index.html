@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.40.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.41.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2574,6 +2574,71 @@ renderQuestTracker=function(){
  d.style.cssText="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.16);font-size:11px;opacity:.88";
  d.innerHTML="<b>CONSÉQUENCES</b><br>"+lines.map(x=>"↳ "+x).join("<br>");
  box.appendChild(d);return r
+};
+
+
+/* === V0.41.0 : réputation locale et mémoire des PNJ === */
+if(player&&!player.reputation)player.reputation={town:0,occult:0};
+function cd41Rep(){if(!player.reputation)player.reputation={town:0,occult:0};return player.reputation}
+function cd41RepName(){
+ const r=cd41Rep().town;
+ return r>=4?"Connu et apprécié":r>=1?"Plutôt fiable":r<=-4?"Redouté":r<=-1?"Suspect":"Inconnu"
+}
+function cd41Change(town=0,occult=0,why=""){
+ const r=cd41Rep();r.town+=town;r.occult+=occult;
+ if(town||occult)log("RÉPUTATION — "+(why||"Vos actes circulent à Blackwater")+
+   (town?` · habitants ${town>0?"+":""}${town}`:"")+(occult?` · occultisme ${occult>0?"+":""}${occult}`:""));
+}
+
+/* Les choix PNJ modifient désormais la réputation. */
+const cd41Talk=cd18Talk;
+cd18Talk=function(mode){
+ const before=player.npc&&player.npc.trust||0;
+ const r=cd41Talk.apply(this,arguments);
+ const after=player.npc&&player.npc.trust||0;
+ if(mode==="rassurer"&&after>before)cd41Change(1,0,"Votre compassion est remarquée");
+ if(mode==="menacer")cd41Change(-1,0,"Votre brutalité se raconte");
+ if(mode==="questionner"&&after>before&&rng()<.35)cd41Change(1,0,"Votre sérieux inspire confiance");
+ return r
+};
+
+/* Les événements occultes construisent aussi une réputation invisible. */
+const cd41Apply=cd39Apply;
+cd39Apply=function(c,ok){
+ if(ok&&c.skill==="Occultisme")cd41Change(0,1,"Vous manipulez des forces interdites");
+ if(!ok&&c.skill==="Occultisme"&&rng()<.5)cd41Change(0,1,"Quelque chose a remarqué votre tentative");
+ return cd41Apply.apply(this,arguments)
+};
+
+/* Les PNJ réagissent à la réputation lors de l'ouverture du dialogue. */
+const cd41Panel=cd18NpcPanel;
+cd18NpcPanel=function(){
+ const r=cd41Panel.apply(this,arguments);
+ const modal=document.getElementById("sheetContent"),n=player.npc;
+ if(modal&&n&&!document.getElementById("cd41RepNpc")){
+   const rep=cd41Rep(),d=document.createElement("div");d.id="cd41RepNpc";d.className="small";
+   d.style.cssText="margin:7px 0;padding:6px 8px;border-left:3px solid currentColor;background:rgba(255,255,255,.06)";
+   let reaction=rep.town>=3?"On m'a dit que je pouvais vous faire confiance."
+     :rep.town<=-3?"Je sais ce que vous faites aux gens qui refusent de parler."
+     :rep.occult>=3?"Il paraît que vous posez des questions sur des choses qu'il vaut mieux laisser dormir."
+     :"Votre visage ne me dit rien.";
+   d.innerHTML=`<b>RÉPUTATION : ${cd41RepName()}</b><br>${reaction}`;
+   const first=modal.querySelector("p");if(first)first.after(d);else modal.appendChild(d)
+ }
+ return r
+};
+
+/* La feuille de personnage affiche la réputation sans modifier sa structure. */
+const cd41Sheet=showCharacter;
+showCharacter=function(){
+ const r=cd41Sheet.apply(this,arguments),root=document.getElementById("sheetContent");
+ if(root&&!document.getElementById("cd41RepSheet")){
+   const rep=cd41Rep(),d=document.createElement("div");d.id="cd41RepSheet";
+   d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   d.innerHTML=`<b>RÉPUTATION À BLACKWATER</b><br>Habitants : ${rep.town} — ${cd41RepName()}<br>Empreinte occulte : ${rep.occult}`;
+   root.appendChild(d)
+ }
+ return r
 };
 
 </script>
