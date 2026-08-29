@@ -296,7 +296,7 @@ header{left:18px!important}
 <button onclick="openGuide()">📚 GUIDE OBJETS</button><button onclick="openAchievements()">🏆 SUCCÈS</button><button onclick="openQuest()">❗ QUÊTE</button>
 <button onclick="newRun()">☠ NOUVELLE RÉALITÉ</button>
 </div></div></div>
-<div id="modal" class="overlay"><div class="sheet" id="sheet"><button class="close" data-close="modal">✕</button><div id="sheetContent"></div></div></div>
+<div id="modal" class="overlay"><div class="sheet" id="sheet"><button class="close" type="button" onclick="closeOverlays()">✕</button><div id="sheetContent"></div></div></div>
 <div id="toast"></div>
 
 <div id="runtimeError" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(80vw,720px);background:#28151a;border:1px solid #9b5964;border-radius:14px;padding:14px;color:#fff;font-family:monospace">
@@ -364,15 +364,12 @@ function mulberry(a){return()=>{let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^
 function R(n){return Math.floor(rng()*n)}
 function toast(s){let t=document.getElementById("toast");t.textContent=s;t.style.display="block";clearTimeout(t._x);t._x=setTimeout(()=>t.style.display="none",1500)}
 function log(s){journal.unshift(s);journal=journal.slice(0,60)}
-function closeOverlays(){document.querySelectorAll(".overlay").forEach(o=>{o.classList.remove("open");o.style.display=""})}
-
-
-
-/* CORE RESTAURÉ DEPUIS V0.17 STABLE */
-function skillCheck(skill,difficulty){
- const v=player.char.skills[skill]||0, target=Math.max(5,Math.min(95,v-difficulty));
- const roll=Math.floor(Math.random()*100)+1, ok=roll<=target;
- log(`${skill} : ${roll}/${target} ${ok?"✓":"✗"}`);return ok
+function closeOverlays(){
+ document.querySelectorAll(".overlay").forEach(o=>{
+   o.classList.remove("open");
+   o.style.display="";
+ });
+ document.getElementById("mainMenu")?.classList.remove("open");
 }
 
 function questTemplates(){return[
@@ -504,7 +501,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.18.8 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.18.9 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -755,7 +752,7 @@ function openJournal(){document.getElementById("mainMenu").classList.remove("ope
 
 function bootGame(){
  try{
-   const must=["makeCharacter","newRun","generateMap","move","render","resolveTile","investigate","skillCheck","questTemplates","currentQuestStep","startQuest","changeQuest","advanceQuest","completeQuest"];
+   const must=["makeCharacter","newRun","generateMap","move","render","resolveTile","investigate","skillCheck","questTemplates","currentQuestStep","startQuest","changeQuest","advanceQuest","completeQuest","closeOverlays"];
    const missing=must.filter(n=>typeof window[n]!=="function");
    if(missing.length)throw new Error("Fonction(s) critique(s) manquante(s) : "+missing.join(", "));
    if(!player||!Array.isArray(map))newRun(); else render();
@@ -1190,6 +1187,27 @@ function cdOpenPanel(title,body){
  modal.classList.add("open");
  modal.style.display="flex";
  return true
+}
+</script>
+
+
+<script id="quest-core-0189">
+if(typeof window.currentQuestStep!=="function"){
+ window.currentQuestStep=function(){
+   if(!player||!player.quest||player.quest.done)return null;
+   return player.quest.steps[player.quest.step||0]||null;
+ };
+}
+if(typeof window.startQuest!=="function"){
+ window.startQuest=function(){
+   const list=(typeof questTemplates==="function"?questTemplates():[]);
+   if(!list.length){toast("Aucune quête disponible");return}
+   const q=list[R(list.length)];
+   player.quest={...q,step:0,done:false,history:[]};
+   log("Quête : "+q.title+" — "+currentQuestStep().objective+".");
+   toast("Nouvelle quête");
+   renderQuestTracker();
+ };
 }
 </script>
 
