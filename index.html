@@ -396,7 +396,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.18.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.18.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -429,10 +429,6 @@ function renderQuestTracker(){
  box.innerHTML=qhtml+`<div class="qtRecent">${recent}</div>`
 }
 function resolveTile(){
- if(t==="npc"){
-   if(typeof cd18NpcPanel==="function"){cd18NpcPanel();return}
- }
-
  const t=map[py][px];
  if(t==="trap"){
    map[py][px]="floor";
@@ -460,119 +456,6 @@ function resolveTile(){
  }
 }
 
-
-function move(dx,dy){
- if(player.npc)player.npc=null;
- if(battle){
-   toast("Combat en cours — attaquez ou fuyez");
-   renderContext();
-   return
- }
- try{
-   const nx=px+dx,ny=py+dy;
-   if(nx<0||ny<0||nx>12||ny>12||map[ny][nx]==="wall"){
-     toast("Passage bloqué");
-     return
-   }
-   px=nx;py=ny;
-   resolveTile();
-   if(!battle&&rng()<.10)spawnEnemy();
-   cdAtmosphere();
-  cd12Tick();
-   if(cd12BossChance())return;
-   if(typeof cd13ZoneEvent==="function")cd13ZoneEvent();
-   if(typeof cd15Event==="function")cd15Event();
-   render();
- }catch(err){
-   console.error(err);
-   showRuntimeError(err);
- }
-}
-
-function skillCheck(skill,difficulty){
- const v=player.char.skills[skill]||0, target=Math.max(5,Math.min(95,v-difficulty));
- const roll=Math.floor(Math.random()*100)+1, ok=roll<=target;
- log(`${skill} : ${roll}/${target} ${ok?"✓":"✗"}`);return ok
-}
-function questTemplates(){return[
- {title:"La cloche sous la pierre",desc:"Un son de cloche vient de sous Blackwater.",reward:"Fragment noir",steps:[
-  {objective:"Parler à un habitant ☺",target:"npc",skill:"Psychologie"},
-  {objective:"Étudier le symbole marqué !",target:"quest",skill:"Érudition"},
-  {objective:"Interroger l'autel impossible ✦",target:"shrine",skill:"Occultisme"}]},
- {title:"Le disparu du quai",desc:"Un docker a disparu après avoir parlé d'yeux dans l'eau.",reward:"Bandage militaire",steps:[
-  {objective:"Questionner un habitant ☺",target:"npc",skill:"Investigation"},
-  {objective:"Chercher une trace dans une cache ▣",target:"chest",skill:"Observation"},
-  {objective:"Étudier le symbole marqué !",target:"quest",skill:"Investigation"}]},
- {title:"Les morts ne dorment pas",desc:"Le registre de la morgue comporte un nom écrit demain.",reward:"Clé de la morgue",steps:[
-  {objective:"Obtenir un témoignage ☺",target:"npc",skill:"Psychologie"},
-  {objective:"Fouiller une cache ▣",target:"chest",skill:"Investigation"},
-  {objective:"Examiner l'autel ✦",target:"shrine",skill:"Médecine"}]},
- {title:"Une photographie de demain",desc:"Une image montre Blackwater après un événement qui n'a pas encore eu lieu.",reward:"Photographie impossible",steps:[
-  {objective:"Trouver un témoin ☺",target:"npc",skill:"Observation"},
-  {objective:"Comparer le lieu marqué !",target:"quest",skill:"Observation"},
-  {objective:"Décider ce que signifie l'autel ✦",target:"shrine",skill:"Occultisme"}]},
- {title:"Le phare éteint",desc:"Une lumière semble briller sous la ville plutôt qu'au-dessus de la mer.",reward:"Lentille de Mi-Go",steps:[
-  {objective:"Recueillir une rumeur ☺",target:"npc",skill:"Investigation"},
-  {objective:"Récupérer du matériel dans une cache ▣",target:"chest",skill:"Endurance"},
-  {objective:"Déchiffrer le signe !",target:"quest",skill:"Érudition"}]}
-]}
-function currentQuestStep(){
- if(!player.quest||player.quest.done)return null;
- return player.quest.steps[player.quest.step||0]||null
-}
-function startQuest(){
- const q=questTemplates()[R(questTemplates().length)];
- player.quest={...q,step:0,done:false,history:[]};
- log("Quête : "+q.title+" — "+currentQuestStep().objective+".");toast("Nouvelle quête")
-}
-function changeQuest(reason){
- if(!player.quest){startQuest();return}
- if(typeof cd17Branch==="function"&&cd17Branch(reason))return;
- const q=player.quest,old=currentQuestStep();q.history.push("Échec : "+old.objective+" — "+reason);
- if(q.step<q.steps.length-1){q.step++;log("La piste bifurque : "+reason+". Nouvel objectif : "+currentQuestStep().objective+".");toast("La piste a changé")}
- else{const alt=questTemplates().filter(x=>x.title!==q.title),nq=alt[R(alt.length)];player.quest={...nq,step:0,done:false,history:[`La piste « ${q.title} » s'est refermée.`]};log("Une autre piste s'ouvre : "+player.quest.title+" — "+currentQuestStep().objective+".");toast("Nouvelle piste")}
-}
-function advanceQuest(){
- if(!player.quest||player.quest.done)return;
- const q=player.quest,s=currentQuestStep();
- q.history.push("Réussi : "+s.objective);
- if(q.step<q.steps.length-1){q.step++;log("Objectif accompli. Nouvelle étape : "+currentQuestStep().objective+".");toast("Quête mise à jour")}
- else completeQuest()
-}
-function completeQuest(){
- if(!player.quest||player.quest.done)return;
- player.quest.done=true;player.xp+=7;player.reputation++;
- player.inv.push({n:player.quest.reward});seenItems[player.quest.reward]=true;
- log("Quête accomplie : "+player.quest.title+". Récompense : "+player.quest.reward+". +7 XP.");toast("Quête accomplie");
- if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}
-}
-function npcEncounter(){
- const c=player.char;
- const lines=[
-  `Un vieil homme fixe ${c.name}. « Vous avez déjà été ici. »`,
-  `Une femme trempée demande : « Vous entendez aussi la cloche ? »`,
-  `Un policier murmure : « N'allez pas plus bas. »`
- ];
- const text=lines[R(lines.length)];
- modal(`<h2>☺ RENCONTRE</h2><p>${text}</p><div class="choiceGrid">
- <button onclick="npcChoice('questionner')">QUESTIONNER</button>
- <button onclick="npcChoice('rassurer')">RASSURER</button>
- <button onclick="npcChoice('menacer')">MENACER</button>
- <button onclick="closeModalOnly()">PARTIR</button></div>`)
-}
-function closeModalOnly(){document.getElementById("modal").classList.remove("open")}
-function npcChoice(choice){
- const skill=choice==="questionner"?"Investigation":choice==="rassurer"?"Psychologie":"Armes";
- const ok=skillCheck(skill,15);
- if(ok){
-   player.san=Math.min(player.maxsan,player.san+1);player.reputation++;log("Le PNJ vous confie un indice.");
-   if(!player.quest||player.quest.done)startQuest();else if(currentQuestStep()&&currentQuestStep().target==="npc")advanceQuest()
- }else{
-   player.san=Math.max(0,player.san-2);player.reputation--;log("La discussion tourne mal. -2 SAN.");
-   if(player.quest&&!player.quest.done)changeQuest("votre interlocuteur refuse cette approche");else startQuest()
- }
- closeModalOnly();render()
-}
 function investigate(){
  if(battle)return;
  const t=map[py][px],step=currentQuestStep();
@@ -1117,6 +1000,7 @@ function cd18NPC(){
  return {name:CD18_NAMES[R(CD18_NAMES.length)],role:CD18_ROLES[R(CD18_ROLES.length)],mood:CD18_MOODS[R(CD18_MOODS.length)],trust:R(3)-1,rumor:CD18_RUMORS[R(CD18_RUMORS.length)]}
 }
 function cd18Talk(mode){
+ if(typeof player==="undefined"||!player){toast("Personnage non initialisé");return}
  if(!player.npc)player.npc=cd18NPC();const n=player.npc;
  let sk="Psychologie",dc=13;
  if(mode==="questionner"){sk="Investigation";dc=13}
@@ -1141,6 +1025,7 @@ function cd18Talk(mode){
  if(!battle)cd18NpcPanel()
 }
 function cd18NpcPanel(){
+ if(typeof player==="undefined"||!player){toast("Personnage non initialisé");return}
  if(!player.npc)player.npc=cd18NPC();const n=player.npc;
  cdOpenPanel(n.name.toUpperCase(),`<div class=entry><b>${n.role}</b> · ${n.mood}<br>Confiance : ${n.trust}</div>
  <div class=grid2><button onclick="cd18Talk('questionner')">QUESTIONNER</button><button onclick="cd18Talk('rassurer')">RASSURER</button><button onclick="cd18Talk('menacer')">MENACER</button><button onclick="player.npc=null;closeOverlays()">PARTIR</button></div>`)
