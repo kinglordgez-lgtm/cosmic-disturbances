@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.31.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.32.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1894,6 +1894,96 @@ spawnEnemy=function(){
  renderContext();
  return r;
 };
+
+
+/* === V0.32.0 : comportements distincts du bestiaire === */
+function cd32EnemyKey(){return enemy&&(enemy.base||enemy.name)}
+function cd32Special(){
+ if(!battle||!enemy||player.hp<=0)return false;
+ const k=cd32EnemyKey(), roll=rng();
+
+ if(k==="Goule" && roll<.18){
+   const d=2+R(3); player.hp=Math.max(0,player.hp-d);
+   log("CAPACITÉ — La Goule lacère une ancienne blessure : "+d+" dégâts.");
+   toast("LACÉRATION"); return true;
+ }
+ if(k==="Profond" && roll<.18){
+   player.san=Math.max(0,player.san-2);
+   log("CAPACITÉ — Le chant abyssal du Profond vous glace. -2 SAN.");
+   toast("CHANT ABYSSAL"); return true;
+ }
+ if(k==="Mi-Go" && roll<.16){
+   player.san=Math.max(0,player.san-1);
+   enemy.def=(enemy.def||0)+1;
+   log("CAPACITÉ — Le Mi-Go analyse vos gestes. -1 SAN, +1 DEF pour lui.");
+   toast("ANALYSE MI-GO"); return true;
+ }
+ if(k==="Chien de Tindalos" && roll<.17){
+   const d=3; player.hp=Math.max(0,player.hp-d);
+   log("CAPACITÉ — Le Chien surgit d'un angle impossible : "+d+" dégâts.");
+   toast("ANGLE IMPOSSIBLE"); return true;
+ }
+ if(k==="Byakhee" && roll<.17){
+   enemy.atk=(enemy.atk||1)+1;
+   log("CAPACITÉ — Le Byakhee pousse un cri strident. Son ATQ augmente.");
+   toast("CRI DU BYAKHEE"); return true;
+ }
+ if(k==="Polype rampant" && roll<.16){
+   player.san=Math.max(0,player.san-2);
+   log("CAPACITÉ — Une pression invisible traverse votre esprit. -2 SAN.");
+   toast("PRESSION PSYCHIQUE"); return true;
+ }
+ if(k==="Veilleur sans visage" && roll<.18){
+   player.def=Math.max(0,(player.def||0)-1);
+   log("CAPACITÉ — Le Veilleur anticipe votre garde. -1 DEF.");
+   toast("REGARD SANS VISAGE"); return true;
+ }
+ if((k==="Cultiste"||k==="Cultiste de Dagon") && roll<.15){
+   enemy.hp=Math.min(enemy.maxhp||enemy.hp,enemy.hp+3);
+   log("CAPACITÉ — Une prière interdite rend 3 PV au cultiste.");
+   toast("RITUEL NOIR"); return true;
+ }
+ return false
+}
+
+/* Une capacité spéciale peut se produire après le tour ennemi normal.
+   Aucun remplacement du moteur de combat existant. */
+const cd32OldEnemyTurn=enemyTurn;
+enemyTurn=function(){
+ const r=cd32OldEnemyTurn.apply(this,arguments);
+ if(battle&&enemy&&player.hp>0){
+   try{cd32Special()}catch(e){console.warn("cd32 special",e)}
+   if(player.hp<=0 && typeof death==="function")death();
+   render();
+ }
+ return r;
+};
+
+/* Étudier une créature révèle désormais aussi son comportement. */
+const cd32Behavior={
+ "Goule":"Lacération : dégâts supplémentaires.",
+ "Profond":"Chant abyssal : attaque la SAN.",
+ "Mi-Go":"Analyse : augmente progressivement sa défense.",
+ "Chien de Tindalos":"Angle impossible : attaque brutale soudaine.",
+ "Byakhee":"Cri strident : augmente son attaque.",
+ "Polype rampant":"Pression psychique : attaque la SAN.",
+ "Veilleur sans visage":"Anticipation : réduit votre défense.",
+ "Cultiste":"Rituel noir : peut récupérer des PV.",
+ "Cultiste de Dagon":"Rituel noir : peut récupérer des PV."
+};
+function cd32BehaviorText(){
+ const k=cd32EnemyKey();
+ return cd32Behavior[k]||"Comportement encore mal compris.";
+}
+const cd32OldStudy=(typeof cd15StudyEnemy==="function"?cd15StudyEnemy:null);
+if(cd32OldStudy){
+ cd15StudyEnemy=function(){
+   const beforeXp=player.xp;
+   const r=cd32OldStudy.apply(this,arguments);
+   if(battle&&enemy&&player.xp>beforeXp)log("COMPORTEMENT — "+cd32BehaviorText());
+   return r;
+ }
+}
 
 </script>
 
