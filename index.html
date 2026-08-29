@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.23.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.23.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1261,7 +1261,7 @@ const CD21_EVENTS=[
   ]},
  {title:"LES TRACES HUMIDES",text:"Des empreintes palmées traversent le couloir puis disparaissent contre un mur intact.",
   choices:[
-   ["SUIVRE","Observation",12,()=>{player.xp+=2;seenBestiary["Profond"]=true;log("Les traces confirment une présence venue de la mer. Profond ajouté au codex. +2 XP.")}],
+   ["SUIVRE","Observation",12,()=>{player.xp+=2;codex["Profond"]=true;log("Les traces confirment une présence venue de la mer. Profond ajouté au codex. +2 XP.")}],
    ["PRÉLEVER","Médecine",13,()=>{player.inv.push({n:"Sel consacré"});seenItems["Sel consacré"]=true;log("Le résidu réagit au sel. Vous en conservez une dose.")}],
    ["IGNORER",null,0,()=>log("Vous refusez de suivre les traces.")]
   ]},
