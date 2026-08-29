@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.17.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.18.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -467,6 +467,7 @@ function resolveTile(){
 
 
 function move(dx,dy){
+ if(player.npc)player.npc=null;
  if(battle){
    toast("Combat en cours — attaquez ou fuyez");
    renderContext();
@@ -580,7 +581,7 @@ function npcChoice(choice){
 function investigate(){
  if(battle)return;
  const t=map[py][px],step=currentQuestStep();
- if(t==="npc"){npcEncounter();return}
+ if(t==="npc"){if(typeof cd18NpcPanel==="function"){cd18NpcPanel();return}npcEncounter();return}
  if(t==="quest"){
    if(step&&step.target==="quest"){
      let diff=10;
@@ -1105,5 +1106,51 @@ function cd17ShowHistory(){
  document.getElementById("overlayBody").innerHTML=`<div class=entry><b>${player.quest.title}</b><br><br>${(player.quest.history||[]).slice(-8).map(x=>"• "+x).join("<br>")||"Aucun événement majeur."}</div>`
 }
 </script>
+
+<script id="npc-0180">
+const CD18_NAMES=["Abigail Crane","Jonas Reed","Martha Bell","Isaac Webb","Eleanor Shaw","Caleb Price","Ruth Harker","Silas Cole","Edith Warren","Nathan Briggs"];
+const CD18_ROLES=["Docker","Veuve","Policier","Médecin","Sacristain","Pêcheur","Archiviste","Infirmière","Gardien","Journaliste"];
+const CD18_MOODS=["terrifié","méfiant","épuisé","agité","résigné","fiévreux"];
+const CD18_RUMORS=[
+ "Des chants montent des égouts à marée basse.",
+ "Le sanatorium recevait des patients qui n'existaient sur aucun registre.",
+ "Une lumière verte a été vue au-dessus des entrepôts.",
+ "Le vieux phare s'est éteint avant la disparition des pêcheurs.",
+ "Des gens entrent dans l'église la nuit, mais personne n'en ressort.",
+ "Une famille du quai ne ferme jamais ses rideaux depuis trois générations."
+];
+function cd18NPC(){
+ return {name:CD18_NAMES[R(CD18_NAMES.length)],role:CD18_ROLES[R(CD18_ROLES.length)],mood:CD18_MOODS[R(CD18_MOODS.length)],trust:R(3)-1,rumor:CD18_RUMORS[R(CD18_RUMORS.length)]}
+}
+function cd18Talk(mode){
+ if(!player.npc)player.npc=cd18NPC();const n=player.npc;
+ let sk="Psychologie",dc=13;
+ if(mode==="questionner"){sk="Investigation";dc=13}
+ if(mode==="rassurer"){sk="Psychologie";dc=11}
+ if(mode==="menacer"){sk="Armes";dc=15}
+ const ok=skillCheck(sk,dc);
+ if(ok){
+   n.trust+=(mode==="menacer"?0:1);
+   log(n.name+" ("+n.role+") : « "+n.rumor+" »");
+   if(mode==="rassurer")player.san=Math.min(player.maxsan,player.san+1);
+   if(player.quest&&rng()<.38){log("Cette information éclaire votre enquête.");player.xp+=2}
+   toast("Information obtenue")
+ }else{
+   n.trust--;
+   if(mode==="menacer"){log(n.name+" refuse de parler et appelle à l'aide.");if(rng()<.45)spawnEnemy()}
+   else log(n.name+" se referme. Votre approche a échoué.");
+   toast("Échec social")
+ }
+ render()
+}
+function cd18NpcPanel(){
+ if(!player.npc)player.npc=cd18NPC();const n=player.npc;
+ document.getElementById("overlay").classList.add("show");
+ document.getElementById("overlayTitle").textContent=n.name.toUpperCase();
+ document.getElementById("overlayBody").innerHTML=`<div class=entry><b>${n.role}</b> · ${n.mood}<br>Confiance : ${n.trust}</div>
+ <div class=grid2><button onclick="cd18Talk('questionner')">QUESTIONNER</button><button onclick="cd18Talk('rassurer')">RASSURER</button><button onclick="cd18Talk('menacer')">MENACER</button><button onclick="player.npc=null;closeOverlays()">PARTIR</button></div>`
+}
+</script>
+
 </body>
 </html>
