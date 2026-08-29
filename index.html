@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.38.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.39.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2462,6 +2462,42 @@ renderQuestTracker=function(){
  if(recent)box.insertBefore(d,recent);else box.appendChild(d);
  return r;
 };
+
+
+/* V0.39.0 — rencontres à choix */
+if(player&&!player.flags)player.flags={};
+const CD39_EVENTS=[
+{name:"La porte qui respire",min:2,text:"Une porte de pierre se gonfle lentement comme un poumon.",choices:[
+{t:"L'OUVRIR",skill:"Occultisme",dc:13,ok:"Un fragment de savoir interdit se révèle.",fail:"Quelque chose vous regarde depuis l'autre côté.",myth:2,san:-2},
+{t:"L'EXAMINER",skill:"Investigation",dc:11,ok:"Vous découvrez comment la contourner.",fail:"Les pulsations brouillent vos pensées.",xp:2,san:-1},{t:"PARTIR",ok:"Vous choisissez de ne pas savoir."}]},
+{name:"Le survivant trempé",min:3,text:"Un homme ruisselant affirme ne pas avoir vu la mer depuis vingt ans.",choices:[
+{t:"LE RASSURER",skill:"Psychologie",dc:11,ok:"Il vous confie une piste avant de disparaître.",fail:"Il hurle un nom inconnu et s'enfuit.",xp:3},
+{t:"LE FOUILLER",skill:"Investigation",dc:13,ok:"Vous trouvez du matériel abandonné.",fail:"Il vous mord avant de s'enfuir.",item:"Bandage militaire",hp:-2},{t:"PARTIR",ok:"Vous poursuivez votre route."}]},
+{name:"L'autel sans dieu",min:5,text:"Un autel couvert de cendre porte l'empreinte de deux mains humaines.",choices:[
+{t:"TOUCHER",skill:"Occultisme",dc:15,ok:"Une vision révèle la géométrie du lieu.",fail:"La pierre aspire votre lucidité.",myth:2,san:-3},
+{t:"DÉTRUIRE",skill:"Armes",dc:14,ok:"L'autel se fend. Quelque chose crie très loin.",fail:"Le choc résonne jusque dans vos os.",xp:3,hp:-3},{t:"PARTIR",ok:"L'autel reste silencieux derrière vous."}]}
+];
+let cd39Depth=-1,cd39Seen=false,cd39Current=null;
+function cd39Apply(c,ok){
+ log("ÉVÉNEMENT — "+(ok?(c.ok||"Réussite."):(c.fail||"Échec.")));
+ if(ok){if(c.xp)player.xp+=c.xp;if(c.myth)player.myth=Math.min(100,(player.myth||0)+c.myth);if(c.item){player.inv.push({n:c.item});if(typeof seenItems!=="undefined")seenItems[c.item]=true}}
+ else{if(c.san)player.san=Math.max(0,player.san+c.san);if(c.hp)player.hp=Math.max(1,player.hp+c.hp)}
+ closeOverlays();render()
+}
+function cd39Choose(i){if(!cd39Current)return;const c=cd39Current.choices[i];cd39Apply(c,c.skill?skillCheck(c.skill,c.dc):true)}
+function cd39Open(){
+ const pool=CD39_EVENTS.filter(e=>(player.depth||0)>=e.min);if(!pool.length)return;
+ cd39Current=pool[R(pool.length)];
+ const bs=cd39Current.choices.map((c,i)=>`<button onclick="cd39Choose(${i})">${c.t}${c.skill?` · ${c.skill}`:""}</button>`).join("");
+ cdOpenPanel("✦ "+cd39Current.name,`<p>${cd39Current.text}</p><div class="menuGrid">${bs}</div>`);
+ log("RENCONTRE — "+cd39Current.name+".")
+}
+function cd39Maybe(){
+ const d=player.depth||0;if(d!==cd39Depth){cd39Depth=d;cd39Seen=false}
+ if(!battle&&!cd39Seen&&d>=2&&rng()<.035){cd39Seen=true;cd39Open()}
+}
+const cd39Move=move;
+move=function(dx,dy){const x=px,y=py,r=cd39Move.apply(this,arguments);if(px!==x||py!==y)try{cd39Maybe()}catch(e){console.warn(e)}return r};
 
 </script>
 
