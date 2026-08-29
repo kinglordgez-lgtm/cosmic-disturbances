@@ -372,6 +372,12 @@ function closeOverlays(){
  document.getElementById("mainMenu")?.classList.remove("open");
 }
 
+function skillCheck(skill,difficulty){
+ const v=player.char.skills[skill]||0, target=Math.max(5,Math.min(95,v-difficulty));
+ const roll=Math.floor(Math.random()*100)+1, ok=roll<=target;
+ log(`${skill} : ${roll}/${target} ${ok?"✓":"✗"}`);return ok
+}
+
 function questTemplates(){return[
  {title:"La cloche sous la pierre",desc:"Un son de cloche vient de sous Blackwater.",reward:"Fragment noir",steps:[
   {objective:"Parler à un habitant ☺",target:"npc",skill:"Psychologie"},
@@ -501,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.18.9 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.19.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -570,13 +576,13 @@ function investigate(){
      let diff=10;
      if(player.inv.some(i=>i.n==="Carnet détrempé")&&step.skill==="Investigation")diff=0;
      if(player.equip.outil==="Lentille de Mi-Go"&&step.skill==="Observation")diff=0;
-     if(skillCheck(step.skill,diff))advanceQuest();
+     if(typeof skillCheck==="function"&&skillCheck(step.skill,diff))advanceQuest();
      else{player.san=Math.max(0,player.san-2);log("L'indice vous échappe. -2 SAN.");changeQuest("l'indice conduit ailleurs")}
    }else log("Ce symbole semble important, mais pas pour votre piste actuelle.");
    render();return
  }
  if(["chest","shrine","trap","exit"].includes(t)){
-   if(step&&step.target===t){if(skillCheck(step.skill,10))advanceQuest();else changeQuest("la piste se révèle différente")}
+   if(step&&step.target===t){if(typeof skillCheck==="function"&&skillCheck(step.skill,10))advanceQuest();else changeQuest("la piste se révèle différente")}
    resolveTile();render();return
  }
  if(rng()<.34)spawnEnemy();
@@ -752,9 +758,15 @@ function openJournal(){document.getElementById("mainMenu").classList.remove("ope
 
 function bootGame(){
  try{
-   const must=["makeCharacter","newRun","generateMap","move","render","resolveTile","investigate","skillCheck","questTemplates","currentQuestStep","startQuest","changeQuest","advanceQuest","completeQuest","closeOverlays"];
-   const missing=must.filter(n=>typeof window[n]!=="function");
-   if(missing.length)throw new Error("Fonction(s) critique(s) manquante(s) : "+missing.join(", "));
+   if(typeof makeCharacter!=="function")throw new Error("Fonction critique manquante : makeCharacter");
+   if(typeof newRun!=="function")throw new Error("Fonction critique manquante : newRun");
+   if(typeof generateMap!=="function")throw new Error("Fonction critique manquante : generateMap");
+   if(typeof move!=="function")throw new Error("Fonction critique manquante : move");
+   if(typeof render!=="function")throw new Error("Fonction critique manquante : render");
+   if(typeof resolveTile!=="function")throw new Error("Fonction critique manquante : resolveTile");
+   if(typeof investigate!=="function")throw new Error("Fonction critique manquante : investigate");
+   if(typeof skillCheck!=="function")throw new Error("Fonction critique manquante : skillCheck");
+   if(typeof currentQuestStep!=="function")throw new Error("Fonction critique manquante : currentQuestStep");
    if(!player||!Array.isArray(map))newRun(); else render();
  }catch(e){console.error(e);showRuntimeError(e)}
 }
@@ -1152,7 +1164,7 @@ function cd18Talk(mode){
  if(mode==="questionner"){sk="Investigation";dc=13}
  if(mode==="rassurer"){sk="Psychologie";dc=11}
  if(mode==="menacer"){sk="Armes";dc=15}
- const ok=skillCheck(sk,dc);
+ const ok=(typeof skillCheck==="function")?skillCheck(sk,dc):false;
  if(ok){
    n.trust+=(mode==="menacer"?0:1);
    log(n.name+" ("+n.role+") : « "+n.rumor+" »");
