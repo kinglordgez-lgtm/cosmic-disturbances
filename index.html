@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.26.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.27.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1532,6 +1532,72 @@ function cd26ZoneDiscovery(){
  log("FOUILLE DE ZONE : vous découvrez "+n+".");
  toast("Découverte : "+n)
 }
+
+/* === V0.27.0 : exploration enrichie, greffée sur le moteur stable === */
+const cd27Rooms=[
+ {n:"Chapelle noyée",txt:"Des bancs gonflés d'eau entourent un autel couvert de sel.",san:-1,myth:1},
+ {n:"Archives murées",txt:"Des registres municipaux portent des dates qui n'existent pas.",xp:1},
+ {n:"Morgue abandonnée",txt:"Une étiquette porte votre propre nom.",san:-2},
+ {n:"Cave aux marées",txt:"L'eau monte et descend sans relation avec la mer.",myth:1},
+ {n:"Observatoire condamné",txt:"Une lunette vise une constellation absente du ciel.",xp:1,myth:1},
+ {n:"Appartement silencieux",txt:"Une table est dressée pour des habitants disparus depuis trente ans.",san:-1}
+];
+const cd27Secrets=[
+ "Une brique descellée révèle un carnet couvert de coordonnées.",
+ "Un courant d'air trahit un passage derrière la maçonnerie.",
+ "Sous une lame de parquet repose un symbole gravé à l'envers.",
+ "Une photographie montre cette pièce avant sa construction.",
+ "Des traces humides s'arrêtent brusquement au milieu du mur."
+];
+let cd27Visited={};
+function cd27Key(){return player.depth+":"+px+":"+py}
+function cd27Explore(){
+ if(!player||battle)return false;
+ const k=cd27Key(); if(cd27Visited[k])return false;
+ // Rare enough to enrich exploration without overwhelming the existing event system.
+ if(rng()>.16)return false;
+ cd27Visited[k]=true;
+ const r=cd27Rooms[R(cd27Rooms.length)];
+ log("LIEU — "+r.n+" : "+r.txt);
+ if(r.san){player.san=Math.max(0,player.san+r.san)}
+ if(r.myth){player.myth=Math.min(100,player.myth+r.myth)}
+ if(r.xp){player.xp+=r.xp}
+ toast(r.n);
+ if(rng()<.32){
+   const secret=cd27Secrets[R(cd27Secrets.length)];
+   log("SECRET — "+secret);
+   player.xp+=1;
+ }
+ return true
+}
+function cd27DepthAtmosphere(){
+ if(!player)return;
+ const d=player.depth||0;
+ if(d>=6)return "Les rues semblent se replier autour de vous.";
+ if(d>=4)return "Blackwater paraît plus ancienne à chaque pas.";
+ if(d>=2)return "L'air devient humide et chargé d'iode.";
+ return "La ville paraît calme, mais quelque chose observe.";
+}
+const cd27OldMove=move;
+move=function(dx,dy){
+ const ox=px,oy=py;
+ cd27OldMove(dx,dy);
+ if(!battle&&(px!==ox||py!==oy)){
+   cd27Explore();
+   if(rng()<.035)log("ATMOSPHÈRE — "+cd27DepthAtmosphere());
+   render();
+ }
+};
+const cd27OldNewFloor=(typeof nextFloor==="function"?nextFloor:null);
+if(cd27OldNewFloor){
+ nextFloor=function(){
+   cd27OldNewFloor.apply(this,arguments);
+   cd27Visited={};
+   log("PROFONDEUR — "+cd27DepthAtmosphere());
+   render();
+ }
+}
+
 </script>
 
 </body>
