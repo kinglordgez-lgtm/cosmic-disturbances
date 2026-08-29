@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.20.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.21.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -840,6 +840,7 @@ function cdSkillCheck(name,diff=0){
   log(`${name} : ${r}/${s} — ${ok?"réussite":"échec"}.`); return ok;
 }
 function cdAtmosphere(){
+ cd21MaybeEvent();
   if(typeof battle!=="undefined"&&battle)return;
   if(Math.random()<0.045){
     log("ÉVÉNEMENT : "+CD_RPG.events[Math.floor(Math.random()*CD_RPG.events.length)]);
@@ -1234,6 +1235,66 @@ if(typeof window.startQuest!=="function"){
    toast("Nouvelle quête");
    renderQuestTracker();
  };
+}
+</script>
+
+
+<script id="events-0210">
+const CD21_EVENTS=[
+ {title:"LA RADIO SANS STATION",text:"Un poste grésille dans une pièce vide. Une voix récite votre nom à l'envers.",
+  choices:[
+   ["ÉCOUTER","Occultisme",12,()=>{player.myth+=2;player.san=Math.max(0,player.san-2);log("La transmission révèle une fréquence impossible. +2% Mythe, -2 SAN.")}],
+   ["DÉMONTER","Érudition",11,()=>{player.xp+=2;log("Vous récupérez des notes techniques incohérentes. +2 XP.")}],
+   ["PARTIR",null,0,()=>log("Vous laissez la radio parler seule.")]
+  ]},
+ {title:"LES TRACES HUMIDES",text:"Des empreintes palmées traversent le couloir puis disparaissent contre un mur intact.",
+  choices:[
+   ["SUIVRE","Observation",12,()=>{player.xp+=2;seenBestiary["Profond"]=true;log("Les traces confirment une présence venue de la mer. Profond ajouté au codex. +2 XP.")}],
+   ["PRÉLEVER","Médecine",13,()=>{player.inv.push({n:"Sel consacré"});seenItems["Sel consacré"]=true;log("Le résidu réagit au sel. Vous en conservez une dose.")}],
+   ["IGNORER",null,0,()=>log("Vous refusez de suivre les traces.")]
+  ]},
+ {title:"LE MIROIR RETARDÉ",text:"Votre reflet reproduit vos gestes avec plusieurs secondes de retard.",
+  choices:[
+   ["OBSERVER","Psychologie",13,()=>{player.san=Math.max(0,player.san-1);player.xp+=3;log("Vous comprenez que le reflet observe autre chose derrière vous. +3 XP, -1 SAN.")}],
+   ["BRISER","Armes",12,()=>{player.hp=Math.max(1,player.hp-2);player.inv.push({n:"Fragment noir"});seenItems["Fragment noir"]=true;log("Le verre vous coupe. Derrière lui : un fragment qui absorbe la lumière. -2 PV.")}],
+   ["RECULER",null,0,()=>log("Le reflet continue de sourire après votre départ.")]
+  ]},
+ {title:"LA PORTE CONDAMNÉE",text:"Une porte murée porte des marques récentes, comme si quelque chose essayait de sortir.",
+  choices:[
+   ["EXAMINER","Investigation",12,()=>{player.xp+=2;log("Vous trouvez un passage vers une ancienne galerie. +2 XP.")}],
+   ["SCELLER","Occultisme",14,()=>{player.san=Math.min(player.maxsan,player.san+2);log("Le silence revient derrière la maçonnerie. +2 SAN.")}],
+   ["S'ÉLOIGNER",null,0,()=>log("Trois coups résonnent derrière vous.")]
+  ]},
+ {title:"LE CARNET DE L'INCONNU",text:"Un carnet décrit précisément les dernières minutes de votre exploration. La page suivante est blanche.",
+  choices:[
+   ["LIRE LA SUITE","Érudition",14,()=>{player.myth+=3;player.san=Math.max(0,player.san-3);log("Des phrases apparaissent sous vos yeux. +3% Mythe, -3 SAN.")}],
+   ["EMPORTER","Investigation",11,()=>{player.inv.push({n:"Carnet détrempé"});seenItems["Carnet détrempé"]=true;log("Vous emportez le carnet.")}],
+   ["BRÛLER",null,0,()=>{player.san=Math.min(player.maxsan,player.san+1);log("Les pages brûlent en chuchotant. +1 SAN.")}]
+  ]}
+];
+let cd21Event=null;
+function cd21MaybeEvent(){
+ if(battle||cd21Event||Math.random()>.065)return false;
+ cd21Event=CD21_EVENTS[R(CD21_EVENTS.length)];
+ cd21ShowEvent();return true
+}
+function cd21ShowEvent(){
+ const e=cd21Event;if(!e)return;
+ const buttons=e.choices.map((c,i)=>`<button onclick="cd21Choose(${i})">${c[0]}</button>`).join("");
+ cdOpenPanel(e.title,`<div class=entry>${e.text}</div><div class=grid2>${buttons}</div>`)
+}
+function cd21Choose(i){
+ const e=cd21Event,c=e&&e.choices[i];if(!c)return;
+ closeOverlays();
+ if(!c[1]){c[3]();cd21Event=null;render();return}
+ const ok=skillCheck(c[1],c[2]);
+ if(ok){c[3]();toast("Réussite : "+c[1])}
+ else{
+   player.san=Math.max(0,player.san-1);
+   log("Échec ("+c[1]+"). Quelque chose vous échappe. -1 SAN.");
+   toast("Échec")
+ }
+ cd21Event=null;render()
 }
 </script>
 
