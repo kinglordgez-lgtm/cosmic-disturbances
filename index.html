@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.35.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.36.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2147,6 +2147,81 @@ renderContext=function(){
    const known=(typeof seenBestiary!=="undefined"&&(seenBestiary[cd32EnemyKey()]||seenBestiary[enemy.name]));
    d.innerHTML=`<b>TACTIQUE</b><div>${known?`⚔ Faiblesse : <b>${p.weak}</b><br>🛡 Résistance : <b>${p.resist}</b><br><span class="small">${p.hint}</span>`:"❓ Étudiez cette créature pour révéler ses vulnérabilités."}</div>`;
    el.appendChild(d)
+ }
+ return r
+};
+
+
+/* === V0.36.0 : synergies d'objets / premiers builds === */
+const cd36Synergies=[
+ {id:"ward",name:"Cercle de protection",items:["Sel consacré","Craie rituelle"],desc:"Les attaques du Mythe infligent moins de SAN.",icon:"◯"},
+ {id:"hunter",name:"Chasseur nocturne",items:["Vieux revolver","Cartouches d'argent"],desc:"+2 dégâts lors d'une attaque réussie.",icon:"✦"},
+ {id:"fire",name:"Purification par le feu",items:["Lampe à pétrole","Flacon de kérosène"],desc:"Chance d'infliger 3 dégâts supplémentaires.",icon:"🔥"},
+ {id:"scholar",name:"Savoir interdit",items:["Carnet détrempé","Symbole gravé"],desc:"Les découvertes occultes peuvent rapporter davantage de Mythe.",icon:"⌘"},
+ {id:"observer",name:"Œil sur l'impossible",items:["Lentille de Mi-Go","Photographie impossible"],desc:"+1 XP lors de certaines investigations étranges.",icon:"◉"},
+ {id:"grave",name:"Protection funéraire",items:["Amulette d'argent noirci","Clé de la morgue"],desc:"Réduit certaines pertes de SAN.",icon:"†"}
+];
+function cd36ItemName(i){return i&&(i.n||i.name)||""}
+function cd36HasItem(n){return (player.inv||[]).some(i=>cd36ItemName(i)===n)}
+function cd36Active(){
+ return cd36Synergies.filter(s=>s.items.every(cd36HasItem))
+}
+let cd36Known={};
+function cd36Check(){
+ for(const s of cd36Active())if(!cd36Known[s.id]){
+   cd36Known[s.id]=true;log("SYNERGIE DÉCOUVERTE — "+s.name+" : "+s.desc);toast("SYNERGIE : "+s.name)
+ }
+}
+function cd36Is(id){return cd36Active().some(s=>s.id===id)}
+
+const cd36Attack=attack;
+attack=function(){
+ const had=battle&&enemy, hp=had?enemy.hp:0;
+ const r=cd36Attack.apply(this,arguments);
+ if(had&&battle&&enemy&&enemy.hp<hp){
+   let bonus=0;
+   if(cd36Is("hunter"))bonus+=2;
+   if(cd36Is("fire")&&rng()<.30)bonus+=3;
+   if(bonus){
+     enemy.hp=Math.max(0,enemy.hp-bonus);
+     log("SYNERGIE — Vos objets infligent "+bonus+" dégâts supplémentaires.");
+     toast("COMBO +"+bonus);
+     if(enemy.hp<=0&&typeof win==="function")win()
+   }
+ }
+ cd36Check();return r
+};
+
+const cd36Investigate=investigate;
+investigate=function(){
+ const xp0=player.xp||0,my0=player.myth||0;
+ const r=cd36Investigate.apply(this,arguments);
+ if(cd36Is("observer")&&(player.xp||0)>xp0&&rng()<.35){player.xp++;log("SYNERGIE — Œil sur l'impossible : +1 XP.");}
+ if(cd36Is("scholar")&&(player.myth||0)>my0&&rng()<.35){player.myth=Math.min(100,(player.myth||0)+1);log("SYNERGIE — Savoir interdit : +1% Mythe.");}
+ cd36Check();return r
+};
+
+const cd36Special=cd32Special;
+cd32Special=function(){
+ const san0=player.san;
+ const r=cd36Special.apply(this,arguments);
+ if(r&&player.san<san0&&(cd36Is("ward")||cd36Is("grave"))){
+   player.san=Math.min(san0,player.san+1);
+   log("SYNERGIE — Votre protection absorbe 1 point de perte de SAN.");
+ }
+ return r
+};
+
+/* Affichage permanent des builds actifs dans le panneau de combat. */
+const cd36RC=renderContext;
+renderContext=function(){
+ const r=cd36RC.apply(this,arguments);cd36Check();
+ if(!battle)return r;
+ const root=document.getElementById("cd34CombatInfo")||document.getElementById("context");
+ if(root&&!document.getElementById("cd36Builds")){
+   const active=cd36Active(),d=document.createElement("div");d.id="cd36Builds";d.className="cd34-status";
+   d.innerHTML="<b>SYNERGIES D'ÉQUIPEMENT</b><div>"+(active.length?active.map(s=>`${s.icon} <b>${s.name}</b> — ${s.desc}`).join("<br>"):"Aucune combinaison active.")+"</div>";
+   root.appendChild(d)
  }
  return r
 };
