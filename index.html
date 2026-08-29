@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.15.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.16.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -651,6 +651,7 @@ function renderContext(){
  </div>`;
 }
 function attack(){
+ if(typeof cd16PlayerTurnEffects==="function")cd16PlayerTurnEffects();
  let bonus=player.equip.arme==="Vieux revolver"?2:0,notes=[];
  const ammo=player.inv.findIndex(i=>i.n==="Cartouches d'argent");
  if(ammo>=0){bonus+=3;player.inv.splice(ammo,1);notes.push("argent")}
@@ -671,8 +672,11 @@ function combatItem(){
 function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else enemyTurn();render()
  if(player.hp>0&&rng()<.12)cd12AddStatus("Saignement");
  if(player.hp>0&&enemy&&["Chien de Tindalos","Polype rampant","Veilleur sans visage"].includes(enemy.name)&&rng()<.16)cd12AddStatus("Terreur");
+
+ if(player.hp>0&&typeof cd16EnemySpecial==="function")cd16EnemySpecial();
 }
-function win(){battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
+function win(){
+ if(typeof cd16BossReward==="function")cd16BossReward();battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.")}
 
 function bindTap(id,fn){
@@ -705,7 +709,7 @@ function itemCard(n){let db=itemDB[n]||{type:"Objet",rarity:"?",desc:"",tags:""}
 function equipInv(n){let db=itemDB[n];if(!db?.slot)return;if(player.equip[db.slot]===n)player.equip[db.slot]=null;else player.equip[db.slot]=n;render();openInventory()}
 function useInv(n){
  let i=player.inv.findIndex(x=>x.n===n);if(i<0)return;
- if(n==="Bandage militaire"){player.hp=Math.min(player.maxhp,player.hp+8);player.status=(player.status||[]).filter(s=>s!=="Saignement");player.inv.splice(i,1);toast("+8 PV · saignement soigné")}
+ if(n==="Bandage militaire"){player.hp=Math.min(player.maxhp,player.hp+8);player.status=(player.status||[]).filter(s=>s!=="Saignement"&&s!=="Infection");player.inv.splice(i,1);toast("+8 PV · saignement soigné")}
  else if(n==="Laudanum trouble"){player.status=(player.status||[]).filter(s=>s!=="Terreur");player.san=Math.min(player.maxsan,player.san+5);player.inv.splice(i,1);toast("+5 SAN");if(rng()<.25){player.hp=Math.max(1,player.hp-2);log("Effet secondaire : -2 PV.")}}
  else if(n==="Lampe à pétrole"){let o=player.inv[i];o.uses=o.uses??2;if(o.uses>0){player.san=Math.min(player.maxsan,player.san+6);o.uses--;toast("+6 SAN");if(o.uses<=0){player.inv.splice(i,1);player.equip.outil=null}}}
  else if(n==="Flacon de kérosène"){let lamp=player.inv.find(x=>x.n==="Lampe à pétrole");if(lamp){lamp.uses=(lamp.uses??0)+2;player.inv.splice(i,1);toast("Lampe +2 charges")}else toast("Aucune lampe")}
@@ -1043,6 +1047,45 @@ function cd15StudyEnemy(){
  render()
 }
 window.addEventListener("load",()=>{try{log("0.15.0 : rencontres à compétences et fouille approfondie actives.");}catch(e){console.error(e)}});
+</script>
+
+
+<script id="combat-depth-0160">
+const CD16_SPECIALS={
+ "Profond":{name:"Griffes saumâtres",chance:.22,doit:()=>{player.hp=Math.max(0,player.hp-2);log("Griffes saumâtres : +2 dégâts.")}},
+ "Goule":{name:"Morsure infectée",chance:.18,doit:()=>{cd12AddStatus("Infection");log("La morsure s'infecte.")}},
+ "Mi-Go":{name:"Résonance cérébrale",chance:.20,doit:()=>{player.san=Math.max(0,player.san-3);log("Résonance cérébrale : -3 SAN.")}},
+ "Byakhee":{name:"Plongeon",chance:.20,doit:()=>{player.hp=Math.max(0,player.hp-3);log("Plongeon : +3 dégâts.")}},
+ "Chien de Tindalos":{name:"Angle impossible",chance:.22,doit:()=>{cd12AddStatus("Terreur");log("La créature jaillit d'un angle impossible.")}},
+ "Polype rampant":{name:"Vent aveugle",chance:.20,doit:()=>{player.san=Math.max(0,player.san-2);player.hp=Math.max(0,player.hp-1);log("Vent aveugle : -1 PV, -2 SAN.")}},
+ "Cultiste de Dagon":{name:"Invocation",chance:.17,doit:()=>{enemy.hp=Math.min(enemy.maxhp,enemy.hp+4);log("Invocation : l'ennemi récupère 4 PV.")}},
+ "Veilleur sans visage":{name:"Regard absent",chance:.20,doit:()=>{cd12AddStatus("Marqué");log("Vous sentez que quelque chose vous a remarqué.")}},
+ "Rejeton fongique":{name:"Spores",chance:.20,doit:()=>{cd12AddStatus("Infection");player.san=Math.max(0,player.san-1);log("Spores : Infection, -1 SAN.")}}
+};
+function cd16EnemySpecial(){
+ if(!enemy)return;
+ const s=CD16_SPECIALS[enemy.name];
+ if(s&&rng()<s.chance){log("CAPACITÉ : "+s.name+".");s.doit();return true}
+ return false
+}
+function cd16PlayerTurnEffects(){
+ player.status=player.status||[];
+ if(player.status.includes("Infection")&&rng()<.30){player.hp=Math.max(1,player.hp-1);log("Infection : -1 PV.")}
+ if(player.status.includes("Marqué")&&rng()<.18){player.san=Math.max(0,player.san-1);log("La Marque pulse sous votre peau : -1 SAN.")}
+}
+function cd16CureInfection(){
+ if(!player.status)return false;
+ const i=player.status.indexOf("Infection");
+ if(i>=0){player.status.splice(i,1);log("L'infection est traitée.");return true}
+ return false
+}
+function cd16BossReward(){
+ if(!enemy||!creatures[enemy.name]||creatures[enemy.name].cat!=="Boss")return;
+ player.xp+=8;player.myth=Math.min(100,player.myth+3);
+ const rewards=["Amulette d'argent noirci","Idole d'obsidienne","Lentille de Mi-Go","Craie rituelle"];
+ const n=rewards[R(rewards.length)];player.inv.push({n});seenItems[n]=true;
+ log("TROPHÉE MAJEUR : "+n+" · +8 XP · +3% Mythe.");
+}
 </script>
 
 </body>
