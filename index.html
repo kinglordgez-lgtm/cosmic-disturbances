@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.25.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.26.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -613,6 +613,7 @@ function spawnEnemy(){
    if(hard.length)name=hard[R(hard.length)]
  }
  const b=creatures[name];codex[name]=true;
+ if(typeof cd26ZoneEnemy==="function"&&rng()<.55){const zn=cd26ZoneEnemy();if(zn&&creatures[zn])name=zn}
  enemy={name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),def:b.def||0,x:px,y:py,weak:b.weak,resist:b.resist};
  battle=true;log("☠ "+name+" surgit dans "+(typeof cd13Zone==="function"?cd13Zone().name:"les ténèbres")+".")
 }
@@ -700,6 +701,7 @@ function move(dx,dy){
    if(typeof cd15Event==="function")cd15Event();
    if(typeof cd22SpawnElite==="function"&&cd22SpawnElite())return;
    if(typeof cd25ZoneEvent==="function")cd25ZoneEvent();
+   if(typeof cd26ZoneDiscovery==="function")cd26ZoneDiscovery();
    render();
  }catch(err){
    console.error(err);
@@ -1488,6 +1490,41 @@ function cd25ZoneEvent(){
  };
  const a=events[z]||events["Rues noyées"];
  log("LIEU : "+a[R(a.length)]);
+}
+</script>
+
+
+<script id="zone-encounters-0260">
+const CD26_ZONE_ENEMIES={
+ "Rues noyées":["Cultiste","Profond","Noyé de Blackwater"],
+ "Catacombes de Blackwater":["Goule","Cultiste","Veilleur sans visage"],
+ "Égouts cyclopéens":["Profond","Polype rampant","Cultiste de Dagon"],
+ "Quartier impossible":["Chien de Tindalos","Mi-Go","Veilleur sans visage"],
+ "Seuil abyssal":["Mi-Go","Byakhee","Chien de Tindalos","Polype rampant"]
+};
+const CD26_ZONE_LOOT={
+ "Rues noyées":["Bandage militaire","Carnet détrempé","Sel consacré"],
+ "Catacombes de Blackwater":["Craie rituelle","Amulette d'argent noirci","Clé de la morgue"],
+ "Égouts cyclopéens":["Flacon de kérosène","Sel consacré","Idole d'obsidienne"],
+ "Quartier impossible":["Photographie impossible","Symbole gravé","Lentille de Mi-Go"],
+ "Seuil abyssal":["Cartouches d'argent","Fragment noir","Lentille de Mi-Go","Symbole gravé"]
+};
+function cd26ZoneEnemy(){
+ if(typeof cd25Zone!=="function")return null;
+ const pool=CD26_ZONE_ENEMIES[cd25Zone().name];
+ return pool&&pool.length?pool[R(pool.length)]:null
+}
+function cd26ZoneLoot(){
+ if(typeof cd25Zone!=="function")return null;
+ const pool=CD26_ZONE_LOOT[cd25Zone().name];
+ return pool&&pool.length?pool[R(pool.length)]:null
+}
+function cd26ZoneDiscovery(){
+ if(battle||rng()>.045)return;
+ const n=cd26ZoneLoot(); if(!n)return;
+ player.inv.push({n}); seenItems[n]=true;
+ log("FOUILLE DE ZONE : vous découvrez "+n+".");
+ toast("Découverte : "+n)
 }
 </script>
 
