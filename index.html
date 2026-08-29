@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.27.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.28.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1595,6 +1595,59 @@ if(cd27OldNewFloor){
    cd27Visited={};
    log("PROFONDEUR — "+cd27DepthAtmosphere());
    render();
+ }
+}
+
+
+/* === V0.28.0 : identités PNJ + dialogues contextuels === */
+const cd28NpcJobs=["Archiviste","Docker","Infirmière","Policier","Libraire","Pêcheur","Employée de morgue","Professeur"];
+const cd28NpcMoods=["nerveux","méfiant","épuisé","superstitieux","pressé","hagard"];
+const cd28NpcLines={
+ Archiviste:["Les registres ont été corrigés. Pas par une main humaine.","Certaines rues disparaissent des plans après minuit."],
+ Docker:["Des caisses arrivent sans manifeste depuis trois nuits.","J'ai entendu quelque chose respirer sous le quai."],
+ Infirmière:["Les noyés ont du sel sous les paupières.","Certains patients rêvent tous de la même porte."],
+ Policier:["On nous ordonne d'éviter les quais après la tombée du jour.","Les rapports disparaissent avant d'être classés."],
+ Libraire:["Un client cherche des ouvrages qui n'ont jamais été imprimés.","Les marges de certains livres changent pendant la nuit."],
+ Pêcheur:["La mer rejette des poissons sans yeux.","Ne suivez jamais les cloches quand la brume tombe."],
+ "Employée de morgue":["Un corps a changé de place tout seul cette nuit.","Il manque des dents sur tous les noyés."],
+ Professeur:["Les angles de cette ville ne respectent plus la géométrie.","Une constellation inconnue apparaît dans mes calculs."]
+};
+function cd28NpcIdentity(n){
+ if(!n)return null;
+ if(!n.cd28){
+   const job=n.job||cd28NpcJobs[R(cd28NpcJobs.length)];
+   const mood=n.mood||cd28NpcMoods[R(cd28NpcMoods.length)];
+   n.cd28={job,mood,line:cd28NpcLines[job]?.[R((cd28NpcLines[job]||["Je ne sais rien."]).length)]||"Je ne sais rien."};
+ }
+ return n.cd28;
+}
+function cd28ContextLine(n,choice){
+ const x=cd28NpcIdentity(n); if(!x)return "";
+ const q=player&&player.quest&&!player.quest.done?player.quest.title:null;
+ if(choice==="questionner"&&q)return x.line+" Cela pourrait concerner « "+q+" ».";
+ if(choice==="rassurer")return "Après une hésitation, "+(n.name||"le témoin")+" murmure : « "+x.line+" »";
+ if(choice==="menacer")return "Sous la pression, "+(n.name||"le témoin")+" lâche : « "+x.line+" »";
+ return x.line;
+}
+/* Enrichit les PNJ existants sans remplacer le moteur de dialogue stable. */
+if(typeof openNpc==="function"){
+ const cd28OpenNpc=openNpc;
+ openNpc=function(){
+   const r=cd28OpenNpc.apply(this,arguments);
+   try{
+     const n=player&&player.npc;
+     if(n){
+       const x=cd28NpcIdentity(n);
+       const modal=document.querySelector("#modal .body,#modalBody,.modalBody");
+       if(modal&&!modal.querySelector(".cd28npc")){
+         const d=document.createElement("div"); d.className="cd28npc";
+         d.style.cssText="margin:8px 0 12px;opacity:.8;font-size:.82em";
+         d.textContent=x.job+" · "+x.mood;
+         modal.prepend(d);
+       }
+     }
+   }catch(e){console.warn("cd28 npc display",e)}
+   return r;
  }
 }
 
