@@ -292,8 +292,8 @@ header{left:18px!important}
 
 <div id="mainMenu" class="overlay"><div class="sheet"><button class="close" data-close="mainMenu">✕</button><h2>☾ MENU</h2>
 <div class="menuGrid">
-<button onclick="openInventory()">🎒 INVENTAIRE</button><button onclick="openCharacter()">👤 PERSONNAGE</button><button onclick="openBestiary()">📖 BESTIAIRE</button>
-<button onclick="openGuide()">📚 GUIDE OBJETS</button><button onclick="openAchievements()">🏆 SUCCÈS</button><button onclick="openQuest()">❗ QUÊTE</button>
+<button onclick="openInventory()">🎒 INVENTAIRE</button><button onclick="openCharacter()">👤 PERSONNAGE</button><button onclick="cd23OpenCodex()">📖 BESTIAIRE</button>
+<button onclick="openGuide()">📚 GUIDE OBJETS</button><button onclick="cd23OpenAchievements()">🏆 SUCCÈS</button><button onclick="openQuest()">❗ QUÊTE</button>
 <button onclick="newRun()">☠ NOUVELLE RÉALITÉ</button>
 </div></div></div>
 <div id="modal" class="overlay"><div class="sheet" id="sheet"><button class="close" type="button" onclick="closeOverlays()">✕</button><div id="sheetContent"></div></div></div>
@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.22.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.23.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -563,7 +563,7 @@ function resolveTile(){
    log("Vous descendez au niveau "+player.depth+".");
    generateMap();
    if(typeof cd14GenerateGeometry==="function")cd14GenerateGeometry();
-   if(typeof cd13Zone==="function")log("ZONE : "+cd13Zone().name+".");
+   if(typeof cd13Zone==="function")log("ZONE : "+cd13Zone().name+".");if(typeof cd23CheckAchievements==="function")cd23CheckAchievements();
  }
 }
 
@@ -663,6 +663,7 @@ function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else en
  if(player.hp>0&&typeof cd16EnemySpecial==="function")cd16EnemySpecial();
 }
 function win(){
+ if(typeof cd23RecordKill==="function")cd23RecordKill();
  if(typeof cd22EliteReward==="function")cd22EliteReward();
  if(typeof cd16BossReward==="function")cd16BossReward();battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.")}
@@ -1353,6 +1354,54 @@ function cd22EliteReward(){
  player.inv.push({n});seenItems[n]=true;
  log("Trophée d'élite : "+n+" · +5 XP.");
  toast("ÉLITE VAINCU")
+}
+</script>
+
+
+<script id="codex-progress-0230">
+const CD23_ACH=[
+ {id:"first_blood",name:"Premier sang",desc:"Vaincre votre première créature.",check:()=>cd23Stats.kills>=1},
+ {id:"hunter",name:"Chasseur de l'inconnu",desc:"Vaincre 10 créatures.",check:()=>cd23Stats.kills>=10},
+ {id:"elite_hunter",name:"Briseur de cauchemars",desc:"Vaincre 3 ennemis élite.",check:()=>cd23Stats.elites>=3},
+ {id:"deep",name:"Sous Blackwater",desc:"Atteindre la profondeur 5.",check:()=>player&&player.depth>=5},
+ {id:"scholar",name:"Archiviste du Mythe",desc:"Découvrir 6 créatures.",check:()=>Object.values(codex||{}).filter(Boolean).length>=6}
+];
+let cd23Stats={kills:0,elites:0,seen:{},ach:{}};
+
+function cd23RecordKill(){
+ if(!enemy)return;
+ cd23Stats.kills++;
+ if(enemy.elite)cd23Stats.elites++;
+ const key=enemy.base||enemy.name;
+ cd23Stats.seen[key]=(cd23Stats.seen[key]||0)+1;
+ cd23CheckAchievements()
+}
+function cd23CheckAchievements(){
+ for(const a of CD23_ACH){
+   if(!cd23Stats.ach[a.id]&&a.check()){
+     cd23Stats.ach[a.id]=true;
+     log("🏆 SUCCÈS : "+a.name+" — "+a.desc);
+     toast("Succès : "+a.name)
+   }
+ }
+}
+function cd23CodexProgress(){
+ const discovered=Object.keys(codex||{}).filter(k=>codex[k]);
+ const entries=discovered.map(n=>{
+   const c=creatures[n]||{};
+   const kills=cd23Stats.seen[n]||0;
+   return `<div class=entry><b>${n}</b><br>${c.desc||"Présence inconnue."}<br><span style="color:var(--muted)">Observations : ${kills} · Faiblesse : ${c.weak||"?"} · Résistance : ${c.resist||"?"}</span></div>`
+ }).join("");
+ return `<div class=entry><b>Progression du codex</b><br>${discovered.length}/${Object.keys(creatures).length} créatures découvertes · ${cd23Stats.kills} éliminations · ${cd23Stats.elites} élites vaincus</div>${entries||"<div class=entry>Aucune créature étudiée.</div>"}`
+}
+function cd23OpenCodex(){
+ document.getElementById("mainMenu")?.classList.remove("open");
+ modal(`<h2>📖 BESTIAIRE — PROGRESSION</h2>${cd23CodexProgress()}`)
+}
+function cd23OpenAchievements(){
+ document.getElementById("mainMenu")?.classList.remove("open");
+ const body=CD23_ACH.map(a=>`<div class=entry>${cd23Stats.ach[a.id]?"✓":"○"} <b>${a.name}</b><br>${a.desc}</div>`).join("");
+ modal(`<h2>🏆 SUCCÈS</h2><div class=entry>${Object.keys(cd23Stats.ach).length}/${CD23_ACH.length} débloqués</div>${body}`)
 }
 </script>
 
