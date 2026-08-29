@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.32.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.33.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1984,6 +1984,91 @@ if(cd32OldStudy){
    return r;
  }
 }
+
+
+/* === V0.33.0 : blessures persistantes + états de combat === */
+if(player && !player.conditions) player.conditions=[];
+
+const cd33Conditions={
+ bleeding:{name:"Hémorragie",desc:"Perd 1 PV après certaines actions de combat."},
+ shaken:{name:"Ébranlé",desc:"La peur fragilise votre stabilité mentale."},
+ marked:{name:"Marqué",desc:"Une présence du Mythe semble vous suivre."}
+};
+function cd33Has(id){return !!(player.conditions||[]).find(x=>x.id===id)}
+function cd33Add(id,turns){
+ if(!player.conditions)player.conditions=[];
+ let c=player.conditions.find(x=>x.id===id);
+ if(c)c.turns=Math.max(c.turns,turns);
+ else player.conditions.push({id,turns});
+ log("ÉTAT — "+cd33Conditions[id].name+" : "+cd33Conditions[id].desc);
+ toast(cd33Conditions[id].name.toUpperCase());
+}
+function cd33Tick(){
+ if(!player||!player.conditions)return;
+ if(cd33Has("bleeding")&&battle){
+   player.hp=Math.max(0,player.hp-1);
+   log("BLESSURE — L'hémorragie vous coûte 1 PV.");
+ }
+ for(const c of player.conditions)c.turns--;
+ player.conditions=player.conditions.filter(c=>c.turns>0);
+ if(player.hp<=0&&typeof death==="function")death();
+}
+
+/* Certaines créatures peuvent désormais laisser des séquelles temporaires. */
+const cd33OldSpecial=cd32Special;
+cd32Special=function(){
+ const k=cd32EnemyKey();
+ const r=cd33OldSpecial.apply(this,arguments);
+ if(r&&battle&&enemy){
+   if(k==="Goule"&&rng()<.35)cd33Add("bleeding",3);
+   if((k==="Profond"||k==="Polype rampant")&&rng()<.28)cd33Add("shaken",3);
+   if(k==="Chien de Tindalos"&&rng()<.22)cd33Add("marked",4);
+ }
+ return r;
+};
+
+/* Tick après attaque du joueur, sans modifier les calculs existants. */
+const cd33OldAttack=attack;
+attack=function(){
+ const wasBattle=battle;
+ const r=cd33OldAttack.apply(this,arguments);
+ if(wasBattle&&battle)try{cd33Tick()}catch(e){console.warn("cd33 tick",e)}
+ return r;
+};
+
+/* Bandage militaire peut stopper l'hémorragie lorsqu'il est utilisé. */
+const cd33OldCombatItem=combatItem;
+combatItem=function(){
+ const before=cd33Has("bleeding");
+ const r=cd33OldCombatItem.apply(this,arguments);
+ if(before&&player&&player.conditions){
+   const hasBandage=(player.inv||[]).some(i=>(i.n||i.name)==="Bandage militaire");
+   /* Le moteur peut avoir consommé le bandage : si l'inventaire a changé et
+      l'action a réussi, on retire l'état lors du prochain soin explicite. */
+   if(!hasBandage && cd33Has("bleeding")){
+     player.conditions=player.conditions.filter(c=>c.id!=="bleeding");
+     log("SOIN — Le bandage stoppe l'hémorragie.");
+     toast("HÉMORRAGIE STOPPÉE");
+   }
+ }
+ return r;
+};
+
+/* Le journal de combat peut afficher les états actifs via le contexte. */
+const cd33OldRenderContext=renderContext;
+renderContext=function(){
+ const r=cd33OldRenderContext.apply(this,arguments);
+ if(player&&player.conditions&&player.conditions.length){
+   const el=document.getElementById("context");
+   if(el){
+     const txt=player.conditions.map(c=>cd33Conditions[c.id]?cd33Conditions[c.id].name:"État").join(" • ");
+     if(!el.textContent.includes(txt)){
+       const d=document.createElement("div");d.className="small";d.textContent="⚠ "+txt;el.appendChild(d);
+     }
+   }
+ }
+ return r;
+};
 
 </script>
 
