@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.34.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.35.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2105,6 +2105,51 @@ const cd34FinalAttack=attack;
 attack=function(){const r=cd34FinalAttack.apply(this,arguments);if(cd34EventTurns>0)cd34EventTurns--;renderContext();return r};
 const cd34FinalDefend=defend;
 defend=function(){const r=cd34FinalDefend.apply(this,arguments);if(cd34EventTurns>0)cd34EventTurns--;renderContext();return r};
+
+
+/* === V0.35.0 : résistances/faiblesses réellement tactiques === */
+const cd35Profiles={
+"Goule":{weak:"Sel consacré",resist:"Armes ordinaires",hint:"Le sel consacré perturbe sa chair morte."},
+"Profond":{weak:"Cartouches d'argent",resist:"Occultisme",hint:"L'argent blesse davantage cette créature marine."},
+"Mi-Go":{weak:"Flacon de kérosène",resist:"Psychologie",hint:"Sa physiologie fongique supporte mal le feu."},
+"Chien de Tindalos":{weak:"Craie rituelle",resist:"Armes ordinaires",hint:"Les signes rituels gênent son passage par les angles."},
+"Byakhee":{weak:"Cartouches d'argent",resist:"Occultisme",hint:"L'argent traverse mieux ses tissus anormaux."},
+"Polype rampant":{weak:"Symbole gravé",resist:"Armes ordinaires",hint:"Les symboles occultes stabilisent brièvement sa forme."},
+"Veilleur sans visage":{weak:"Amulette d'argent noirci",resist:"Psychologie",hint:"L'amulette brouille son anticipation."},
+"Cultiste":{weak:"Psychologie",resist:"Menace",hint:"Comprendre sa peur est plus efficace que l'intimidation."},
+"Cultiste de Dagon":{weak:"Sel consacré",resist:"Menace",hint:"Le sel consacré trouble son rituel."}
+};
+function cd35Profile(){return cd35Profiles[cd32EnemyKey()]||null}
+function cd35Owned(name){return (player.inv||[]).some(i=>(i.n||i.name)===name)}
+function cd35ApplyWeakness(){
+ const p=cd35Profile();if(!p||!enemy)return 0;
+ if(cd35Owned(p.weak)){
+   const bonus=2+Math.floor(((player.char&&player.char.skills&&player.char.skills.Occultisme)||0)/40);
+   enemy.hp=Math.max(0,enemy.hp-bonus);
+   log("FAIBLESSE EXPLOITÉE — "+p.weak+" : +"+bonus+" dégâts.");
+   toast("FAIBLESSE : +"+bonus);return bonus
+ }
+ return 0
+}
+const cd35Attack=attack;
+attack=function(){
+ const had=battle&&enemy, hp=had?enemy.hp:0;
+ const r=cd35Attack.apply(this,arguments);
+ if(had&&battle&&enemy&&enemy.hp<hp){cd35ApplyWeakness();if(enemy.hp<=0&&typeof win==="function")win()}
+ return r
+};
+const cd35RC=renderContext;
+renderContext=function(){
+ const r=cd35RC.apply(this,arguments);if(!battle||!enemy)return r;
+ const el=document.getElementById("cd34CombatInfo")||document.getElementById("context"),p=cd35Profile();
+ if(el&&p&&!document.getElementById("cd35Tactics")){
+   const d=document.createElement("div");d.id="cd35Tactics";d.className="cd34-status";
+   const known=(typeof seenBestiary!=="undefined"&&(seenBestiary[cd32EnemyKey()]||seenBestiary[enemy.name]));
+   d.innerHTML=`<b>TACTIQUE</b><div>${known?`⚔ Faiblesse : <b>${p.weak}</b><br>🛡 Résistance : <b>${p.resist}</b><br><span class="small">${p.hint}</span>`:"❓ Étudiez cette créature pour révéler ses vulnérabilités."}</div>`;
+   el.appendChild(d)
+ }
+ return r
+};
 
 </script>
 
