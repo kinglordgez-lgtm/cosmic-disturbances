@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.21.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.22.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -653,6 +653,8 @@ function combatItem(){
  if(salt>=0&&creatures[enemy.name].cat==="Mythe"){enemy.hp-=8;player.inv.splice(salt,1);log("Sel consacré : 8 dégâts.");if(enemy.hp<=0)win()}
  else if(band>=0){player.hp=Math.min(player.maxhp,player.hp+8);player.inv.splice(band,1);log("Bandage : +8 PV.");enemyTurn()}
  else toast("Aucun objet utile.");render()
+
+ if(player.hp>0&&typeof cd22EliteTurn==="function")cd22EliteTurn();
 }
 function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else enemyTurn();render()
  if(player.hp>0&&rng()<.12)cd12AddStatus("Saignement");
@@ -661,6 +663,7 @@ function flee(){if(rng()<.65){battle=false;enemy=null;log("Vous fuyez.")}else en
  if(player.hp>0&&typeof cd16EnemySpecial==="function")cd16EnemySpecial();
 }
 function win(){
+ if(typeof cd22EliteReward==="function")cd22EliteReward();
  if(typeof cd16BossReward==="function")cd16BossReward();battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.")}
 
@@ -689,6 +692,7 @@ function move(dx,dy){
    if(cd12BossChance())return;
    if(typeof cd13ZoneEvent==="function")cd13ZoneEvent();
    if(typeof cd15Event==="function")cd15Event();
+   if(typeof cd22SpawnElite==="function"&&cd22SpawnElite())return;
    render();
  }catch(err){
    console.error(err);
@@ -1295,6 +1299,60 @@ function cd21Choose(i){
    toast("Échec")
  }
  cd21Event=null;render()
+}
+</script>
+
+
+<script id="elite-0220">
+const CD22_ELITES=[
+ {name:"Prêtre noyé",base:"Profond",hp:14,atk:3,def:1,weak:"sel",intro:"Une silhouette ruisselante lève un trident couvert d'algues noires."},
+ {name:"Goule matriarche",base:"Goule",hp:12,atk:3,def:2,weak:"lumière",intro:"Une masse voûtée rampe hors d'un caveau trop étroit pour elle."},
+ {name:"Mi-Go chirurgien",base:"Mi-Go",hp:16,atk:4,def:2,weak:"électricité",intro:"Des pinces métalliques vibrent autour d'un thorax fongique."},
+ {name:"Chasseur de l'angle",base:"Chien de Tindalos",hp:18,atk:4,def:2,weak:"symbole",intro:"Les coins de la pièce s'allongent avant que la créature n'apparaisse."}
+];
+
+function cd22SpawnElite(){
+ if(battle||player.depth<2||rng()>.09)return false;
+ const e=CD22_ELITES[R(CD22_ELITES.length)];
+ const b=creatures[e.base];
+ if(!b)return false;
+ enemy={
+   name:e.name,
+   hp:b.hp+e.hp+player.depth*2,
+   maxhp:b.hp+e.hp+player.depth*2,
+   atk:b.atk+e.atk+Math.floor(player.depth/2),
+   def:(b.def||0)+e.def,
+   x:px,y:py,
+   weak:e.weak,
+   resist:b.resist,
+   elite:true,
+   base:e.base
+ };
+ battle=true;
+ log("⚠ ÉLITE : "+e.name+". "+e.intro);
+ toast("RENCONTRE ÉLITE");
+ render();
+ return true
+}
+
+function cd22EliteTurn(){
+ if(!battle||!enemy||!enemy.elite)return;
+ if(rng()<.22){
+   if(enemy.base==="Profond"){player.hp=Math.max(0,player.hp-3);log("Trident rituel : +3 dégâts.");}
+   else if(enemy.base==="Goule"){cd12AddStatus("Infection");log("Morsure nécrotique : Infection.");}
+   else if(enemy.base==="Mi-Go"){player.san=Math.max(0,player.san-3);log("Dissection mentale : -3 SAN.");}
+   else if(enemy.base==="Chien de Tindalos"){cd12AddStatus("Terreur");log("Angle impossible : Terreur.");}
+ }
+}
+
+function cd22EliteReward(){
+ if(!enemy||!enemy.elite)return;
+ player.xp+=5;
+ const pool=["Sel consacré","Craie rituelle","Cartouches d'argent","Amulette d'argent noirci"];
+ const n=pool[R(pool.length)];
+ player.inv.push({n});seenItems[n]=true;
+ log("Trophée d'élite : "+n+" · +5 XP.");
+ toast("ÉLITE VAINCU")
 }
 </script>
 
