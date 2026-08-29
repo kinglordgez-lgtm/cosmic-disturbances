@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.37.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.38.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2347,6 +2347,120 @@ render=function(){
    try{cd29EnsureCriticalAccess()}catch(e){console.warn("cd37 access",e)}
  }
  return cd37OldRender.apply(this,arguments)
+};
+
+
+/* === V0.38.0 : objectifs procéduraux propres à chaque étage === */
+let cd38FloorGoal=null, cd38GoalDepth=-1;
+
+const CD38_GOALS=[
+ {id:"hunt",name:"Purger le secteur",text:"Vaincre 2 créatures sur cet étage.",need:2,icon:"☠"},
+ {id:"search",name:"Relever les anomalies",text:"Enquêter 3 fois sur cet étage.",need:3,icon:"⌕"},
+ {id:"loot",name:"Récupérer des preuves",text:"Trouver 2 objets sur cet étage.",need:2,icon:"▣"}
+];
+
+function cd38NewGoal(){
+ if(!player)return;
+ const d=player.depth||0;
+ cd38GoalDepth=d;
+ const pool=CD38_GOALS.slice();
+ /* Les profondeurs avancées favorisent les objectifs de combat. */
+ let g=(d>=6&&rng()<.45)?pool[0]:pool[R(pool.length)];
+ cd38FloorGoal={id:g.id,name:g.name,text:g.text,need:g.need,count:0,icon:g.icon,done:false,rewarded:false};
+ log("OBJECTIF D'ÉTAGE — "+g.name+" : "+g.text);
+}
+
+function cd38EnsureGoal(){
+ if(!player)return;
+ if(!cd38FloorGoal||cd38GoalDepth!==(player.depth||0))cd38NewGoal()
+}
+
+function cd38RewardGoal(){
+ const g=cd38FloorGoal;
+ if(!g||!g.done||g.rewarded||!player)return;
+ g.rewarded=true;
+ player.xp=(player.xp||0)+4;
+ const roll=R(3);
+ if(roll===0){
+   player.san=Math.min(player.maxsan||player.san,(player.san||0)+2);
+   log("OBJECTIF ACCOMPLI — "+g.name+". Récompense : +4 XP, +2 SAN.");
+ }else if(roll===1){
+   player.hp=Math.min(player.maxhp||player.hp,(player.hp||0)+4);
+   log("OBJECTIF ACCOMPLI — "+g.name+". Récompense : +4 XP, +4 PV.");
+ }else{
+   const rewards=["Sel consacré","Bandage militaire","Craie rituelle","Cartouches d'argent"];
+   const n=rewards[R(rewards.length)];
+   player.inv.push({n}); if(typeof seenItems!=="undefined")seenItems[n]=true;
+   log("OBJECTIF ACCOMPLI — "+g.name+". Récompense : +4 XP, "+n+".");
+ }
+ toast("OBJECTIF D'ÉTAGE ACCOMPLI");
+}
+
+function cd38Progress(id,n=1){
+ cd38EnsureGoal();
+ const g=cd38FloorGoal;
+ if(!g||g.done||g.id!==id)return;
+ g.count=Math.min(g.need,g.count+n);
+ if(g.count>=g.need){g.done=true;cd38RewardGoal()}
+ renderQuestTracker();
+}
+
+/* Progression sur actions réellement accomplies. */
+const cd38Win=win;
+win=function(){
+ const active=battle&&enemy;
+ const r=cd38Win.apply(this,arguments);
+ if(active)cd38Progress("hunt",1);
+ return r;
+};
+
+const cd38Loot=loot;
+loot=function(){
+ const before=(player&&player.inv?player.inv.length:0);
+ const r=cd38Loot.apply(this,arguments);
+ if(player&&player.inv&&player.inv.length>before)cd38Progress("loot",1);
+ return r;
+};
+
+const cd38Investigate=investigate;
+investigate=function(){
+ const allowed=!battle;
+ const r=cd38Investigate.apply(this,arguments);
+ if(allowed)cd38Progress("search",1);
+ return r;
+};
+
+/* Un nouvel objectif est tiré à chaque nouvelle profondeur. */
+const cd38Resolve=resolveTile;
+resolveTile=function(){
+ const d=player?player.depth:0;
+ const r=cd38Resolve.apply(this,arguments);
+ if(player&&player.depth!==d)cd38NewGoal();
+ return r;
+};
+
+const cd38NewRun=newRun;
+newRun=function(){
+ const r=cd38NewRun.apply(this,arguments);
+ cd38NewGoal();renderQuestTracker();return r
+};
+
+/* Ajout très visible dans le journal latéral sans remplacer la quête principale. */
+const cd38Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ const r=cd38Tracker.apply(this,arguments);
+ cd38EnsureGoal();
+ const box=document.getElementById("questTrackerBody");
+ if(!box||!cd38FloorGoal)return r;
+ let old=document.getElementById("cd38FloorGoal");if(old)old.remove();
+ const g=cd38FloorGoal,d=document.createElement("div");
+ d.id="cd38FloorGoal";d.style.cssText="margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.22)";
+ d.innerHTML=`<div style="font-weight:800;color:#c9aa69">OBJECTIF D'ÉTAGE</div>
+ <div><b>${g.done?"✓ ":""}${g.icon} ${g.name}</b></div>
+ <div class="qtObj">${g.done?"Accompli — récompense obtenue":`${g.text} (${g.count}/${g.need})`}</div>`;
+ const recent=box.querySelector(".qtRecent");
+ if(recent)box.insertBefore(d,recent);else box.appendChild(d);
+ return r;
 };
 
 </script>
