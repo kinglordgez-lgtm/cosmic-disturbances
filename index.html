@@ -405,7 +405,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.18.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.18.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1102,8 +1102,7 @@ function cd17Branch(reason){
 }
 function cd17ShowHistory(){
  if(!player.quest){toast("Aucune enquête");return}
- document.getElementById("overlay").classList.add("show");document.getElementById("overlayTitle").textContent="CARNET D'ENQUÊTE";
- document.getElementById("overlayBody").innerHTML=`<div class=entry><b>${player.quest.title}</b><br><br>${(player.quest.history||[]).slice(-8).map(x=>"• "+x).join("<br>")||"Aucun événement majeur."}</div>`
+ cdOpenPanel("CARNET D'ENQUÊTE",`<div class=entry><b>${player.quest.title}</b><br><br>${(player.quest.history||[]).slice(-8).map(x=>"• "+x).join("<br>")||"Aucun événement majeur."}</div>`)
 }
 </script>
 
@@ -1145,10 +1144,18 @@ function cd18Talk(mode){
 }
 function cd18NpcPanel(){
  if(!player.npc)player.npc=cd18NPC();const n=player.npc;
- document.getElementById("overlay").classList.add("show");
- document.getElementById("overlayTitle").textContent=n.name.toUpperCase();
- document.getElementById("overlayBody").innerHTML=`<div class=entry><b>${n.role}</b> · ${n.mood}<br>Confiance : ${n.trust}</div>
- <div class=grid2><button onclick="cd18Talk('questionner')">QUESTIONNER</button><button onclick="cd18Talk('rassurer')">RASSURER</button><button onclick="cd18Talk('menacer')">MENACER</button><button onclick="player.npc=null;closeOverlays()">PARTIR</button></div>`
+ cdOpenPanel(n.name.toUpperCase(),`<div class=entry><b>${n.role}</b> · ${n.mood}<br>Confiance : ${n.trust}</div>
+ <div class=grid2><button onclick="cd18Talk('questionner')">QUESTIONNER</button><button onclick="cd18Talk('rassurer')">RASSURER</button><button onclick="cd18Talk('menacer')">MENACER</button><button onclick="player.npc=null;closeOverlays()">PARTIR</button></div>`)
+}
+</script>
+
+
+<script id="modal-compat-0181">
+function cdOpenPanel(title,body){
+ const modal=document.getElementById("modal"),sheet=document.getElementById("sheet"),content=document.getElementById("sheetContent");
+ if(!modal||!sheet||!content){toast("Fenêtre indisponible");return false}
+ content.innerHTML=`<div class="row"><b>${title}</b><button class="x" onclick="closeOverlays()">×</button></div>${body}`;
+ modal.classList.add("show");sheet.classList.add("show");return true
 }
 </script>
 
