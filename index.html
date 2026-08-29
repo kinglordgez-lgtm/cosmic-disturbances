@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.28.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.29.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1649,6 +1649,99 @@ if(typeof openNpc==="function"){
    }catch(e){console.warn("cd28 npc display",e)}
    return r;
  }
+}
+
+
+/* === V0.29.0 : anti-softlock + dialogues réellement contextuels === */
+function cd29Walkable(x,y){
+ return y>=0&&y<map.length&&x>=0&&map[y]&&x<map[y].length&&map[y][x]!=="wall";
+}
+function cd29ReachableFrom(sx,sy){
+ const seen=new Set([sx+","+sy]), q=[[sx,sy]];
+ while(q.length){
+  const [x,y]=q.shift();
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const nx=x+dx,ny=y+dy,k=nx+","+ny;
+   if(!seen.has(k)&&cd29Walkable(nx,ny)){seen.add(k);q.push([nx,ny])}
+  }
+ }
+ return seen;
+}
+function cd29EnsureCriticalAccess(){
+ if(!map||!map.length)return;
+ const seen=cd29ReachableFrom(px,py);
+ let exit=null;
+ for(let y=0;y<map.length;y++)for(let x=0;x<map[y].length;x++){
+   if(map[y][x]==="exit")exit={x,y};
+ }
+ if(exit&&!seen.has(exit.x+","+exit.y)){
+   // Put the exit on a reachable floor tile far from the player.
+   let cand=[];
+   for(const k of seen){
+     const [x,y]=k.split(",").map(Number);
+     if(map[y][x]==="floor" && Math.abs(x-px)+Math.abs(y-py)>=5)cand.push({x,y});
+   }
+   if(!cand.length)for(const k of seen){
+     const [x,y]=k.split(",").map(Number);
+     if(map[y][x]==="floor")cand.push({x,y});
+   }
+   if(cand.length){
+     map[exit.y][exit.x]="floor";
+     const c=cand[R(cand.length)]; map[c.y][c.x]="exit";
+     log("GÉNÉRATION — Une issue inaccessible a été repositionnée.");
+   }
+ }
+ // Critical active quest target must also have at least one reachable instance.
+ if(player&&player.quest&&!player.quest.done&&typeof currentQuestStep==="function"){
+   const st=currentQuestStep(), icon=st&&st.icon;
+   if(icon){
+     let ok=false;
+     for(const k of seen){const [x,y]=k.split(",").map(Number); if(map[y][x]===icon){ok=true;break}}
+     if(!ok){
+       const floors=[...seen].map(k=>k.split(",").map(Number)).filter(([x,y])=>map[y][x]==="floor"&&Math.abs(x-px)+Math.abs(y-py)>2);
+       if(floors.length){const [x,y]=floors[R(floors.length)];map[y][x]=icon;log("GÉNÉRATION — L'objectif de quête a été rendu accessible.");}
+     }
+   }
+ }
+}
+const cd29OldGenerate=(typeof genMap==="function"?genMap:null);
+if(cd29OldGenerate){
+ genMap=function(){const r=cd29OldGenerate.apply(this,arguments);cd29EnsureCriticalAccess();return r}
+}
+const cd29OldRender=(typeof render==="function"?render:null);
+let cd29Guard=false;
+if(cd29OldRender){
+ render=function(){
+  if(!cd29Guard){cd29Guard=true;try{cd29EnsureCriticalAccess()}catch(e){console.warn("cd29 access",e)}cd29Guard=false}
+  return cd29OldRender.apply(this,arguments)
+ }
+}
+
+/* Dialogue: visible response + consequence depending on choice. */
+function cd29DialogueOutcome(choice){
+ const n=player&&player.npc;if(!n)return;
+ const x=typeof cd28NpcIdentity==="function"?cd28NpcIdentity(n):{job:n.job||"Habitant",mood:n.mood||"méfiant",line:"Quelque chose rôde dans Blackwater."};
+ let skill=choice==="questionner"?"Investigation":choice==="rassurer"?"Psychologie":choice==="menacer"?"Endurance":null;
+ if(!skill)return;
+ const success=typeof skillCheck==="function"?skillCheck(skill,choice==="menacer"?12:10):true;
+ let text;
+ if(success){
+   text=(typeof cd28ContextLine==="function"?cd28ContextLine(n,choice):x.line);
+   n.trust=(n.trust||0)+(choice==="rassurer"?2:1);
+   player.xp+=1;
+   if(choice==="menacer"){player.san=Math.max(0,player.san-1);text+=" Votre brutalité laisse une trace."}
+   log("DIALOGUE — "+(n.name||x.job)+" : "+text+" +1 XP.");
+ }else{
+   n.trust=(n.trust||0)-(choice==="menacer"?2:1);
+   const fails={
+    questionner:"Le témoin élude vos questions et change de sujet.",
+    rassurer:"Vos paroles ne dissipent pas sa peur.",
+    menacer:"Le témoin se ferme complètement et refuse d'en dire davantage."
+   };
+   log("DIALOGUE — "+(fails[choice]||"La conversation tourne court."));
+ }
+ renderQuestTracker();
+ render();
 }
 
 </script>
