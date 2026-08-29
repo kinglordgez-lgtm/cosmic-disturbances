@@ -364,16 +364,7 @@ function mulberry(a){return()=>{let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^
 function R(n){return Math.floor(rng()*n)}
 function toast(s){let t=document.getElementById("toast");t.textContent=s;t.style.display="block";clearTimeout(t._x);t._x=setTimeout(()=>t.style.display="none",1500)}
 function log(s){journal.unshift(s);journal=journal.slice(0,60)}
-function closeOverlays(){document.querySelectorAll(".overlay").forEach(o=>o.classList.remove("open"))}
-document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).classList.remove("open"));
-document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{if(e.target===o)o.classList.remove("open")}));
-
-function makeCharacter(){
- const female=Math.random()<.5,pool=female?firstF:firstM,job=jobs[Math.floor(Math.random()*jobs.length)];
- let v=Object.fromEntries(skills.map(s=>[s,35]));v[job.focus[0]]+=35;v[job.focus[1]]+=25;let rem=60;
- while(rem-->0)v[skills[Math.floor(Math.random()*skills.length)]]++;
- return {name:pool[Math.floor(Math.random()*pool.length)]+" "+lastN[Math.floor(Math.random()*lastN.length)],sex:female?"Femme":"Homme",job:female?job.f:job.m,trait:traits[Math.floor(Math.random()*traits.length)],skills:v}
-}
+function closeOverlays(){document.querySelectorAll(".overlay").forEach(o=>{o.classList.remove("open");o.style.display=""})}
 function newRun(){
  closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
  player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0};
@@ -405,7 +396,7 @@ function initMapDOM(){
 }
 function render(){
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.18.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.18.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -438,6 +429,10 @@ function renderQuestTracker(){
  box.innerHTML=qhtml+`<div class="qtRecent">${recent}</div>`
 }
 function resolveTile(){
+ if(t==="npc"){
+   if(typeof cd18NpcPanel==="function"){cd18NpcPanel();return}
+ }
+
  const t=map[py][px];
  if(t==="trap"){
    map[py][px]="floor";
@@ -631,7 +626,7 @@ function renderContext(){
  if(!battle){
    c.style.display="none";
    c.innerHTML="";
-   a.textContent="ENQUÊTER";
+   a.textContent=(map&&map[py]&&map[py][px]==="npc")?"PARLER":"ENQUÊTER";
    a.classList.remove("combatMode");
    return
  }
@@ -1136,11 +1131,14 @@ function cd18Talk(mode){
    toast("Information obtenue")
  }else{
    n.trust--;
-   if(mode==="menacer"){log(n.name+" refuse de parler et appelle à l'aide.");if(rng()<.45)spawnEnemy()}
-   else log(n.name+" se referme. Votre approche a échoué.");
+   if(mode==="menacer"){
+     log(n.name+" refuse de parler et appelle à l'aide.");
+     if(rng()<.45){closeOverlays();spawnEnemy();render();return}
+   }else log(n.name+" se referme. Votre approche a échoué.");
    toast("Échec social")
  }
- render()
+ render();
+ if(!battle)cd18NpcPanel()
 }
 function cd18NpcPanel(){
  if(!player.npc)player.npc=cd18NPC();const n=player.npc;
@@ -1152,10 +1150,12 @@ function cd18NpcPanel(){
 
 <script id="modal-compat-0181">
 function cdOpenPanel(title,body){
- const modal=document.getElementById("modal"),sheet=document.getElementById("sheet"),content=document.getElementById("sheetContent");
- if(!modal||!sheet||!content){toast("Fenêtre indisponible");return false}
- content.innerHTML=`<div class="row"><b>${title}</b><button class="x" onclick="closeOverlays()">×</button></div>${body}`;
- modal.classList.add("show");sheet.classList.add("show");return true
+ const modal=document.getElementById("modal"),content=document.getElementById("sheetContent");
+ if(!modal||!content){toast("Fenêtre de dialogue indisponible");return false}
+ content.innerHTML=`<div class="row"><b>${title}</b><button class="close" onclick="closeOverlays()">✕</button></div>${body}`;
+ modal.classList.add("open");
+ modal.style.display="flex";
+ return true
 }
 </script>
 
