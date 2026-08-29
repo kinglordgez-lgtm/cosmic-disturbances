@@ -507,7 +507,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.19.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.20.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1142,20 +1142,37 @@ function cd17ShowHistory(){
 }
 </script>
 
-<script id="npc-0180">
-const CD18_NAMES=["Abigail Crane","Jonas Reed","Martha Bell","Isaac Webb","Eleanor Shaw","Caleb Price","Ruth Harker","Silas Cole","Edith Warren","Nathan Briggs"];
-const CD18_ROLES=["Docker","Veuve","Policier","Médecin","Sacristain","Pêcheur","Archiviste","Infirmière","Gardien","Journaliste"];
-const CD18_MOODS=["terrifié","méfiant","épuisé","agité","résigné","fiévreux"];
-const CD18_RUMORS=[
- "Des chants montent des égouts à marée basse.",
- "Le sanatorium recevait des patients qui n'existaient sur aucun registre.",
- "Une lumière verte a été vue au-dessus des entrepôts.",
- "Le vieux phare s'est éteint avant la disparition des pêcheurs.",
- "Des gens entrent dans l'église la nuit, mais personne n'en ressort.",
- "Une famille du quai ne ferme jamais ses rideaux depuis trois générations."
+<script id="npc-0200">
+const CD20_NPCS=[
+ {name:"Abigail Crane",role:"Archiviste",mood:"méfiante",rumor:"Les registres du port ont été réécrits trois fois cette semaine.",gift:"Carnet détrempé"},
+ {name:"Jonas Reed",role:"Docker",mood:"épuisé",rumor:"Une caisse respirait sous les bâches du quai nord.",gift:"Bandage militaire"},
+ {name:"Martha Bell",role:"Veuve",mood:"terrifiée",rumor:"Mon mari est revenu de la mer, mais il ne cligne plus des yeux.",gift:"Sel consacré"},
+ {name:"Isaac Webb",role:"Policier",mood:"agité",rumor:"Les disparitions suivent toujours la cloche de minuit.",gift:"Cartouches d'argent"},
+ {name:"Eleanor Shaw",role:"Médecin",mood:"fiévreuse",rumor:"Les blessures de la morgue contiennent une poussière qui bouge.",gift:"Laudanum trouble"},
+ {name:"Caleb Price",role:"Pêcheur",mood:"résigné",rumor:"Sous le phare, il existe un escalier que la marée ne recouvre jamais.",gift:"Flacon de kérosène"},
+ {name:"Ruth Harker",role:"Infirmière",mood:"nerveuse",rumor:"Un patient du sanatorium connaissait votre nom avant votre arrivée.",gift:"Bandage militaire"},
+ {name:"Silas Cole",role:"Sacristain",mood:"hostile",rumor:"Le symbole n'est pas une prière. C'est une serrure.",gift:"Craie rituelle"}
 ];
 function cd18NPC(){
- return {name:CD18_NAMES[R(CD18_NAMES.length)],role:CD18_ROLES[R(CD18_ROLES.length)],mood:CD18_MOODS[R(CD18_MOODS.length)],trust:R(3)-1,rumor:CD18_RUMORS[R(CD18_RUMORS.length)]}
+ const b={...CD20_NPCS[R(CD20_NPCS.length)]};
+ return {...b,trust:R(3)-1,met:false,helped:false,threatened:false}
+}
+function cd20Outcome(n,mode,ok){
+ if(ok){
+   if(!n.met){n.met=true;player.xp+=1;log("Nouvelle connaissance : "+n.name+". +1 XP.")}
+   if(mode==="rassurer"&&n.trust>=2&&!n.helped&&n.gift){
+     n.helped=true;player.inv.push({n:n.gift});seenItems[n.gift]=true;
+     log(n.name+" vous confie : "+n.gift+".");toast("Objet reçu")
+   }
+   if(player.quest&&currentQuestStep()&&currentQuestStep().target==="npc"){
+     advanceQuest();
+   }else if((!player.quest||player.quest.done)&&n.trust>=1){
+     startQuest();
+   }
+ }else if(mode==="menacer"){
+   n.threatened=true;
+   if(player.quest&&!player.quest.done)changeQuest(n.name+" refuse désormais de coopérer");
+ }
 }
 function cd18Talk(mode){
  if(typeof player==="undefined"||!player){toast("Personnage non initialisé");return}
@@ -1164,28 +1181,25 @@ function cd18Talk(mode){
  if(mode==="questionner"){sk="Investigation";dc=13}
  if(mode==="rassurer"){sk="Psychologie";dc=11}
  if(mode==="menacer"){sk="Armes";dc=15}
- const ok=(typeof skillCheck==="function")?skillCheck(sk,dc):false;
+ const ok=skillCheck(sk,dc);
  if(ok){
    n.trust+=(mode==="menacer"?0:1);
    log(n.name+" ("+n.role+") : « "+n.rumor+" »");
    if(mode==="rassurer")player.san=Math.min(player.maxsan,player.san+1);
-   if(player.quest&&rng()<.38){log("Cette information éclaire votre enquête.");player.xp+=2}
-   toast("Information obtenue")
+   if(mode==="menacer")log(n.name+" parle, mais n'oubliera pas votre méthode.");
+   cd20Outcome(n,mode,true);toast("Information obtenue")
  }else{
-   n.trust--;
-   if(mode==="menacer"){
-     log(n.name+" refuse de parler et appelle à l'aide.");
-     if(rng()<.45){closeOverlays();spawnEnemy();render();return}
-   }else log(n.name+" se referme. Votre approche a échoué.");
-   toast("Échec social")
+   n.trust--;log(n.name+" se referme. Votre approche a échoué.");
+   cd20Outcome(n,mode,false);toast("Échec social")
  }
- render();
- if(!battle)cd18NpcPanel()
+ render();if(!battle)cd18NpcPanel()
 }
 function cd18NpcPanel(){
  if(typeof player==="undefined"||!player){toast("Personnage non initialisé");return}
  if(!player.npc)player.npc=cd18NPC();const n=player.npc;
- cdOpenPanel(n.name.toUpperCase(),`<div class=entry><b>${n.role}</b> · ${n.mood}<br>Confiance : ${n.trust}</div>
+ const attitude=n.trust>=2?"vous fait confiance":n.trust<0?"se méfie de vous":"reste prudent";
+ const memory=n.helped?" · vous a déjà aidé":n.threatened?" · se souvient de vos menaces":"";
+ cdOpenPanel(n.name.toUpperCase(),`<div class=entry><b>${n.role}</b> · ${n.mood}<br>${n.name} ${attitude}${memory}.<br>Confiance : ${n.trust}</div>
  <div class=grid2><button onclick="cd18Talk('questionner')">QUESTIONNER</button><button onclick="cd18Talk('rassurer')">RASSURER</button><button onclick="cd18Talk('menacer')">MENACER</button><button onclick="player.npc=null;closeOverlays()">PARTIR</button></div>`)
 }
 </script>
