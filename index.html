@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.60.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.61.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3816,6 +3816,46 @@ const cd60Move=move;move=function(dx,dy){const od=player?player.depth:0,r=cd60Mo
 const cd60Tracker=renderQuestTracker;renderQuestTracker=function(){const r=cd60Tracker.apply(this,arguments),s=cd60State(),box=document.getElementById("questTrackerBody");if(box&&s.event&&!s.event.done&&!document.getElementById("cd60Incident")){const d=document.createElement("div");d.id="cd60Incident";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";d.innerHTML="<b>TENSIONS LOCALES</b><br>Deux groupes semblent s'affronter dans cet étage.";box.appendChild(d)}return r};
 const cd60Character=openCharacter;openCharacter=function(){const r=cd60Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd60State();if(root&&!document.getElementById("cd60Resolved")){const d=document.createElement("div");d.id="cd60Resolved";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>CONFLITS DE FACTIONS RÉSOLUS</b> : "+s.resolved;root.appendChild(d)}return r};
 const cd60NewRun=newRun;newRun=function(){const r=cd60NewRun.apply(this,arguments);player.cd60={depth:player.depth||0,event:null,resolved:0};return r};
+
+
+/* === V0.61.0 : contrôle territorial des factions === */
+function cd61State(){if(!player.cd61)player.cd61={depth:0,controller:null,changes:0};return player.cd61}
+function cd61Controller(){
+ const fs=cd53State(),candidates=CD53_FACTIONS.map(f=>({id:f.id,name:f.name,v:fs[f.id]||0}));
+ candidates.sort((a,b)=>b.v-a.v);
+ if(candidates[0].v>=3&&candidates[0].v-candidates[1].v>=2)return candidates[0];
+ return null
+}
+function cd61NewFloor(){
+ const s=cd61State(),d=player.depth||0;if(s.depth===d)return;s.depth=d;
+ const old=s.controller,n=cd61Controller();s.controller=n?n.id:null;
+ if(old!==s.controller)s.changes++;
+ if(n){
+   log("TERRITOIRE — "+n.name+" exerce une influence visible sur cet étage.");
+   if(n.id==="town")player.hp=Math.min(player.maxhp||999,player.hp+2);
+   else if(n.id==="order")player.san=Math.min(player.maxsan||100,player.san+2);
+   else{player.myth=Math.min(100,(player.myth||0)+1);player.san=Math.max(0,player.san-1)}
+ }else log("TERRITOIRE — Aucun groupe ne semble contrôler cet étage.")
+}
+const cd61Move=move;
+move=function(dx,dy){const od=player?player.depth:0,r=cd61Move.apply(this,arguments);if(player&&player.depth!==od)cd61NewFloor();return r};
+
+/* Le contrôle modifie légèrement les rencontres et découvertes. */
+const cd61Investigate=investigate;
+investigate=function(){const r=cd61Investigate.apply(this,arguments),c=cd61State().controller;if(c==="order"&&rng()<.10){player.xp=(player.xp||0)+1;log("INFLUENCE — Les marques de l'Aube Pâle facilitent l'interprétation. +1 XP.")}else if(c==="dagon"&&rng()<.08){player.san=Math.max(0,player.san-1);log("INFLUENCE — Les symboles des Profondeurs troublent votre esprit. -1 SAN.")}return r};
+
+const cd61Loot=loot;
+loot=function(){const before=player.inv.length,r=cd61Loot.apply(this,arguments),c=cd61State().controller;if(c==="town"&&player.inv.length>before&&rng()<.10){player.hp=Math.min(player.maxhp||999,player.hp+1);log("INFLUENCE — Une réserve laissée par les habitants vous aide. +1 PV.")}return r};
+
+/* Le tracker rend le contrôle territorial immédiatement visible. */
+const cd61Tracker=renderQuestTracker;
+renderQuestTracker=function(){const r=cd61Tracker.apply(this,arguments),s=cd61State(),box=document.getElementById("questTrackerBody");if(box&&!document.getElementById("cd61Territory")){const f=CD53_FACTIONS.find(x=>x.id===s.controller),d=document.createElement("div");d.id="cd61Territory";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";d.innerHTML="<b>INFLUENCE DE L'ÉTAGE</b><br>"+(f?f.name:"Territoire disputé");box.appendChild(d)}return r};
+
+const cd61Character=openCharacter;
+openCharacter=function(){const r=cd61Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd61State();if(root&&!document.getElementById("cd61Control")){const d=document.createElement("div");d.id="cd61Control";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>BASCULEMENTS TERRITORIAUX</b> : "+s.changes;root.appendChild(d)}return r};
+
+const cd61NewRun=newRun;
+newRun=function(){const r=cd61NewRun.apply(this,arguments);player.cd61={depth:player.depth||0,controller:null,changes:0};return r};
 
 </script>
 
