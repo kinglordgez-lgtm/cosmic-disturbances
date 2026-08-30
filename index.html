@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.52.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.53.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3434,6 +3434,78 @@ openCharacter=function(){
 
 const cd52NewRun=newRun;
 newRun=function(){const r=cd52NewRun.apply(this,arguments);player.cd52={known:[],heard:0};return r};
+
+
+/* === V0.53.0 : factions occultes et relations dynamiques === */
+const CD53_FACTIONS=[
+ {id:"town",name:"Habitants de Blackwater",desc:"Ceux qui veulent simplement survivre à ce qui ronge la ville."},
+ {id:"order",name:"Cercle de l'Aube Pâle",desc:"Érudits clandestins qui étudient le Mythe pour tenter de le contenir."},
+ {id:"dagon",name:"Fraternité des Profondeurs",desc:"Réseau de fidèles attirés par les puissances sous-marines."}
+];
+function cd53State(){if(!player.cd53)player.cd53={town:0,order:0,dagon:0,met:[]};return player.cd53}
+function cd53Rank(v){return v>=5?"Allié":v>=2?"Favorable":v<=-5?"Ennemi":v<=-2?"Hostile":"Neutre"}
+function cd53Change(id,n,why){
+ const s=cd53State();s[id]=(s[id]||0)+n;
+ const f=CD53_FACTIONS.find(x=>x.id===id);
+ log("FACTION — "+f.name+" "+(n>0?"+":"")+n+(why?" : "+why:"")+".");
+ if(Math.abs(s[id])===2||Math.abs(s[id])===5)toast(f.name+" : "+cd53Rank(s[id]))
+}
+function cd53Discover(id){
+ const s=cd53State();if(!s.met.includes(id)){s.met.push(id);const f=CD53_FACTIONS.find(x=>x.id===id);log("FACTION DÉCOUVERTE — "+f.name+".")}
+}
+
+/* Les conversations façonnent la relation avec les habitants. */
+const cd53Talk=cd18Talk;
+cd18Talk=function(mode){
+ cd53Discover("town");
+ const before=(player.reputation&&player.reputation.town)||0,r=cd53Talk.apply(this,arguments);
+ const after=(player.reputation&&player.reputation.town)||0;
+ if(after>before)cd53Change("town",1,"votre attitude inspire confiance");
+ if(mode==="menacer")cd53Change("town",-1,"les menaces circulent vite");
+ return r
+};
+
+/* L'occultisme et certaines rumeurs révèlent les factions cachées. */
+const cd53Investigate=investigate;
+investigate=function(){
+ const before=player.myth||0,r=cd53Investigate.apply(this,arguments),after=player.myth||0;
+ if(after>before&&rng()<.28){cd53Discover("order");cd53Change("order",1,"vos recherches attirent l'attention")}
+ const rs=player.cd52&&player.cd52.known||[];
+ if(rs.includes("docks")&&rng()<.08){cd53Discover("dagon");cd53Change("dagon",-1,"vous fouillez trop près des quais")}
+ return r
+};
+
+/* Certains ennemis liés à Dagon affectent directement cette relation. */
+const cd53Win=win;
+win=function(){
+ const n=enemy&&enemy.name||"",r=cd53Win.apply(this,arguments);
+ if(/Profond|Dagon/i.test(n)){cd53Discover("dagon");cd53Change("dagon",-1,"le sang versé ne sera pas oublié")}
+ return r
+};
+
+/* Effets simples mais concrets des relations. */
+const cd53Loot=loot;
+loot=function(){
+ const before=player.inv.length,r=cd53Loot.apply(this,arguments),s=cd53State();
+ if(player.inv.length>before&&s.order>=5&&rng()<.12){player.xp=(player.xp||0)+2;log("AUBE PÂLE — Vos contacts vous aident à interpréter la trouvaille. +2 XP.")}
+ return r
+};
+
+/* Fiche personnage : tableau des factions rencontrées. */
+const cd53Character=openCharacter;
+openCharacter=function(){
+ const r=cd53Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd53State();
+ if(root&&!document.getElementById("cd53Factions")){
+   const d=document.createElement("div");d.id="cd53Factions";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   const rows=CD53_FACTIONS.filter(f=>s.met.includes(f.id)).map(f=>"• "+f.name+" : "+cd53Rank(s[f.id])+" ("+(s[f.id]>0?"+":"")+s[f.id]+")");
+   d.innerHTML="<b>FACTIONS</b><br>"+(rows.length?rows.join("<br>"):"Aucune faction identifiée.");
+   root.appendChild(d)
+ }
+ return r
+};
+
+const cd53NewRun=newRun;
+newRun=function(){const r=cd53NewRun.apply(this,arguments);player.cd53={town:0,order:0,dagon:0,met:[]};return r};
 
 </script>
 
