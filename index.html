@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.43.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.44.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2769,6 +2769,93 @@ cd15StudyEnemy=function(){
  const e=enemy,r=cd43Study.apply(this,arguments);
  if(e&&e.cd43Mutations&&e.cd43Mutations.length){
    log("ÉTUDE — Mutations observées : "+e.cd43Mutations.map(id=>CD43_MUTATIONS.find(m=>m.id===id)?.name||id).join(", ")+".")
+ }
+ return r
+};
+
+
+/* === V0.44.0 : affixes d'objets + équipement à personnalité === */
+const CD44_AFFIXES=[
+ {id:"sturdy",name:"robuste",desc:"+1 DEF",kind:"def"},
+ {id:"keen",name:"affûté",desc:"+1 ATQ",kind:"atk"},
+ {id:"calm",name:"rassurant",desc:"+2 SAN max",kind:"san"},
+ {id:"vital",name:"endurci",desc:"+3 PV max",kind:"hp"},
+ {id:"occult",name:"marqué",desc:"+1% Mythe à certaines découvertes",kind:"myth"}
+];
+function cd44BaseName(i){return typeof i==="string"?i:(i&&i.n)||""}
+function cd44CanAffix(i){
+ const n=cd44BaseName(i);
+ return !!n&&!/Bandage|Cartouches|Laudanum|Sel consacré|Craie rituelle/i.test(n)
+}
+function cd44AffixItem(i){
+ if(!i||typeof i==="string"||i.cd44Affix||!cd44CanAffix(i)||rng()>.28)return i;
+ const a=CD44_AFFIXES[R(CD44_AFFIXES.length)];i.cd44Affix=a.id;return i
+}
+function cd44Affix(i){return i&&i.cd44Affix?CD44_AFFIXES.find(a=>a.id===i.cd44Affix):null}
+function cd44Display(i){
+ const a=cd44Affix(i),n=cd44BaseName(i);return a?n+" · "+a.name:n
+}
+
+/* Les nouveaux objets trouvés peuvent recevoir un affixe. */
+const cd44Loot=loot;
+loot=function(){
+ const before=player&&player.inv?player.inv.length:0,r=cd44Loot.apply(this,arguments);
+ if(player&&player.inv&&player.inv.length>before){
+   for(let i=before;i<player.inv.length;i++){
+     const it=player.inv[i];cd44AffixItem(it);
+     const a=cd44Affix(it);if(a){log("OBJET SINGULIER — "+cd44Display(it)+" ("+a.desc+").");toast("OBJET SINGULIER")}
+   }
+ }
+ return r
+};
+
+/* Bonus des affixes équipés, calculés à la volée sans altérer les stats de base. */
+function cd44EquippedAffixes(){
+ const out=[];if(!player||!player.equip)return out;
+ for(const k of Object.keys(player.equip)){const n=player.equip[k];if(!n)continue;
+   const it=(player.inv||[]).find(x=>cd44BaseName(x)===n);const a=cd44Affix(it);if(a)out.push(a)
+ }return out
+}
+function cd44Bonus(kind){return cd44EquippedAffixes().filter(a=>a.kind===kind).length}
+
+/* Affixes offensifs : bonus de dégâts après une attaque réussie. */
+const cd44Attack=attack;
+attack=function(){
+ const e=enemy,hp=e&&e.hp,r=cd44Attack.apply(this,arguments);
+ if(e&&enemy===e&&battle&&e.hp<hp){
+   const b=cd44Bonus("atk");if(b){e.hp-=b;log("AFFIXE AFFÛTÉ — +"+b+" dégât.");if(e.hp<=0)win()}
+ }
+ return r
+};
+
+/* Défense : petit amortissement du prochain tour adverse. */
+const cd44EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ if(!battle||!enemy)return;
+ const hp=player.hp,r=cd44EnemyTurn.apply(this,arguments),b=cd44Bonus("def");
+ if(b&&player.hp<hp){player.hp=Math.min(player.maxhp||999,player.hp+b);log("AFFIXE ROBUSTE — "+b+" dégât absorbé.")}
+ return r
+};
+
+/* Les objets marqués nourrissent légèrement les découvertes occultes. */
+const cd44Investigate=investigate;
+investigate=function(){
+ const before=player.myth||0,r=cd44Investigate.apply(this,arguments);
+ if(cd44Bonus("myth")&&player.myth>before&&rng()<.35){player.myth=Math.min(100,player.myth+1);log("OBJET MARQUÉ — +1% Mythe.")}
+ return r
+};
+
+/* Inventaire : montre clairement les affixes existants. */
+const cd44Inventory=openInventory;
+openInventory=function(){
+ const r=cd44Inventory.apply(this,arguments),root=document.getElementById("sheetContent");
+ if(root){
+   const rows=root.querySelectorAll("button");
+   rows.forEach(b=>{
+     for(const it of (player.inv||[])){const n=cd44BaseName(it),a=cd44Affix(it);
+       if(a&&b.textContent.includes(n)&&!b.textContent.includes(a.name))b.textContent=b.textContent.replace(n,cd44Display(it))
+     }
+   })
  }
  return r
 };
