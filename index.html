@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.61.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.62.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3973,6 +3973,66 @@ openCharacter=function(){const r=cd61Character.apply(this,arguments),root=docume
 
 const cd61NewRun=newRun;
 newRun=function(){const r=cd61NewRun.apply(this,arguments);player.cd61={depth:player.depth||0,controller:null,changes:0};return r};
+
+
+/* === V0.62.0 : objectifs d'étage à choix et risque === */
+const CD62_CHOICES={
+ hunt:[
+  {name:"Chasse prudente",desc:"Objectif normal.",risk:0,reward:0},
+  {name:"Extermination",desc:"+1 créature à vaincre, meilleure récompense.",risk:1,reward:1}
+ ],
+ search:[
+  {name:"Fouille méthodique",desc:"Objectif normal.",risk:0,reward:0},
+  {name:"Fouille interdite",desc:"+1 enquête, mais l'étage devient plus dangereux.",risk:1,reward:1}
+ ],
+ loot:[
+  {name:"Récupération rapide",desc:"Objectif normal.",risk:0,reward:0},
+  {name:"Tout emporter",desc:"+1 objet à trouver, meilleure récompense.",risk:1,reward:1}
+ ]
+};
+function cd62State(){if(!player.cd62)player.cd62={depth:0,chosen:false,risk:0,bonus:0};return player.cd62}
+function cd62GoalKind(g){
+ const t=((g&&g.title)||"")+" "+((g&&g.desc)||"");
+ return /Pur|créature|vaincre/i.test(t)?"hunt":/objet|récup|trouver/i.test(t)?"loot":"search"
+}
+function cd62Offer(){
+ const s=cd62State(),g=cd38EnsureGoal&&cd38EnsureGoal();if(!g||s.chosen||battle)return;
+ const kind=cd62GoalKind(g),a=CD62_CHOICES[kind]||CD62_CHOICES.search;
+ cdOpenPanel("OBJECTIF D'ÉTAGE",`<p>Comment voulez-vous aborder cet étage ?</p><div class="menuGrid"><button onclick="cd62Choose(0)"><b>${a[0].name.toUpperCase()}</b><br><span class="small">${a[0].desc}</span></button><button onclick="cd62Choose(1)"><b>${a[1].name.toUpperCase()}</b><br><span class="small">${a[1].desc}</span></button></div>`)
+}
+function cd62Choose(i){
+ const s=cd62State(),g=cd38EnsureGoal&&cd38EnsureGoal(),kind=cd62GoalKind(g),c=(CD62_CHOICES[kind]||CD62_CHOICES.search)[i];
+ s.chosen=true;s.risk=c.risk;s.bonus=c.reward;
+ if(c.risk&&g&&typeof g.need==="number")g.need+=1;
+ log("APPROCHE — "+c.name+".");toast(c.risk?"RISQUE ACCRU":"APPROCHE PRUDENTE");closeOverlays();render()
+}
+
+/* Nouvelle profondeur = nouveau choix, proposé rapidement au joueur. */
+const cd62Move=move;
+move=function(dx,dy){
+ const od=player?player.depth:0,r=cd62Move.apply(this,arguments);
+ if(player&&player.depth!==od){player.cd62={depth:player.depth,chosen:false,risk:0,bonus:0};setTimeout(cd62Offer,120)}
+ return r
+};
+
+/* Le choix risqué a une contrepartie pendant l'exploration. */
+const cd62EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ const s=cd62State();
+ if(s.risk&&battle&&enemy&&rng()<.08){player.san=Math.max(0,player.san-1);log("PRESSION DE L'ÉTAGE — Votre approche agressive vous coûte 1 SAN.")}
+ return cd62EnemyTurn.apply(this,arguments)
+};
+
+/* Bonus lorsque l'objectif d'étage est récompensé. */
+const cd62Reward=cd38RewardGoal;
+cd38RewardGoal=function(){
+ const s=cd62State(),r=cd62Reward.apply(this,arguments);
+ if(s.bonus){player.xp=(player.xp||0)+4;log("OBJECTIF AUDACIEUX — Bonus de risque : +4 XP.");toast("BONUS DE RISQUE");s.bonus=0}
+ return r
+};
+
+const cd62NewRun=newRun;
+newRun=function(){const r=cd62NewRun.apply(this,arguments);player.cd62={depth:player.depth||0,chosen:false,risk:0,bonus:0};return r};
 
 </script>
 
