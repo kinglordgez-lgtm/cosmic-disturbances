@@ -303,6 +303,43 @@ header{left:18px!important}
  }
 }
 </style>
+
+<style id="tracker-fix-0612">
+/* V0.61.2 — vraie zone de scroll + réserve permanente au-dessus du bouton d'action */
+#questTracker{
+  top:86px!important;
+  bottom:145px!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow-y:scroll!important;
+  overflow-x:hidden!important;
+  pointer-events:auto!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-y:contain!important;
+  padding-bottom:18px!important;
+}
+#questTrackerBody{
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+#questTracker .qtRecent{
+  max-height:none!important;
+  overflow:visible!important;
+  padding-right:0!important;
+}
+#questTracker::-webkit-scrollbar{width:5px}
+#questTracker::-webkit-scrollbar-thumb{background:rgba(199,169,107,.55);border-radius:8px}
+
+@media (orientation:landscape) and (max-height:430px){
+  #questTracker{
+    top:70px!important;
+    bottom:128px!important;
+    max-height:none!important;
+  }
+}
+</style>
 </head>
 <body>
 <div id="game">
@@ -537,7 +574,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.61.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.61.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
