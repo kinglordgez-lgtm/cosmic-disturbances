@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.56.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.57.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3694,6 +3694,41 @@ const cd56Reveal=cd50Reveal;
 cd50Reveal=function(){const was=cd50Here(),r=cd56Reveal.apply(this,arguments);if(was&&r){cd55Heat(1,"votre découverte d'un lieu secret");if(cd56CanMeet()&&rng()<.18)setTimeout(cd56Meet,120)}return r};
 const cd56Character=openCharacter;
 openCharacter=function(){const r=cd56Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd55State();if(root&&!document.getElementById("cd56RivalMeet")){const d=document.createElement("div");d.id="cd56RivalMeet";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>CONFRONTATIONS MAÎTRISÉES</b> : "+(s.defeated||0);root.appendChild(d)}return r};
+
+
+/* === V0.57.0 : duel avec le rival === */
+function cd57CanFight(){const s=cd55State();return !battle&&(player.depth||0)>=6&&s.heat>=7&&(s.encounters||0)>=2&&s.cd57FightDepth!==(player.depth||0)}
+function cd57Fight(){
+ if(!cd57CanFight())return false;const s=cd55State(),d=player.depth||1;s.cd57FightDepth=d;
+ spawnEnemy();if(!battle||!enemy)return false;
+ enemy.cd57Rival=true;enemy.name=s.name+" — "+s.title;enemy.maxhp=Math.max(18,Math.ceil((enemy.maxhp||12)*(1.45+d*.025)));enemy.hp=enemy.maxhp;enemy.atk=(enemy.atk||4)+2;enemy.def=(enemy.def||0)+1;
+ log("RIVAL — "+s.name+" cesse de discuter. Cette fois, il veut vous arrêter lui-même.");toast("DUEL AVEC LE RIVAL");render();return true
+}
+const cd57Move=move;
+move=function(dx,dy){const r=cd57Move.apply(this,arguments);if(cd57CanFight()&&rng()<.045)cd57Fight();return r};
+const cd57EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ if(battle&&enemy&&enemy.cd57Rival&&!enemy.cd57Phase2&&enemy.hp/Math.max(1,enemy.maxhp)<=.5){
+  enemy.cd57Phase2=true;enemy.atk+=1;const s=cd55State();
+  if(s.style==="occult"){player.san=Math.max(0,player.san-2);log("RIVAL — Une formule interdite vous coûte 2 SAN.")}
+  else if(s.style==="hunter"){player.hp=Math.max(1,player.hp-2);log("RIVAL — Une arme dissimulée vous coûte 2 PV.")}
+  else{player.xp=Math.max(0,(player.xp||0)-2);log("RIVAL — Il détruit une partie de vos notes. -2 XP.")}
+  toast("LE RIVAL CHANGE DE TACTIQUE")
+ }
+ return cd57EnemyTurn.apply(this,arguments)
+};
+const cd57Win=win;
+win=function(){
+ const isR=enemy&&enemy.cd57Rival,r=cd57Win.apply(this,arguments);
+ if(isR){const s=cd55State();s.defeated=(s.defeated||0)+1;s.heat=Math.max(1,s.heat-4);player.xp=(player.xp||0)+12;player.san=Math.min(player.maxsan||100,player.san+4);log("RIVAL VAINCU — Il disparaît avant que vous sachiez s'il est mort. +12 XP, +4 SAN.");toast("RIVAL VAINCU")}
+ return r
+};
+const cd57Context=renderContext;
+renderContext=function(){
+ const r=cd57Context.apply(this,arguments),box=document.getElementById("context");
+ if(box&&battle&&enemy&&enemy.cd57Rival&&!document.getElementById("cd57RivalFight")){const d=document.createElement("div");d.id="cd57RivalFight";d.style.cssText="margin-top:8px;padding:7px;border:1px solid rgba(255,255,255,.25);font-size:11px";d.innerHTML="<b>☠ DUEL — RIVAL OCCULTE</b><br>Phase "+(enemy.cd57Phase2?"II":"I")+" · Il connaît vos méthodes.";box.appendChild(d)}
+ return r
+};
 
 </script>
 
