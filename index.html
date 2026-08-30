@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.45.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.46.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2954,6 +2954,82 @@ openInventory=function(){
      b.textContent=b.textContent.replace(cd44Display(it),cd45Label(it))
    }
  });
+ return r
+};
+
+
+/* === V0.46.0 : choix de progression à chaque niveau === */
+const CD46_PERKS=[
+ {id:"hardy",name:"Constitution",desc:"+5 PV maximum.",apply(){player.maxhp+=5;player.hp+=5}},
+ {id:"steady",name:"Nerfs d'acier",desc:"+3 SAN maximum et +3 SAN.",apply(){player.maxsan+=3;player.san=Math.min(player.maxsan,player.san+3)}},
+ {id:"fighter",name:"Instinct de survie",desc:"+1 ATQ permanent.",apply(){player.atk+=1}},
+ {id:"guard",name:"Peau dure",desc:"+1 DEF permanent.",apply(){player.def=(player.def||0)+1}},
+ {id:"scholar",name:"Érudit de l'interdit",desc:"+3 points dans une compétence aléatoire.",apply(){
+   const s=Object.keys(player.char.skills),k=s[R(s.length)];player.char.skills[k]+=3;log("PROGRESSION — "+k+" +3.")
+ }}
+];
+let cd46Pending=0,cd46LastLevel=1,cd46Choices=[];
+
+function cd46PickChoices(){
+ const pool=CD46_PERKS.slice(),out=[];
+ while(out.length<3&&pool.length){out.push(pool.splice(R(pool.length),1)[0])}
+ return out
+}
+function cd46Open(){
+ if(cd46Pending<=0||battle)return;
+ cd46Choices=cd46PickChoices();
+ const buttons=cd46Choices.map((x,i)=>`<button onclick="cd46Choose(${i})"><b>${x.name}</b><br><span class="small">${x.desc}</span></button>`).join("");
+ cdOpenPanel("▲ PROGRESSION",`<p>Votre expérience vous transforme. Choisissez une amélioration permanente.</p><div class="menuGrid">${buttons}</div><p class="small">Choix disponibles : ${cd46Pending}</p>`);
+}
+function cd46Choose(i){
+ const x=cd46Choices[i];if(!x||cd46Pending<=0)return;
+ x.apply();cd46Pending--;log("NIVEAU — Aptitude acquise : "+x.name+".");toast("APTITUDE : "+x.name);
+ closeOverlays();render();
+ if(cd46Pending>0)setTimeout(cd46Open,120)
+}
+function cd46CheckLevel(){
+ if(!player)return;
+ const lv=player.level||player.lvl||1;
+ if(cd46LastLevel==null)cd46LastLevel=lv;
+ if(lv>cd46LastLevel){
+   cd46Pending+=lv-cd46LastLevel;cd46LastLevel=lv;
+   log("PROGRESSION — Une nouvelle aptitude permanente est disponible.");
+   setTimeout(()=>{try{cd46Open()}catch(e){console.warn("cd46",e)}},80)
+ }else if(lv<cd46LastLevel)cd46LastLevel=lv
+}
+
+/* Détecte les montées de niveau sans remplacer le système XP existant. */
+const cd46Render=render;
+render=function(){
+ const r=cd46Render.apply(this,arguments);
+ try{cd46CheckLevel()}catch(e){console.warn("cd46 level",e)}
+ return r
+};
+
+/* Une nouvelle partie réinitialise seulement les choix de cette incarnation. */
+const cd46NewRun=newRun;
+newRun=function(){
+ const r=cd46NewRun.apply(this,arguments);
+ cd46Pending=0;cd46LastLevel=player.level||player.lvl||1;return r
+};
+
+/* La fiche rappelle les aptitudes obtenues. */
+if(player&&!player.cd46Perks)player.cd46Perks=[];
+const cd46OldChoose=cd46Choose;
+cd46Choose=function(i){
+ const x=cd46Choices[i];
+ if(x){player.cd46Perks=player.cd46Perks||[];player.cd46Perks.push(x.name)}
+ return cd46OldChoose(i)
+};
+const cd46Character=openCharacter;
+openCharacter=function(){
+ const r=cd46Character.apply(this,arguments),root=document.getElementById("sheetContent");
+ if(root&&!document.getElementById("cd46Perks")){
+   const d=document.createElement("div");d.id="cd46Perks";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   const a=player.cd46Perks||[];
+   d.innerHTML="<b>APTITUDES DE PROGRESSION</b><br>"+(a.length?a.map(x=>"• "+x).join("<br>"):"Aucune aptitude acquise.");
+   root.appendChild(d)
+ }
  return r
 };
 
