@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.42.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.43.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2699,6 +2699,76 @@ openCharacter=function(){
    const d=document.createElement("div");d.id="cd42Traumas";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
    d.innerHTML="<b>SÉQUELLES MENTALES</b><br>"+(player.traumas.length?player.traumas.map(t=>`• ${t.name} — ${t.desc}`).join("<br>"):"Aucune séquelle durable.");
    root.appendChild(d)
+ }
+ return r
+};
+
+
+/* === V0.43.0 : élites à mutations procédurales === */
+const CD43_MUTATIONS=[
+ {id:"carapace",name:"Carapace chitineuse",desc:"+4 DEF",apply:e=>{e.def=(e.def||0)+4}},
+ {id:"frenzy",name:"Frénésie",desc:"+3 ATQ",apply:e=>{e.atk=(e.atk||0)+3}},
+ {id:"mass",name:"Masse aberrante",desc:"+35% PV",apply:e=>{e.maxhp=Math.ceil(e.maxhp*1.35);e.hp=e.maxhp}},
+ {id:"mind",name:"Présence psychique",desc:"attaque mentale renforcée",apply:e=>{e.cd43Mind=true}},
+ {id:"regen",name:"Chair régénérante",desc:"régénère parfois 2 PV",apply:e=>{e.cd43Regen=true}},
+ {id:"void",name:"Touché par le Vide",desc:"contact pouvant coûter 1 SAN",apply:e=>{e.cd43Void=true}}
+];
+function cd43Mutate(){
+ if(!battle||!enemy||enemy.cd43Mutated)return;
+ const d=player.depth||0;
+ const elite=/élite|elite|ancien|aberrant|alpha|supérieur/i.test(enemy.name||"");
+ if(d<4||(!elite&&rng()>.18))return;
+ enemy.cd43Mutated=true;
+ const count=d>=12&&rng()<.40?2:1,used=[];
+ for(let i=0;i<count;i++){
+   const pool=CD43_MUTATIONS.filter(m=>!used.includes(m.id));if(!pool.length)break;
+   const m=pool[R(pool.length)];used.push(m.id);m.apply(enemy)
+ }
+ enemy.cd43Mutations=used;
+ const names=used.map(id=>CD43_MUTATIONS.find(m=>m.id===id).name);
+ log("MUTATION — "+enemy.name+" : "+names.join(" + ")+".");toast("CRÉATURE MUTANTE")
+}
+const cd43Spawn=spawnEnemy;
+spawnEnemy=function(){const r=cd43Spawn.apply(this,arguments);try{cd43Mutate()}catch(e){console.warn("cd43 mutation",e)}return r};
+
+/* Effets actifs des mutations. */
+const cd43EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ if(!battle||!enemy)return;
+ const e=enemy,r=cd43EnemyTurn.apply(this,arguments);
+ if(!battle||!enemy||enemy!==e)return r;
+ if(e.cd43Regen&&e.hp>0&&e.hp<e.maxhp&&rng()<.30){
+   e.hp=Math.min(e.maxhp,e.hp+2);log("CHAIR RÉGÉNÉRANTE — "+e.name+" récupère 2 PV.");toast("RÉGÉNÉRATION")
+ }
+ if(e.cd43Void&&rng()<.22){
+   player.san=Math.max(0,(player.san||0)-1);log("TOUCHÉ PAR LE VIDE — Le contact vous coûte 1 SAN.")
+ }
+ if(e.cd43Mind&&rng()<.20){
+   player.san=Math.max(0,(player.san||0)-2);log("PRÉSENCE PSYCHIQUE — Une pensée étrangère vous traverse. -2 SAN.");toast("ATTAQUE MENTALE")
+ }
+ return r
+};
+
+/* Mutations visibles dans le panneau de combat. */
+const cd43Context=renderContext;
+renderContext=function(){
+ const r=cd43Context.apply(this,arguments);
+ if(!battle||!enemy||!enemy.cd43Mutations||!enemy.cd43Mutations.length)return r;
+ const panel=document.querySelector(".cd34-status")||document.getElementById("context");
+ if(panel&&!document.getElementById("cd43Mutations")){
+   const d=document.createElement("div");d.id="cd43Mutations";d.style.cssText="margin-top:6px;font-size:11px";
+   d.innerHTML="<b>MUTATIONS</b> — "+enemy.cd43Mutations.map(id=>{const m=CD43_MUTATIONS.find(x=>x.id===id);return m?m.name+" ("+m.desc+")":id}).join(" · ");
+   panel.appendChild(d)
+ }
+ return r
+};
+
+/* Étudier une créature mutante inscrit ses mutations dans le journal de combat. */
+const cd43Study=studyEnemy;
+studyEnemy=function(){
+ const e=enemy,r=cd43Study.apply(this,arguments);
+ if(e&&e.cd43Mutations&&e.cd43Mutations.length){
+   log("ÉTUDE — Mutations observées : "+e.cd43Mutations.map(id=>CD43_MUTATIONS.find(m=>m.id===id)?.name||id).join(", ")+".")
  }
  return r
 };
