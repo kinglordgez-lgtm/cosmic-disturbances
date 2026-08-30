@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.46.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.47.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3028,6 +3028,65 @@ openCharacter=function(){
    const d=document.createElement("div");d.id="cd46Perks";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
    const a=player.cd46Perks||[];
    d.innerHTML="<b>APTITUDES DE PROGRESSION</b><br>"+(a.length?a.map(x=>"• "+x).join("<br>"):"Aucune aptitude acquise.");
+   root.appendChild(d)
+ }
+ return r
+};
+
+
+/* === V0.47.0 : traits évolutifs / spécialisations de run === */
+const CD47_TRAITS=[
+ {id:"investigator",name:"Enquêteur obsessionnel",desc:"Après 8 enquêtes : Investigation +5.",need:8},
+ {id:"slayer",name:"Chasseur de l'indicible",desc:"Après 10 victoires : Armes +5.",need:10},
+ {id:"survivor",name:"Survivant des profondeurs",desc:"Après 6 descentes : Endurance +5.",need:6},
+ {id:"occultist",name:"Initié malgré lui",desc:"Après 6 découvertes du Mythe : Occultisme +5.",need:6}
+];
+if(player&&!player.cd47)player.cd47={investigations:0,kills:0,depths:0,myth:0,unlocked:[]};
+function cd47State(){if(!player.cd47)player.cd47={investigations:0,kills:0,depths:0,myth:0,unlocked:[]};return player.cd47}
+function cd47Unlock(id){
+ const s=cd47State();if(s.unlocked.includes(id))return;
+ const t=CD47_TRAITS.find(x=>x.id===id);if(!t)return;
+ s.unlocked.push(id);
+ const skill={investigator:"Investigation",slayer:"Armes",survivor:"Endurance",occultist:"Occultisme"}[id];
+ if(player.char&&player.char.skills&&skill)player.char.skills[skill]=(player.char.skills[skill]||0)+5;
+ log("TRAIT ÉVOLUÉ — "+t.name+" : "+skill+" +5.");toast("TRAIT ÉVOLUÉ : "+t.name)
+}
+function cd47Check(){
+ const s=cd47State();
+ if(s.investigations>=8)cd47Unlock("investigator");
+ if(s.kills>=10)cd47Unlock("slayer");
+ if(s.depths>=6)cd47Unlock("survivor");
+ if(s.myth>=6)cd47Unlock("occultist")
+}
+
+const cd47Investigate=investigate;
+investigate=function(){
+ const before=player.myth||0,r=cd47Investigate.apply(this,arguments),s=cd47State();
+ s.investigations++;
+ if((player.myth||0)>before)s.myth++;
+ cd47Check();return r
+};
+const cd47Win=win;
+win=function(){const active=battle&&enemy,r=cd47Win.apply(this,arguments);if(active){cd47State().kills++;cd47Check()}return r};
+const cd47Move=move;
+move=function(dx,dy){const d=player?player.depth:0,r=cd47Move.apply(this,arguments);if(player&&player.depth!==d){cd47State().depths++;cd47Check()}return r};
+
+/* Réinitialisation propre à chaque nouvelle incarnation. */
+const cd47NewRun=newRun;
+newRun=function(){const r=cd47NewRun.apply(this,arguments);player.cd47={investigations:0,kills:0,depths:0,myth:0,unlocked:[]};return r};
+
+/* Progression visible dans la fiche personnage. */
+const cd47Character=openCharacter;
+openCharacter=function(){
+ const r=cd47Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd47State();
+ if(root&&!document.getElementById("cd47Traits")){
+   const d=document.createElement("div");d.id="cd47Traits";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   const line=(t,val)=>`${s.unlocked.includes(t.id)?"✓":"○"} ${t.name} — ${Math.min(val,t.need)}/${t.need}`;
+   d.innerHTML="<b>TRAITS ÉVOLUTIFS</b><br>"+
+    line(CD47_TRAITS[0],s.investigations)+"<br>"+
+    line(CD47_TRAITS[1],s.kills)+"<br>"+
+    line(CD47_TRAITS[2],s.depths)+"<br>"+
+    line(CD47_TRAITS[3],s.myth);
    root.appendChild(d)
  }
  return r
