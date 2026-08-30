@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.44.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.45.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2857,6 +2857,103 @@ openInventory=function(){
      }
    })
  }
+ return r
+};
+
+
+/* === V0.45.0 : raretés et objets maudits === */
+const CD45_RARITIES=[
+ {id:"common",name:"Commun",mult:1,chance:.62},
+ {id:"unusual",name:"Inhabituel",mult:1.15,chance:.25},
+ {id:"rare",name:"Rare",mult:1.35,chance:.10},
+ {id:"relic",name:"Relique",mult:1.65,chance:.03}
+];
+const CD45_CURSES=[
+ {id:"whisper",name:"Murmurant",desc:"Peut coûter 1 SAN après une enquête."},
+ {id:"hungry",name:"Affamé",desc:"Renforce l'attaque mais peut blesser son porteur."},
+ {id:"cold",name:"Glacial",desc:"Protège parfois, mais trouble les rencontres humaines."}
+];
+function cd45Rarity(){let x=rng(),a=0;for(const r of CD45_RARITIES){a+=r.chance;if(x<=a)return r}return CD45_RARITIES[0]}
+function cd45Prepare(i){
+ if(!i||typeof i==="string"||i.cd45Rarity)return i;
+ const r=cd45Rarity();i.cd45Rarity=r.id;
+ if(cd44CanAffix(i)&&r.id!=="common"&&!i.cd44Affix){
+   const a=CD44_AFFIXES[R(CD44_AFFIXES.length)];i.cd44Affix=a.id
+ }
+ if(cd44CanAffix(i)&&(r.id==="rare"||r.id==="relic")&&rng()<.24){
+   const c=CD45_CURSES[R(CD45_CURSES.length)];i.cd45Curse=c.id
+ }
+ return i
+}
+function cd45R(i){return CD45_RARITIES.find(r=>r.id===(i&&i.cd45Rarity))||CD45_RARITIES[0]}
+function cd45C(i){return i&&i.cd45Curse?CD45_CURSES.find(c=>c.id===i.cd45Curse):null}
+function cd45Label(i){
+ const n=cd44Display(i),r=cd45R(i),c=cd45C(i);
+ return `${n} [${r.name}]${c?" ☠ "+c.name:""}`
+}
+
+/* Tout nouveau loot reçoit désormais une rareté. */
+const cd45Loot=loot;
+loot=function(){
+ const before=player&&player.inv?player.inv.length:0,r=cd45Loot.apply(this,arguments);
+ if(player&&player.inv&&player.inv.length>before){
+   for(let j=before;j<player.inv.length;j++){
+     const it=player.inv[j];cd45Prepare(it);
+     const rr=cd45R(it),cc=cd45C(it);
+     if(rr.id!=="common"){log("RARETÉ — "+cd45Label(it)+".");toast(rr.id==="relic"?"RELIQUE TROUVÉE":"OBJET "+rr.name.toUpperCase())}
+     if(cc)log("MALÉDICTION — "+cc.name+" : "+cc.desc)
+   }
+ }
+ return r
+};
+
+/* Bonus offensif de rareté et contrepartie des objets Affamés. */
+function cd45Equipped(){
+ const a=[];if(!player||!player.equip)return a;
+ for(const k in player.equip){const n=player.equip[k];if(!n)continue;const it=(player.inv||[]).find(x=>cd44BaseName(x)===n);if(it)a.push(it)}
+ return a
+}
+const cd45Attack=attack;
+attack=function(){
+ const e=enemy,h=e&&e.hp,r=cd45Attack.apply(this,arguments);
+ if(e&&enemy===e&&battle&&e.hp<h){
+   let bonus=0,hungry=false;
+   for(const it of cd45Equipped()){
+     const rr=cd45R(it);if(rr.id==="rare")bonus+=1;if(rr.id==="relic")bonus+=2;
+     if(it.cd45Curse==="hungry")hungry=true
+   }
+   if(bonus){e.hp-=bonus;log("RARETÉ D'ÉQUIPEMENT — +"+bonus+" dégâts.");if(e.hp<=0){win();return r}}
+   if(hungry&&battle&&rng()<.18){player.hp=Math.max(1,player.hp-1);log("AFFAMÉ — L'objet exige son tribut. -1 PV.")}
+ }
+ return r
+};
+
+/* Malédictions hors combat. */
+const cd45Investigate=investigate;
+investigate=function(){
+ const r=cd45Investigate.apply(this,arguments);
+ if(cd45Equipped().some(i=>i.cd45Curse==="whisper")&&rng()<.20){
+   player.san=Math.max(0,player.san-1);log("MURMURANT — Une voix s'échappe de votre équipement. -1 SAN.")
+ }
+ return r
+};
+const cd45Talk=cd18Talk;
+cd18Talk=function(mode){
+ if(cd45Equipped().some(i=>i.cd45Curse==="cold")&&rng()<.15){
+   player.san=Math.max(0,player.san-1);log("GLACIAL — Le froid de l'objet rend l'échange étrangement hostile.")
+ }
+ return cd45Talk.apply(this,arguments)
+};
+
+/* Affichage de la rareté et des malédictions dans l'inventaire. */
+const cd45Inventory=openInventory;
+openInventory=function(){
+ const r=cd45Inventory.apply(this,arguments),root=document.getElementById("sheetContent");
+ if(root)root.querySelectorAll("button").forEach(b=>{
+   for(const it of (player.inv||[])){const n=cd44BaseName(it);if(n&&b.textContent.includes(n)&&!b.textContent.includes("["))
+     b.textContent=b.textContent.replace(cd44Display(it),cd45Label(it))
+   }
+ });
  return r
 };
 
