@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.58.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.59.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3784,6 +3784,26 @@ openCharacter=function(){
 
 const cd58NewRun=newRun;
 newRun=function(){const r=cd58NewRun.apply(this,arguments);player.cd58={depth:player.depth||0,mark:null,found:0};return r};
+
+
+/* === V0.59.0 : lieux de faction procéduraux === */
+const CD59_SITES=[{f:"town",name:"Refuge barricadé",skill:"Médecine"},{f:"order",name:"Cabinet de l'Aube Pâle",skill:"Érudition"},{f:"dagon",name:"Sanctuaire des Profondeurs",skill:"Occultisme"}];
+function cd59State(){if(!player.cd59)player.cd59={depth:0,site:null,visited:0};return player.cd59}
+function cd59NewFloor(){const s=cd59State(),fs=cd53State(),d=player.depth||0;if(s.depth===d)return;s.depth=d;s.site=null;if(d<3)return;const a=CD59_SITES.filter(x=>fs.met.includes(x.f));if(a.length&&rng()<.34){s.site={...a[R(a.length)],used:false};log("LIEU DE FACTION — Des signes indiquent une présence dans cet étage.")}}
+function cd59Visit(){
+ const s=cd59State(),q=s.site;if(!q||q.used||battle)return false;q.used=true;s.visited++;const fs=cd53State(),ok=(fs[q.f]||0)>=2||skillCheck(q.skill,9);
+ if(ok){if(q.f==="town"){player.hp=Math.min(player.maxhp||999,player.hp+5);log("REFUGE — +5 PV.")}else if(q.f==="order"){player.san=Math.min(player.maxsan||100,player.san+4);player.xp=(player.xp||0)+3;log("AUBE PÂLE — +4 SAN, +3 XP.")}else{player.myth=Math.min(100,(player.myth||0)+2);player.san=Math.max(0,player.san-1);log("SANCTUAIRE — +2% Mythe, -1 SAN.")}cd53Change(q.f,1,"vous avez respecté leur territoire");toast("LIEU DE FACTION EXPLORÉ")}
+ else{cd53Change(q.f,-1,"votre intrusion a été remarquée");player.san=Math.max(0,player.san-1);log("LIEU DE FACTION — Vous êtes chassé. -1 SAN.");toast("INTRUSION REPÉRÉE")}
+ render();return true
+}
+const cd59Move=move;
+move=function(dx,dy){const od=player?player.depth:0,r=cd59Move.apply(this,arguments);if(player&&player.depth!==od)cd59NewFloor();const s=cd59State();if(s.site&&!s.site.used&&!battle&&rng()<.04){log("Vous découvrez : "+s.site.name+".");toast("LIEU CACHÉ DÉCOUVERT");cd59Visit()}return r};
+const cd59Tracker=renderQuestTracker;
+renderQuestTracker=function(){const r=cd59Tracker.apply(this,arguments),s=cd59State(),box=document.getElementById("questTrackerBody");if(box&&s.site&&!s.site.used&&!document.getElementById("cd59Site")){const d=document.createElement("div");d.id="cd59Site";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";d.innerHTML="<b>SIGNES DE FACTION</b><br>Des marques inhabituelles sont visibles dans cet étage.";box.appendChild(d)}return r};
+const cd59Character=openCharacter;
+openCharacter=function(){const r=cd59Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd59State();if(root&&!document.getElementById("cd59Visited")){const d=document.createElement("div");d.id="cd59Visited";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>LIEUX DE FACTION VISITÉS</b> : "+s.visited;root.appendChild(d)}return r};
+const cd59NewRun=newRun;
+newRun=function(){const r=cd59NewRun.apply(this,arguments);player.cd59={depth:player.depth||0,site:null,visited:0};return r};
 
 </script>
 
