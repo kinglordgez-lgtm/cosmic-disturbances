@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.59.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.60.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3804,6 +3804,18 @@ const cd59Character=openCharacter;
 openCharacter=function(){const r=cd59Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd59State();if(root&&!document.getElementById("cd59Visited")){const d=document.createElement("div");d.id="cd59Visited";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>LIEUX DE FACTION VISITÉS</b> : "+s.visited;root.appendChild(d)}return r};
 const cd59NewRun=newRun;
 newRun=function(){const r=cd59NewRun.apply(this,arguments);player.cd59={depth:player.depth||0,site:null,visited:0};return r};
+
+
+/* === V0.60.0 : conflits de factions === */
+const CD60_INCIDENTS=[{a:"town",b:"order",name:"L'érudit traqué"},{a:"town",b:"dagon",name:"Le prisonnier des quais"},{a:"order",b:"dagon",name:"Le manuscrit disputé"}];
+function cd60State(){if(!player.cd60)player.cd60={depth:0,event:null,resolved:0};return player.cd60}
+function cd60NewFloor(){const s=cd60State(),fs=cd53State(),d=player.depth||0;if(s.depth===d)return;s.depth=d;s.event=null;if(d<4||rng()>.24)return;const a=CD60_INCIDENTS.filter(e=>fs.met.includes(e.a)&&fs.met.includes(e.b));if(a.length){s.event={...a[R(a.length)],done:false};log("TENSION — Deux factions semblent s'affronter dans cet étage.")}}
+function cd60Open(){const s=cd60State(),e=s.event;if(!e||e.done||battle)return false;const fa=CD53_FACTIONS.find(x=>x.id===e.a),fb=CD53_FACTIONS.find(x=>x.id===e.b);cdOpenPanel("⚖ "+e.name,`<p>Deux groupes revendiquent le contrôle d'une découverte locale.</p><div class="menuGrid"><button onclick="cd60Choose('a')"><b>SOUTENIR ${fa.name.toUpperCase()}</b></button><button onclick="cd60Choose('b')"><b>SOUTENIR ${fb.name.toUpperCase()}</b></button><button onclick="cd60Choose('peace')"><b>CALMER LE CONFLIT</b><br><span class="small">Psychologie</span></button><button onclick="cd60Choose('leave')"><b>NE PAS INTERVENIR</b></button></div>`);return true}
+function cd60Choose(c){const s=cd60State(),e=s.event;if(!e||e.done)return;e.done=true;s.resolved++;if(c==="a"){cd53Change(e.a,2,"vous avez pris leur parti");cd53Change(e.b,-2,"vous avez choisi leurs adversaires");player.xp=(player.xp||0)+3}else if(c==="b"){cd53Change(e.b,2,"vous avez pris leur parti");cd53Change(e.a,-2,"vous avez choisi leurs adversaires");player.xp=(player.xp||0)+3}else if(c==="peace"){if(skillCheck("Psychologie",11)){cd53Change(e.a,1,"vous avez évité un affrontement");cd53Change(e.b,1,"vous avez évité un affrontement");player.xp=(player.xp||0)+6;log("TENSION APAISÉE — +6 XP.")}else{cd53Change(e.a,-1,"votre médiation a échoué");cd53Change(e.b,-1,"votre médiation a échoué");player.san=Math.max(0,player.san-1)}}else log("TENSION — Vous n'intervenez pas.");closeOverlays();render()}
+const cd60Move=move;move=function(dx,dy){const od=player?player.depth:0,r=cd60Move.apply(this,arguments);if(player&&player.depth!==od)cd60NewFloor();const s=cd60State();if(s.event&&!s.event.done&&!battle&&rng()<.035){toast("CONFLIT DE FACTIONS");cd60Open()}return r};
+const cd60Tracker=renderQuestTracker;renderQuestTracker=function(){const r=cd60Tracker.apply(this,arguments),s=cd60State(),box=document.getElementById("questTrackerBody");if(box&&s.event&&!s.event.done&&!document.getElementById("cd60Incident")){const d=document.createElement("div");d.id="cd60Incident";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";d.innerHTML="<b>TENSIONS LOCALES</b><br>Deux groupes semblent s'affronter dans cet étage.";box.appendChild(d)}return r};
+const cd60Character=openCharacter;openCharacter=function(){const r=cd60Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd60State();if(root&&!document.getElementById("cd60Resolved")){const d=document.createElement("div");d.id="cd60Resolved";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>CONFLITS DE FACTIONS RÉSOLUS</b> : "+s.resolved;root.appendChild(d)}return r};
+const cd60NewRun=newRun;newRun=function(){const r=cd60NewRun.apply(this,arguments);player.cd60={depth:player.depth||0,event:null,resolved:0};return r};
 
 </script>
 
