@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.54.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.55.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3581,6 +3581,96 @@ openCharacter=function(){
 
 const cd54NewRun=newRun;
 newRun=function(){const r=cd54NewRun.apply(this,arguments);player.cd54={active:null,done:[]};return r};
+
+
+/* === V0.55.0 : rival occulte persistant === */
+const CD55_RIVALS=[
+ {name:"Silas Vane",title:"l'Exégète noyé",style:"occult"},
+ {name:"Eleanor Pike",title:"la Veuve des quais",style:"hunter"},
+ {name:"Abel Crowe",title:"le Collectionneur pâle",style:"thief"}
+];
+function cd55State(){
+ if(!player.cd55){
+   const r=CD55_RIVALS[R(CD55_RIVALS.length)];
+   player.cd55={name:r.name,title:r.title,style:r.style,heat:0,encounters:0,defeated:0};
+ }
+ return player.cd55
+}
+function cd55Heat(n,why){
+ const s=cd55State();s.heat=Math.max(0,Math.min(10,s.heat+n));
+ if(why)log("RIVAL — "+s.name+" remarque "+why+".");
+}
+function cd55Interference(){
+ const s=cd55State();if((player.depth||0)<3||battle||s.heat<2)return false;
+ s.encounters++;
+ const roll=R(3);
+ if(roll===0){
+   player.san=Math.max(0,player.san-2);
+   log("RIVAL — "+s.name+" "+s.title+" a laissé un message qui semble écrit avec votre propre écriture. -2 SAN.")
+ }else if(roll===1){
+   player.xp=Math.max(0,(player.xp||0)-2);
+   log("RIVAL — Une piste a été sabotée avant votre arrivée. -2 XP.")
+ }else{
+   cd52Hear();
+   log("RIVAL — En suivant "+s.name+", vous surprenez malgré tout une nouvelle rumeur.")
+ }
+ toast("LE RIVAL EST PASSÉ PAR ICI");s.heat=Math.max(1,s.heat-1);return true
+}
+
+/* Le rival s'intéresse aux découvertes importantes. */
+const cd55Investigate=investigate;
+investigate=function(){
+ const myth=player.myth||0,r=cd55Investigate.apply(this,arguments);
+ if((player.myth||0)>myth)cd55Heat(1,"vos recherches interdites");
+ if(!battle&&rng()<.035)cd55Interference();
+ return r
+};
+
+const cd55Loot=loot;
+loot=function(){
+ const before=player.inv.length,r=cd55Loot.apply(this,arguments);
+ if(player.inv.length>before){
+   const it=player.inv[player.inv.length-1];
+   if(it&&typeof it!=="string"&&((it.cd45Rarity==="rare")||(it.cd45Rarity==="relic")))cd55Heat(1,"votre découverte");
+ }
+ return r
+};
+
+const cd55Win=win;
+win=function(){
+ const was=battle&&enemy,r=cd55Win.apply(this,arguments);
+ if(was&&rng()<.18)cd55Heat(1,"vos victoires répétées");
+ return r
+};
+
+/* Aux changements de profondeur, le rival peut avoir pris de l'avance. */
+const cd55Move=move;
+move=function(dx,dy){
+ const d=player?player.depth:0,r=cd55Move.apply(this,arguments);
+ if(player&&player.depth!==d&&rng()<Math.min(.12+cd55State().heat*.025,.35))cd55Interference();
+ return r
+};
+
+/* Présence visible dans la fiche, sans encombrer l'interface principale. */
+const cd55Character=openCharacter;
+openCharacter=function(){
+ const r=cd55Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd55State();
+ if(root&&!document.getElementById("cd55Rival")){
+   const d=document.createElement("div");d.id="cd55Rival";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   const threat=s.heat>=7?"Obsédé par vous":s.heat>=4?"À vos trousses":s.heat>=2?"Intrigué":"Lointain";
+   d.innerHTML="<b>RIVAL OCCULTE</b><br>"+s.name+", "+s.title+"<br>Menace : "+threat+" · Interférences : "+s.encounters;
+   root.appendChild(d)
+ }
+ return r
+};
+
+const cd55NewRun=newRun;
+newRun=function(){
+ const r=cd55NewRun.apply(this,arguments);
+ const rr=CD55_RIVALS[R(CD55_RIVALS.length)];
+ player.cd55={name:rr.name,title:rr.title,style:rr.style,heat:0,encounters:0,defeated:0};
+ return r
+};
 
 </script>
 
