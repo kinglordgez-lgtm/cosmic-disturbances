@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.55.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.56.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3671,6 +3671,29 @@ newRun=function(){
  player.cd55={name:rr.name,title:rr.title,style:rr.style,heat:0,encounters:0,defeated:0};
  return r
 };
+
+
+/* === V0.56.0 : confrontations avec le rival === */
+function cd56CanMeet(){const s=cd55State(),d=player.depth||0;return !battle&&d>=4&&s.heat>=4&&s.encounters>=1&&s.cd56MetDepth!==d}
+function cd56Meet(){
+ if(!cd56CanMeet())return false;const s=cd55State();s.cd56MetDepth=player.depth;
+ cdOpenPanel("☠ CONFRONTATION",`<p><b>${s.name}, ${s.title}</b> vous attend dans le passage.</p><p>« Nous suivons les mêmes traces. Lequel de nous mérite d'aller plus loin ? »</p><div class="menuGrid"><button onclick="cd56Choice('talk')"><b>RAISONNER</b><br><span class="small">Psychologie</span></button><button onclick="cd56Choice('threat')"><b>MENACER</b><br><span class="small">Armes</span></button><button onclick="cd56Choice('occult')"><b>PARTAGER UN SECRET</b><br><span class="small">Occultisme</span></button><button onclick="cd56Choice('leave')"><b>SE RETIRER</b></button></div>`);
+ toast("LE RIVAL VOUS ATTEND");return true
+}
+function cd56Choice(kind){
+ const s=cd55State();let ok=false;
+ if(kind==="talk"){ok=skillCheck("Psychologie",10);if(ok){s.heat=Math.max(0,s.heat-2);player.xp=(player.xp||0)+4;log("RIVAL — Confrontation désamorcée. +4 XP.")}else{player.san=Math.max(0,player.san-2);s.heat=Math.min(10,s.heat+1);log("RIVAL — Il retourne vos arguments contre vous. -2 SAN.")}}
+ else if(kind==="threat"){ok=skillCheck("Armes",11);if(ok){s.heat=Math.max(0,s.heat-1);s.defeated=(s.defeated||0)+1;player.xp=(player.xp||0)+5;log("RIVAL — Il recule. +5 XP.")}else{player.hp=Math.max(1,player.hp-3);s.heat=Math.min(10,s.heat+2);log("RIVAL — L'échange dégénère. -3 PV.")}}
+ else if(kind==="occult"){ok=skillCheck("Occultisme",10);if(ok){player.myth=Math.min(100,(player.myth||0)+1);s.heat=Math.max(0,s.heat-1);cd52Hear();log("RIVAL — Un secret contre un secret. +1% Mythe.")}else{player.san=Math.max(0,player.san-3);log("RIVAL — Révélation incontrôlée. -3 SAN.")}}
+ else{s.heat=Math.max(0,s.heat-1);log("RIVAL — Vous abandonnez le terrain. Il prend de l'avance.")}
+ closeOverlays();render();return ok
+}
+const cd56Move=move;
+move=function(dx,dy){const od=player?player.depth:0,r=cd56Move.apply(this,arguments),s=cd55State();if(player&&player.depth!==od)s.cd56MetDepth=null;if(cd56CanMeet()&&rng()<.055)cd56Meet();return r};
+const cd56Reveal=cd50Reveal;
+cd50Reveal=function(){const was=cd50Here(),r=cd56Reveal.apply(this,arguments);if(was&&r){cd55Heat(1,"votre découverte d'un lieu secret");if(cd56CanMeet()&&rng()<.18)setTimeout(cd56Meet,120)}return r};
+const cd56Character=openCharacter;
+openCharacter=function(){const r=cd56Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd55State();if(root&&!document.getElementById("cd56RivalMeet")){const d=document.createElement("div");d.id="cd56RivalMeet";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>CONFRONTATIONS MAÎTRISÉES</b> : "+(s.defeated||0);root.appendChild(d)}return r};
 
 </script>
 
