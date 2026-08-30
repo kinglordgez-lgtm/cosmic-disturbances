@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.53.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.54.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3506,6 +3506,81 @@ openCharacter=function(){
 
 const cd53NewRun=newRun;
 newRun=function(){const r=cd53NewRun.apply(this,arguments);player.cd53={town:0,order:0,dagon:0,met:[]};return r};
+
+
+/* === V0.54.0 : contrats de factions === */
+const CD54_CONTRACTS=[
+ {f:"town",title:"Les disparus de Blackwater",goal:"investigate",need:4,desc:"Recueillir quatre indices pour les habitants.",reward:"town"},
+ {f:"order",title:"Fragments de l'interdit",goal:"myth",need:3,desc:"Faire trois découvertes liées au Mythe.",reward:"order"},
+ {f:"dagon",title:"Le prix du silence",goal:"kill",need:3,desc:"Éliminer trois créatures qui rôdent près des rites.",reward:"dagon"}
+];
+function cd54State(){if(!player.cd54)player.cd54={active:null,done:[]};return player.cd54}
+function cd54Offer(){
+ const fs=cd53State(),s=cd54State();
+ if(s.active)return;
+ const available=CD54_CONTRACTS.filter(c=>fs.met.includes(c.f)&&!s.done.includes(c.title)&&fs[c.f]>=2);
+ if(!available.length)return;
+ const c=available[R(available.length)];
+ s.active={...c,progress:0};
+ log("CONTRAT — "+c.title+" : "+c.desc);toast("NOUVEAU CONTRAT")
+}
+function cd54Progress(kind,n=1){
+ const s=cd54State(),c=s.active;if(!c||c.goal!==kind)return;
+ c.progress=Math.min(c.need,c.progress+n);
+ log("CONTRAT — "+c.title+" : "+c.progress+"/"+c.need+".");
+ if(c.progress>=c.need)cd54Complete()
+}
+function cd54Complete(){
+ const s=cd54State(),c=s.active;if(!c)return;
+ s.done.push(c.title);cd53Change(c.f,2,"contrat accompli");player.xp=(player.xp||0)+8;
+ if(c.f==="town"){player.hp=Math.min(player.maxhp||999,player.hp+6)}
+ if(c.f==="order"){player.san=Math.min(player.maxsan||100,player.san+5)}
+ if(c.f==="dagon"){player.myth=Math.min(100,(player.myth||0)+2)}
+ log("CONTRAT ACCOMPLI — "+c.title+". +8 XP.");toast("CONTRAT ACCOMPLI");s.active=null
+}
+
+/* Les factions favorables peuvent proposer une mission secondaire. */
+const cd54Talk=cd18Talk;
+cd18Talk=function(mode){const r=cd54Talk.apply(this,arguments);if(mode==="questionner"&&rng()<.30)cd54Offer();return r};
+
+const cd54Investigate=investigate;
+investigate=function(){
+ const before=player.myth||0,r=cd54Investigate.apply(this,arguments);
+ cd54Progress("investigate");
+ if((player.myth||0)>before)cd54Progress("myth");
+ return r
+};
+
+const cd54Win=win;
+win=function(){const active=battle&&enemy,r=cd54Win.apply(this,arguments);if(active)cd54Progress("kill");return r};
+
+/* Le contrat actif rejoint le journal latéral. */
+const cd54Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ const r=cd54Tracker.apply(this,arguments),box=document.getElementById("questTrackerBody"),c=cd54State().active;
+ if(box&&c&&!document.getElementById("cd54Contract")){
+   const d=document.createElement("div");d.id="cd54Contract";d.style.cssText="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.16);font-size:11px";
+   const f=CD53_FACTIONS.find(x=>x.id===c.f);
+   d.innerHTML="<b>CONTRAT — "+c.title+"</b><br>"+(f?f.name:"Faction")+"<br>"+c.desc+"<br><b>"+c.progress+"/"+c.need+"</b>";
+   box.appendChild(d)
+ }
+ return r
+};
+
+/* Historique dans la fiche. */
+const cd54Character=openCharacter;
+openCharacter=function(){
+ const r=cd54Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd54State();
+ if(root&&!document.getElementById("cd54Contracts")){
+   const d=document.createElement("div");d.id="cd54Contracts";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   d.innerHTML="<b>CONTRATS DE FACTION</b><br>"+(s.done.length?s.done.map(x=>"✓ "+x).join("<br>"):"Aucun contrat accompli.");
+   root.appendChild(d)
+ }
+ return r
+};
+
+const cd54NewRun=newRun;
+newRun=function(){const r=cd54NewRun.apply(this,arguments);player.cd54={active:null,done:[]};return r};
 
 </script>
 
