@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.41.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.42.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2636,6 +2636,68 @@ openCharacter=function(){
    const rep=cd41Rep(),d=document.createElement("div");d.id="cd41RepSheet";
    d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
    d.innerHTML=`<b>RÉPUTATION À BLACKWATER</b><br>Habitants : ${rep.town} — ${cd41RepName()}<br>Empreinte occulte : ${rep.occult}`;
+   root.appendChild(d)
+ }
+ return r
+};
+
+
+/* === V0.42.0 : folie / séquelles mentales === */
+if(player&&!player.traumas)player.traumas=[];
+const CD42_TRAUMAS=[
+ {id:"paranoia",name:"Paranoïa",desc:"Les rencontres humaines vous mettent mal à l'aise."},
+ {id:"vertigo",name:"Vertige des angles",desc:"Les géométries impossibles vous poursuivent."},
+ {id:"voices",name:"Voix sous l'eau",desc:"Vous entendez parfois des murmures qui n'existent pas."},
+ {id:"obsession",name:"Obsession interdite",desc:"Le savoir du Mythe devient difficile à ignorer."}
+];
+let cd42LastSan=null,cd42LastDepth=-1;
+function cd42Ensure(){if(!player.traumas)player.traumas=[]}
+function cd42Has(id){cd42Ensure();return player.traumas.some(t=>t.id===id)}
+function cd42Gain(){
+ cd42Ensure();const pool=CD42_TRAUMAS.filter(t=>!cd42Has(t.id));if(!pool.length)return;
+ const t=pool[R(pool.length)];player.traumas.push(t);
+ log("SÉQUELLE — "+t.name+" : "+t.desc);toast("NOUVELLE SÉQUELLE : "+t.name)
+}
+function cd42Check(){
+ if(!player)return;cd42Ensure();
+ const san=player.san||0,max=Math.max(1,player.maxsan||1),ratio=san/max;
+ if(cd42LastSan!==null&&san<cd42LastSan){
+   const crossed=(cd42LastSan/max>.50&&ratio<=.50)||(cd42LastSan/max>.25&&ratio<=.25)||(san===0&&cd42LastSan>0);
+   if(crossed&&rng()<.70)cd42Gain()
+ }
+ cd42LastSan=san
+}
+function cd42Atmosphere(){
+ if(!player)return;cd42Ensure();
+ const d=player.depth||0;if(d===cd42LastDepth)return;cd42LastDepth=d;
+ if(cd42Has("voices")&&d>=3&&rng()<.55)log("VOIX SOUS L'EAU — « "+["descends","ne regarde pas derrière toi","la cloche connaît ton nom","nous sommes déjà ici"][R(4)]+"… »");
+ if(cd42Has("vertigo")&&d>=4&&rng()<.45){player.san=Math.max(0,(player.san||0)-1);log("VERTIGE DES ANGLES — La nouvelle architecture vous coûte 1 SAN.")}
+}
+const cd42Render=render;
+render=function(){try{cd42Check()}catch(e){console.warn("cd42 san",e)}return cd42Render.apply(this,arguments)};
+const cd42Move=move;
+move=function(dx,dy){const d=player?player.depth:0,r=cd42Move.apply(this,arguments);if(player&&player.depth!==d)try{cd42Atmosphere()}catch(e){console.warn("cd42 atm",e)}return r};
+
+/* Effets légers mais réels, sans casser les systèmes existants. */
+const cd42Talk=cd18Talk;
+cd18Talk=function(mode){
+ if(cd42Has("paranoia")&&mode==="rassurer"&&rng()<.22){player.san=Math.max(0,player.san-1);log("PARANOÏA — Vous doutez même de vos propres paroles. -1 SAN.")}
+ return cd42Talk.apply(this,arguments)
+};
+const cd42Investigate=investigate;
+investigate=function(){
+ const before=player?player.myth:0,r=cd42Investigate.apply(this,arguments);
+ if(cd42Has("obsession")&&player&&player.myth>before&&rng()<.45){player.xp=(player.xp||0)+1;log("OBSESSION INTERDITE — Le savoir vous attire. +1 XP.")}
+ return r
+};
+
+/* Séquelles visibles dans la fiche personnage. */
+const cd42Character=openCharacter;
+openCharacter=function(){
+ const r=cd42Character.apply(this,arguments),root=document.getElementById("sheetContent");cd42Ensure();
+ if(root&&!document.getElementById("cd42Traumas")){
+   const d=document.createElement("div");d.id="cd42Traumas";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   d.innerHTML="<b>SÉQUELLES MENTALES</b><br>"+(player.traumas.length?player.traumas.map(t=>`• ${t.name} — ${t.desc}`).join("<br>"):"Aucune séquelle durable.");
    root.appendChild(d)
  }
  return r
