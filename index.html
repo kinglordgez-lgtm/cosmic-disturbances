@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.62.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.62.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4033,6 +4033,35 @@ cd38RewardGoal=function(){
 
 const cd62NewRun=newRun;
 newRun=function(){const r=cd62NewRun.apply(this,arguments);player.cd62={depth:player.depth||0,chosen:false,risk:0,bonus:0};return r};
+
+
+/* === V0.62.1 : correction déclenchement choix d'objectif === */
+/* La descente est gérée dans resolveTile(); le wrapper de move de 0.62
+   comparait la profondeur trop tôt. On détecte désormais le changement
+   après résolution complète du déplacement/rendu. */
+let cd621LastDepth=(player&&player.depth)||0;
+function cd621CheckDepth(){
+ if(!player)return;
+ const d=player.depth||0;
+ if(d!==cd621LastDepth){
+   cd621LastDepth=d;
+   player.cd62={depth:d,chosen:false,risk:0,bonus:0};
+   setTimeout(function(){ if(!battle)cd62Offer(); },180);
+ }
+}
+const cd621ResolveTile=resolveTile;
+resolveTile=function(){
+ const r=cd621ResolveTile.apply(this,arguments);
+ cd621CheckDepth();
+ return r
+};
+/* Filet de sécurité : le rendu vérifie aussi le changement de profondeur. */
+const cd621Render=render;
+render=function(){
+ const r=cd621Render.apply(this,arguments);
+ cd621CheckDepth();
+ return r
+};
 
 </script>
 
