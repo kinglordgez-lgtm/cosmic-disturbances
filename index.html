@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.41.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.41.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -2629,8 +2629,8 @@ cd18NpcPanel=function(){
 };
 
 /* La feuille de personnage affiche la réputation sans modifier sa structure. */
-const cd41Sheet=showCharacter;
-showCharacter=function(){
+const cd41Sheet=openCharacter;
+openCharacter=function(){
  const r=cd41Sheet.apply(this,arguments),root=document.getElementById("sheetContent");
  if(root&&!document.getElementById("cd41RepSheet")){
    const rep=cd41Rep(),d=document.createElement("div");d.id="cd41RepSheet";
