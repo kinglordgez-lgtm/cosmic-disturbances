@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.48.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.49.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3165,6 +3165,57 @@ renderQuestTracker=function(){
  }
  return r
 };
+
+
+/* === V0.49.0 : gardiens des profondeurs === */
+const CD49_GUARDIANS=[
+{name:"Le Gardien des Cloches",intro:"Une silhouette massive se lève au rythme d'une cloche invisible.",weak:"Cartouches d'argent"},
+{name:"L'Archiviste Aveugle",intro:"Des instruments impossibles s'ouvrent autour d'une forme qui vous étudie.",weak:"Flacon de kérosène"},
+{name:"Le Dévoreur d'Angles",intro:"Les coins de la pièce s'allongent jusqu'à devenir des mâchoires.",weak:"Craie rituelle"},
+{name:"L'Abbé des Noyés",intro:"Une liturgie humide monte des pierres.",weak:"Sel consacré"}];
+function cd49State(){if(!player.cd49)player.cd49={defeated:[],spawnDepth:0};return player.cd49}
+function cd49ShouldSpawn(){const d=player.depth||0,s=cd49State();return d>=5&&d%5===0&&s.spawnDepth!==d&&!battle}
+function cd49Spawn(){
+ if(!cd49ShouldSpawn())return false;
+ const d=player.depth||0,s=cd49State(),g=CD49_GUARDIANS[(Math.floor(d/5)-1)%CD49_GUARDIANS.length];
+ spawnEnemy();if(!battle||!enemy)return false;s.spawnDepth=d;
+ enemy.cd49Guardian=true;enemy.cd49GuardianName=g.name;enemy.name=g.name;
+ enemy.maxhp=Math.ceil(enemy.maxhp*(1.8+d*.025));enemy.hp=enemy.maxhp;
+ enemy.atk=(enemy.atk||4)+2+Math.floor(d/6);enemy.def=(enemy.def||0)+2;enemy.weak=g.weak;
+ log("GARDIEN — "+g.intro);toast("GARDIEN : "+g.name);render();return true
+}
+const cd49Move=move;
+move=function(dx,dy){const r=cd49Move.apply(this,arguments);if(!battle&&cd49ShouldSpawn()&&rng()<.16)cd49Spawn();return r};
+const cd49EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ if(battle&&enemy&&enemy.cd49Guardian&&!enemy.cd49Phase2&&enemy.hp/Math.max(1,enemy.maxhp)<=.5){
+  enemy.cd49Phase2=true;enemy.atk+=2;player.san=Math.max(0,player.san-2);
+  log("GARDIEN — Seconde phase : -2 SAN.");toast("LE GARDIEN CHANGE")
+ }
+ return cd49EnemyTurn.apply(this,arguments)
+};
+const cd49Win=win;
+win=function(){
+ const e=enemy,isG=e&&e.cd49Guardian,n=e&&e.cd49GuardianName,r=cd49Win.apply(this,arguments);
+ if(isG){const s=cd49State();if(!s.defeated.includes(n))s.defeated.push(n);player.xp=(player.xp||0)+10;player.san=Math.min(player.maxsan||100,player.san+3);log("GARDIEN VAINCU — "+n+". +10 XP, +3 SAN.");toast("GARDIEN VAINCU")}
+ return r
+};
+const cd49Context=renderContext;
+renderContext=function(){
+ const r=cd49Context.apply(this,arguments),box=document.getElementById("context");
+ if(box&&battle&&enemy&&enemy.cd49Guardian&&!document.getElementById("cd49Boss")){
+  const d=document.createElement("div");d.id="cd49Boss";d.style.cssText="margin-top:8px;padding:7px;border:1px solid rgba(255,255,255,.25);font-size:11px";
+  d.innerHTML="<b>☠ GARDIEN DES PROFONDEURS</b><br>Phase "+(enemy.cd49Phase2?"II":"I")+" · Faiblesse : "+(enemy.weak||"inconnue");box.appendChild(d)}
+ return r
+};
+const cd49Character=openCharacter;
+openCharacter=function(){
+ const r=cd49Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd49State();
+ if(root&&!document.getElementById("cd49Victories")){const d=document.createElement("div");d.id="cd49Victories";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";d.innerHTML="<b>GARDIENS VAINCUS</b><br>"+(s.defeated.length?s.defeated.map(x=>"☠ "+x).join("<br>"):"Aucun.");root.appendChild(d)}
+ return r
+};
+const cd49NewRun=newRun;
+newRun=function(){const r=cd49NewRun.apply(this,arguments);player.cd49={defeated:[],spawnDepth:0};return r};
 
 </script>
 
