@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.63.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.64.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4196,6 +4196,52 @@ move=function(dx,dy){
  }
  return r
 };
+
+
+/* === V0.64.0 : faveurs et représailles territoriales === */
+const CD64_EVENTS={
+ town:{good:"Des habitants ont caché des vivres pour vous.",bad:"Des portes se ferment à votre passage."},
+ order:{good:"L'Aube Pâle a laissé des annotations utiles.",bad:"Le Cercle a volontairement effacé ses repères."},
+ dagon:{good:"La Fraternité vous laisse franchir un ancien seuil.",bad:"Des prières noyées semblent appeler quelque chose vers vous."}
+};
+function cd64State(){if(!player.cd64)player.cd64={depth:0,event:null,triggered:false,total:0};return player.cd64}
+function cd64Prepare(){
+ const s=cd64State(),fs=cd53State(),d=player.depth||0;if(s.depth===d)return;
+ s.depth=d;s.event=null;s.triggered=false;
+ const ranked=CD53_FACTIONS.map(f=>({id:f.id,v:fs[f.id]||0})).sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+ const x=ranked[0];if(d>=3&&x&&Math.abs(x.v)>=2)s.event={id:x.id,good:x.v>0};
+}
+function cd64Trigger(){
+ const s=cd64State();if(!s.event||s.triggered||battle)return false;
+ s.triggered=true;s.total++;const e=s.event,t=CD64_EVENTS[e.id];
+ if(e.good){
+   if(e.id==="town"){player.hp=Math.min(player.maxhp||999,player.hp+4);log("FAVEUR — "+t.good+" +4 PV.")}
+   else if(e.id==="order"){player.xp=(player.xp||0)+3;log("FAVEUR — "+t.good+" +3 XP.")}
+   else{player.myth=Math.min(100,(player.myth||0)+1);player.san=Math.min(player.maxsan||100,player.san+1);log("FAVEUR — "+t.good+" +1% Mythe, +1 SAN.")}
+   toast("UNE FACTION VOUS AIDE");
+ }else{
+   if(e.id==="town"){player.san=Math.max(0,player.san-2);log("REPRÉSAILLES — "+t.bad+" -2 SAN.")}
+   else if(e.id==="order"){player.xp=Math.max(0,(player.xp||0)-2);log("REPRÉSAILLES — "+t.bad+" -2 XP.")}
+   else{player.san=Math.max(0,player.san-2);log("REPRÉSAILLES — "+t.bad+" -2 SAN.");if(!battle)spawnEnemy()}
+   toast("REPRÉSAILLES DE FACTION");
+ }
+ render();return true
+}
+let cd64LastDepth=(player&&player.depth)||0;
+const cd64Resolve=resolveTile;
+resolveTile=function(){
+ const r=cd64Resolve.apply(this,arguments),d=player?player.depth||0:0;
+ if(d!==cd64LastDepth){cd64LastDepth=d;cd64Prepare();const s=cd64State();if(s.event)setTimeout(cd64Trigger,260)}
+ return r
+};
+const cd64Character=openCharacter;
+openCharacter=function(){
+ const r=cd64Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd64State();
+ if(root&&!document.getElementById("cd64Events")){const d=document.createElement("div");d.id="cd64Events";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>FAVEURS / REPRÉSAILLES SUBIES</b> : "+s.total;root.appendChild(d)}
+ return r
+};
+const cd64NewRun=newRun;
+newRun=function(){const r=cd64NewRun.apply(this,arguments);player.cd64={depth:player.depth||0,event:null,triggered:false,total:0};cd64LastDepth=player.depth||0;return r};
 
 </script>
 
