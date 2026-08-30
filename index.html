@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.63.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.63.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4154,6 +4154,46 @@ const cd63NewRun=newRun;
 newRun=function(){
  const r=cd63NewRun.apply(this,arguments);
  player.cd63={depth:player.depth||0,complication:null,triggered:false};
+ return r
+};
+
+
+/* === V0.63.1 : complication garantie rapidement === */
+const cd631OldApply=cd63ApplyChoice;
+cd63ApplyChoice=function(risk){
+ const r=cd631OldApply.apply(this,arguments);
+ const s=cd63State();
+ s.steps=0;
+ return r
+};
+
+const cd631OldMove=move;
+move=function(dx,dy){
+ const beforeBattle=battle;
+ const r=cd631OldMove.apply(this,arguments);
+ const s=cd63State();
+
+ if(!beforeBattle && !battle && s.complication && !s.triggered){
+   s.steps=(s.steps||0)+1;
+
+   /* Après trois déplacements valides maximum, la complication se déclenche. */
+   if(s.steps>=3){
+     s.triggered=true;
+     if(s.complication.id==="pressure"){
+       player.san=Math.max(0,player.san-2);
+       log("COMPLICATION — La pression de l'étage devient insoutenable. -2 SAN.");
+     }else if(s.complication.id==="ambush"){
+       log("COMPLICATION — Quelque chose vous suivait depuis plusieurs salles.");
+       if(!battle)spawnEnemy();
+     }else{
+       player.myth=Math.min(100,(player.myth||0)+1);
+       player.san=Math.max(0,player.san-1);
+       log("COMPLICATION — La géométrie se plie autour de vous. +1% Mythe, -1 SAN.");
+     }
+     toast("LA COMPLICATION SE DÉCLENCHE");
+     render();
+   }
+ }
  return r
 };
 
