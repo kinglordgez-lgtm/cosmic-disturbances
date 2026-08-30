@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.49.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.50.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3216,6 +3216,81 @@ openCharacter=function(){
 };
 const cd49NewRun=newRun;
 newRun=function(){const r=cd49NewRun.apply(this,arguments);player.cd49={defeated:[],spawnDepth:0};return r};
+
+
+/* === V0.50.0 : secrets d'étage et salles occultes === */
+const CD50_SECRETS=[
+ {id:"cache",name:"Cache murée",glyph:"▤",text:"Un pan de mur sonne creux. Derrière : une cache oubliée."},
+ {id:"circle",name:"Cercle effacé",glyph:"◉",text:"Sous la poussière apparaît un cercle rituel presque entièrement gratté."},
+ {id:"bones",name:"Ossuaire clandestin",glyph:"♱",text:"Une cavité contient des os classés avec une précision maladive."},
+ {id:"rift",name:"Fissure impossible",glyph:"◇",text:"Une fente trop noire traverse la pierre sans respecter sa géométrie."}
+];
+let cd50Secret=null,cd50Depth=-1;
+
+function cd50Place(){
+ if(!player||!map||player.depth<2){cd50Secret=null;cd50Depth=player?player.depth:-1;return}
+ const cells=[];
+ for(let y=1;y<map.length-1;y++)for(let x=1;x<map[y].length-1;x++)
+   if(map[y][x]==="floor"&&!(x===px&&y===py))cells.push({x,y});
+ if(!cells.length)return;
+ const c=cells[R(cells.length)],s=CD50_SECRETS[R(CD50_SECRETS.length)];
+ cd50Secret={x:c.x,y:c.y,id:s.id,found:false};cd50Depth=player.depth;
+}
+function cd50Ensure(){if(player&&cd50Depth!==player.depth)cd50Place()}
+function cd50Here(){return cd50Secret&&cd50Secret.x===px&&cd50Secret.y===py&&!cd50Secret.found}
+function cd50Reveal(){
+ if(!cd50Here())return false;
+ const s=CD50_SECRETS.find(x=>x.id===cd50Secret.id);cd50Secret.found=true;
+ log("SECRET — "+s.name+" : "+s.text);toast("SECRET DÉCOUVERT");
+ const skill=s.id==="circle"||s.id==="rift"?"Occultisme":"Observation";
+ if(skillCheck(skill,8)){
+   if(s.id==="cache"){loot();loot();log("La cache contient deux objets.")}
+   else if(s.id==="circle"){player.san=Math.min(player.maxsan||100,player.san+2);player.myth=Math.min(100,(player.myth||0)+1);log("Le motif révèle un savoir dangereux : +2 SAN, +1% Mythe.")}
+   else if(s.id==="bones"){player.xp=(player.xp||0)+5;log("Vous reconstituez l'histoire du lieu. +5 XP.")}
+   else {player.xp=(player.xp||0)+3;player.san=Math.max(0,player.san-2);log("Vous observez l'autre côté. +3 XP, -2 SAN.")}
+ }else{
+   player.san=Math.max(0,player.san-1);log("Le secret résiste à votre interprétation. -1 SAN.")
+ }
+ render();return true
+}
+
+/* Un secret discret est généré à chaque étage à partir de la profondeur 2. */
+const cd50Move=move;
+move=function(dx,dy){cd50Ensure();const r=cd50Move.apply(this,arguments);cd50Ensure();return r};
+
+const cd50Investigate=investigate;
+investigate=function(){
+ cd50Ensure();
+ if(!battle&&cd50Here())return cd50Reveal();
+ return cd50Investigate.apply(this,arguments)
+};
+
+/* Indice visuel seulement lorsque le joueur se tient sur la case : pas de spoiler à distance. */
+const cd50Context=renderContext;
+renderContext=function(){
+ const r=cd50Context.apply(this,arguments);
+ if(!battle&&cd50Here()){
+   const a=document.getElementById("actionBtn");if(a)a.textContent="EXAMINER";
+   const c=document.getElementById("context");
+   if(c){c.style.display="block";c.innerHTML="<b>?</b> Quelque chose semble anormal ici."}
+ }
+ return r
+};
+
+/* Compteur de secrets dans la fiche. */
+function cd50Stats(){if(!player.cd50)player.cd50={found:0};return player.cd50}
+const cd50OldReveal=cd50Reveal;
+cd50Reveal=function(){const was=cd50Here(),r=cd50OldReveal.apply(this,arguments);if(was&&r)cd50Stats().found++;return r};
+const cd50Character=openCharacter;
+openCharacter=function(){
+ const r=cd50Character.apply(this,arguments),root=document.getElementById("sheetContent");
+ if(root&&!document.getElementById("cd50Secrets")){
+  const d=document.createElement("div");d.id="cd50Secrets";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+  d.innerHTML="<b>SECRETS DÉCOUVERTS</b><br>"+cd50Stats().found;root.appendChild(d)}
+ return r
+};
+const cd50NewRun=newRun;
+newRun=function(){const r=cd50NewRun.apply(this,arguments);cd50Secret=null;cd50Depth=-1;player.cd50={found:0};cd50Place();return r};
 
 </script>
 
