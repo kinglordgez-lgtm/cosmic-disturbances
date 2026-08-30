@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.50.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.51.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3291,6 +3291,76 @@ openCharacter=function(){
 };
 const cd50NewRun=newRun;
 newRun=function(){const r=cd50NewRun.apply(this,arguments);cd50Secret=null;cd50Depth=-1;player.cd50={found:0};cd50Place();return r};
+
+
+/* === V0.51.0 : blessures persistantes === */
+const CD51_WOUNDS=[
+ {id:"cut",name:"Plaie profonde",desc:"Les blessures reçues deviennent difficiles à ignorer.",skill:"Médecine"},
+ {id:"fracture",name:"Côte fêlée",desc:"Chaque mouvement rappelle le dernier combat.",skill:"Endurance"},
+ {id:"shock",name:"Choc nerveux",desc:"Votre corps réagit avant même que votre esprit comprenne.",skill:"Psychologie"}
+];
+function cd51State(){if(!player.cd51)player.cd51={wounds:[],lastHp:player.hp||0};return player.cd51}
+function cd51Gain(){
+ const s=cd51State();if(s.wounds.length>=2)return;
+ const pool=CD51_WOUNDS.filter(w=>!s.wounds.includes(w.id));if(!pool.length)return;
+ const w=pool[R(pool.length)];s.wounds.push(w.id);
+ log("BLESSURE — "+w.name+" : "+w.desc);toast("BLESSURE : "+w.name)
+}
+function cd51MaybeWound(before){
+ if(!battle||!player||player.hp<=0)return;
+ const max=player.maxhp||1,loss=Math.max(0,before-player.hp);
+ if(loss>=Math.max(4,Math.floor(max*.18))&&rng()<.28)cd51Gain()
+}
+function cd51Treat(){
+ const s=cd51State();if(!s.wounds.length)return false;
+ const id=s.wounds[0],w=CD51_WOUNDS.find(x=>x.id===id);
+ if(skillCheck(w.skill,8)){
+   s.wounds.shift();player.hp=Math.min(player.maxhp||999,player.hp+3);
+   log("SOINS — "+w.name+" traitée. +3 PV.");toast("BLESSURE TRAITÉE")
+ }else{
+   log("SOINS — Échec du traitement de "+w.name+".");player.hp=Math.max(1,player.hp-1)
+ }
+ render();return true
+}
+
+/* Détecte les gros coups reçus sans modifier le moteur de combat. */
+const cd51EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ const before=player?player.hp:0,r=cd51EnemyTurn.apply(this,arguments);
+ if(player&&player.hp<before)cd51MaybeWound(before);
+ return r
+};
+
+/* Effets légers mais permanents jusqu'aux soins. */
+const cd51Move=move;
+move=function(dx,dy){
+ const r=cd51Move.apply(this,arguments),s=cd51State();
+ if(s.wounds.includes("fracture")&&rng()<.05){player.hp=Math.max(1,player.hp-1);log("CÔTE FÊLÉE — La douleur vous arrache 1 PV.")}
+ return r
+};
+const cd51Investigate=investigate;
+investigate=function(){
+ const s=cd51State();
+ if(s.wounds.includes("shock")&&rng()<.08){player.san=Math.max(0,player.san-1);log("CHOC NERVEUX — Votre concentration vacille. -1 SAN.")}
+ return cd51Investigate.apply(this,arguments)
+};
+
+/* Une blessure peut être traitée depuis la fiche personnage. */
+const cd51Character=openCharacter;
+openCharacter=function(){
+ const r=cd51Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd51State();
+ if(root&&!document.getElementById("cd51Wounds")){
+   const d=document.createElement("div");d.id="cd51Wounds";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   const names=s.wounds.map(id=>CD51_WOUNDS.find(w=>w.id===id)?.name||id);
+   d.innerHTML="<b>BLESSURES</b><br>"+(names.length?names.map(x=>"⚕ "+x).join("<br>"):"Aucune.")+
+     (names.length?'<br><button onclick="cd51Treat()">SOIGNER LA BLESSURE</button>':"");
+   root.appendChild(d)
+ }
+ return r
+};
+
+const cd51NewRun=newRun;
+newRun=function(){const r=cd51NewRun.apply(this,arguments);player.cd51={wounds:[],lastHp:player.hp||0};return r};
 
 </script>
 
