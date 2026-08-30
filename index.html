@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.47.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.48.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3088,6 +3088,80 @@ openCharacter=function(){
     line(CD47_TRAITS[2],s.depths)+"<br>"+
     line(CD47_TRAITS[3],s.myth);
    root.appendChild(d)
+ }
+ return r
+};
+
+
+/* === V0.48.0 : présages et identité des profondeurs === */
+const CD48_OMENS=[
+ {id:"bells",name:"Les cloches noyées",text:"Des cloches résonnent sous vos pieds. Elles comptent quelque chose.",effect:"san"},
+ {id:"stars",name:"Les étoiles déplacées",text:"Le ciel visible dans une fissure ne correspond à aucune saison.",effect:"myth"},
+ {id:"fungus",name:"La floraison grise",text:"Une poussière fongique pousse dans vos propres traces.",effect:"enemy"},
+ {id:"silence",name:"Le silence total",text:"Même votre respiration semble provenir d'une autre pièce.",effect:"loot"},
+ {id:"angles",name:"Les angles affamés",text:"Les murs paraissent attendre que vous leur tourniez le dos.",effect:"combat"}
+];
+let cd48Depth=-1,cd48Omen=null;
+
+function cd48NewOmen(){
+ const d=player.depth||0;if(d<3){cd48Omen=null;cd48Depth=d;return}
+ let pool=CD48_OMENS.filter(o=>!cd48Omen||o.id!==cd48Omen.id);
+ cd48Omen=pool[R(pool.length)];cd48Depth=d;
+ log("PRÉSAGE — "+cd48Omen.name+" : "+cd48Omen.text);toast("PRÉSAGE : "+cd48Omen.name);
+ if(cd48Omen.effect==="san"&&rng()<.45){player.san=Math.max(0,player.san-1);log("La résonance vous coûte 1 SAN.")}
+ if(cd48Omen.effect==="myth"&&rng()<.35){player.myth=Math.min(100,(player.myth||0)+1);log("Vous comprenez quelque chose que vous auriez préféré ignorer. +1% Mythe.")}
+}
+function cd48Ensure(){
+ if(!player)return;
+ if(cd48Depth!==(player.depth||0))cd48NewOmen()
+}
+
+/* Effets d'étage modestes, mais perceptibles. */
+const cd48Spawn=spawnEnemy;
+spawnEnemy=function(){
+ const r=cd48Spawn.apply(this,arguments);cd48Ensure();
+ if(battle&&enemy&&cd48Omen&&cd48Omen.effect==="enemy"){
+   enemy.maxhp=Math.ceil(enemy.maxhp*1.10);enemy.hp=Math.ceil(enemy.hp*1.10);
+   log("FLORAISON GRISE — La créature semble nourrie par les spores.")
+ }
+ return r
+};
+const cd48Attack=attack;
+attack=function(){
+ const e=enemy,h=e&&e.hp,r=cd48Attack.apply(this,arguments);
+ if(cd48Omen&&cd48Omen.effect==="combat"&&e&&enemy===e&&battle&&e.hp<h&&rng()<.18){
+   player.san=Math.max(0,player.san-1);log("ANGLES AFFAMÉS — Quelque chose bouge dans votre vision périphérique. -1 SAN.")
+ }
+ return r
+};
+const cd48Loot=loot;
+loot=function(){
+ const before=player.inv.length,r=cd48Loot.apply(this,arguments);cd48Ensure();
+ if(cd48Omen&&cd48Omen.effect==="loot"&&player.inv.length>before&&rng()<.30){
+   player.xp=(player.xp||0)+2;log("SILENCE TOTAL — La découverte paraît étrangement importante. +2 XP.")
+ }
+ return r
+};
+
+/* Déclenche le présage à la descente. */
+const cd48Move=move;
+move=function(dx,dy){
+ const d=player?player.depth:0,r=cd48Move.apply(this,arguments);
+ if(player&&player.depth!==d)try{cd48NewOmen()}catch(e){console.warn("cd48",e)}
+ return r
+};
+
+/* Le journal latéral rappelle l'identité surnaturelle de l'étage. */
+const cd48Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ const r=cd48Tracker.apply(this,arguments);cd48Ensure();
+ const box=document.getElementById("questTrackerBody");
+ if(box&&cd48Omen){
+   let old=document.getElementById("cd48Omen");if(old)old.remove();
+   const d=document.createElement("div");d.id="cd48Omen";
+   d.style.cssText="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.16);font-size:11px";
+   d.innerHTML=`<b>PRÉSAGE — ${cd48Omen.name}</b><br>${cd48Omen.text}`;
+   box.appendChild(d)
  }
  return r
 };
