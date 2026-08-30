@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.62.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.62.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4060,6 +4060,34 @@ const cd621Render=render;
 render=function(){
  const r=cd621Render.apply(this,arguments);
  cd621CheckDepth();
+ return r
+};
+
+
+/* === V0.62.2 : correctif réel du choix d'objectif ===
+ cd38EnsureGoal() initialise cd38FloorGoal mais ne le retourne pas. */
+function cd622Goal(){cd38EnsureGoal();return cd38FloorGoal}
+cd62Offer=function(){
+ const s=cd62State(),g=cd622Goal();if(!g||s.chosen||battle)return false;
+ const kind=cd62GoalKind(g),a=CD62_CHOICES[kind]||CD62_CHOICES.search;
+ cdOpenPanel("OBJECTIF D'ÉTAGE",`<p>Comment voulez-vous aborder cet étage ?</p><div class="menuGrid"><button onclick="cd62Choose(0)"><b>${a[0].name.toUpperCase()}</b><br><span class="small">${a[0].desc}</span></button><button onclick="cd62Choose(1)"><b>${a[1].name.toUpperCase()}</b><br><span class="small">${a[1].desc}</span></button></div>`);
+ return true
+};
+cd62Choose=function(i){
+ const s=cd62State(),g=cd622Goal(),kind=cd62GoalKind(g),c=(CD62_CHOICES[kind]||CD62_CHOICES.search)[i];
+ s.chosen=true;s.risk=c.risk;s.bonus=c.reward;
+ if(c.risk&&g&&typeof g.need==="number"){g.need+=1;g.text=g.id==="hunt"?"Vaincre "+g.need+" créatures sur cet étage.":g.id==="loot"?"Trouver "+g.need+" objets sur cet étage.":"Enquêter "+g.need+" fois sur cet étage."}
+ log("APPROCHE — "+c.name+".");toast(c.risk?"RISQUE ACCRU":"APPROCHE PRUDENTE");closeOverlays();render();return true
+};
+/* Déclenchement direct après la résolution de la case de sortie. */
+const cd622ResolveTile=resolveTile;
+resolveTile=function(){
+ const before=player?player.depth:0,r=cd622ResolveTile.apply(this,arguments);
+ if(player&&(player.depth||0)!==before){
+   cd621LastDepth=player.depth;
+   player.cd62={depth:player.depth,chosen:false,risk:0,bonus:0};
+   setTimeout(cd62Offer,220);
+ }
  return r
 };
 
