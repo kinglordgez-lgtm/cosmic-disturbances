@@ -340,6 +340,60 @@ header{left:18px!important}
   }
 }
 </style>
+
+<style id="tracker-fix-0613">
+/* V0.61.3 — le tracker devient une vraie fenêtre fixe défilable */
+#questTracker{
+  position:fixed!important;
+  top:145px!important;
+  right:max(14px,env(safe-area-inset-right))!important;
+  bottom:155px!important;
+  left:auto!important;
+  width:min(22vw,300px)!important;
+  height:auto!important;
+  max-height:none!important;
+  margin:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  pointer-events:auto!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-y:contain!important;
+  z-index:35!important;
+  box-sizing:border-box!important;
+  padding-bottom:20px!important;
+}
+#questTrackerBody{
+  display:block!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  pointer-events:auto!important;
+}
+#questTracker .qtRecent{
+  max-height:none!important;
+  overflow:visible!important;
+  padding-right:0!important;
+}
+#questTracker::-webkit-scrollbar{width:6px!important}
+#questTracker::-webkit-scrollbar-track{background:rgba(255,255,255,.04)!important}
+#questTracker::-webkit-scrollbar-thumb{background:rgba(199,169,107,.65)!important;border-radius:8px!important}
+
+/* Le bouton reste entièrement sous la fenêtre de journal. */
+#actionBtn{
+  z-index:70!important;
+  bottom:max(18px,env(safe-area-inset-bottom))!important;
+}
+
+@media (orientation:landscape) and (max-height:430px){
+  #questTracker{
+    top:142px!important;
+    bottom:148px!important;
+    width:min(22vw,285px)!important;
+    font-size:8px!important;
+  }
+}
+</style>
 </head>
 <body>
 <div id="game">
@@ -574,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.61.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.61.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
