@@ -277,7 +277,33 @@ header{left:18px!important}
 .cd34-status{margin-top:7px;padding:7px 9px;border:1px solid rgba(255,255,255,.22);border-radius:7px;background:rgba(0,0,0,.34);font-size:12px;line-height:1.35}
 .cd34-ability{margin-top:5px;font-weight:700}.cd34-event{margin-top:6px;padding:6px 8px;border-left:3px solid currentColor;background:rgba(255,255,255,.08);font-weight:800}
 .cd34-cond{display:inline-block;margin:5px 5px 0 0;padding:3px 6px;border:1px solid rgba(255,255,255,.25);border-radius:999px}
-</style></head>
+</style>
+<style id="tracker-scroll-0611">
+/* V0.61.1 — journal latéral tactile et réellement défilable */
+#questTracker{
+  pointer-events:auto!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  max-height:calc(100dvh - 105px)!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  padding-bottom:max(18px,env(safe-area-inset-bottom))!important;
+}
+#questTrackerBody{overflow:visible!important}
+#questTracker .qtRecent{
+  max-height:none!important;
+  overflow:visible!important;
+  padding-right:0!important;
+}
+@media (orientation:landscape) and (max-height:430px){
+ #questTracker{
+   max-height:calc(100dvh - 78px)!important;
+   margin-top:70px!important;
+ }
+}
+</style>
+</head>
 <body>
 <div id="game">
 <header><h1>☄ COSMIC DISTURBANCES</h1><div id="sub"></div></header>
@@ -511,7 +537,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.61.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.61.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
