@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.57.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.58.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3729,6 +3729,61 @@ renderContext=function(){
  if(box&&battle&&enemy&&enemy.cd57Rival&&!document.getElementById("cd57RivalFight")){const d=document.createElement("div");d.id="cd57RivalFight";d.style.cssText="margin-top:8px;padding:7px;border:1px solid rgba(255,255,255,.25);font-size:11px";d.innerHTML="<b>☠ DUEL — RIVAL OCCULTE</b><br>Phase "+(enemy.cd57Phase2?"II":"I")+" · Il connaît vos méthodes.";box.appendChild(d)}
  return r
 };
+
+
+/* === V0.58.0 : empreinte persistante du rival === */
+const CD58_MARKS=[
+ {id:"warning",name:"Avertissement gravé",skill:"Observation",text:"Un signe récent indique que quelqu'un connaît déjà cet endroit."},
+ {id:"trap",name:"Piège du rival",skill:"Investigation",text:"Un dispositif grossier a été dissimulé dans le passage."},
+ {id:"note",name:"Page arrachée",skill:"Occultisme",text:"Une note codée évoque une chose que votre rival redoute."}
+];
+function cd58State(){if(!player.cd58)player.cd58={depth:0,mark:null,found:0};return player.cd58}
+function cd58NewFloor(){
+ const s=cd58State(),r=cd55State(),d=player.depth||0;
+ if(s.depth===d)return;s.depth=d;s.mark=null;
+ if(d>=4&&r.heat>=3&&rng()<Math.min(.22+r.heat*.035,.55)){
+   const m=CD58_MARKS[R(CD58_MARKS.length)];
+   s.mark={...m,armed:true};log("RIVAL — Vous avez la sensation désagréable qu'il est déjà passé par cet étage.")
+ }
+}
+function cd58Trigger(){
+ const s=cd58State(),m=s.mark;if(!m||!m.armed||battle)return false;
+ if(rng()>.055)return false;m.armed=false;s.found++;
+ const ok=skillCheck(m.skill,9);
+ if(ok){
+   player.xp=(player.xp||0)+3;
+   if(m.id==="note")cd55State().heat=Math.max(0,cd55State().heat-1);
+   log("TRACE DU RIVAL — "+m.text+" Vous la comprenez avant qu'elle ne vous nuise. +3 XP.");toast("TRACE DU RIVAL DÉCOUVERTE")
+ }else{
+   if(m.id==="trap"){player.hp=Math.max(1,player.hp-3);log("PIÈGE DU RIVAL — Trop tard. -3 PV.")}
+   else if(m.id==="warning"){player.san=Math.max(0,player.san-2);log("AVERTISSEMENT — Le message était destiné à vous. -2 SAN.")}
+   else{cd55State().heat=Math.min(10,cd55State().heat+1);log("NOTE CODÉE — Vous révélez involontairement votre présence au rival.")}
+   toast("LE RIVAL AVAIT PRÉVU VOTRE PASSAGE")
+ }
+ return true
+}
+const cd58Move=move;
+move=function(dx,dy){const od=player?player.depth:0,r=cd58Move.apply(this,arguments);if(player&&player.depth!==od)cd58NewFloor();else cd58Trigger();return r};
+
+const cd58Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ const r=cd58Tracker.apply(this,arguments),s=cd58State(),box=document.getElementById("questTrackerBody");
+ if(box&&s.mark&&s.mark.armed&&!document.getElementById("cd58Trace")){
+  const d=document.createElement("div");d.id="cd58Trace";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";
+  d.innerHTML="<b>PRÉSENCE INQUIÉTANTE</b><br>Quelqu'un semble être passé avant vous.";box.appendChild(d)
+ }
+ return r
+};
+
+const cd58Character=openCharacter;
+openCharacter=function(){
+ const r=cd58Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd58State();
+ if(root&&!document.getElementById("cd58Marks")){const d=document.createElement("div");d.id="cd58Marks";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>TRACES DU RIVAL DÉJOUÉES</b> : "+s.found;root.appendChild(d)}
+ return r
+};
+
+const cd58NewRun=newRun;
+newRun=function(){const r=cd58NewRun.apply(this,arguments);player.cd58={depth:player.depth||0,mark:null,found:0};return r};
 
 </script>
 
