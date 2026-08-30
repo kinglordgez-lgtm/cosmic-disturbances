@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.62.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.63.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4088,6 +4088,72 @@ resolveTile=function(){
    player.cd62={depth:player.depth,chosen:false,risk:0,bonus:0};
    setTimeout(cd62Offer,220);
  }
+ return r
+};
+
+
+/* === V0.63.0 : conséquences immédiates des approches d'étage === */
+const CD63_COMPLICATIONS=[
+ {id:"pressure",name:"Pression croissante"},
+ {id:"ambush",name:"Présence hostile"},
+ {id:"distortion",name:"Distorsion locale"}
+];
+
+function cd63State(){
+ if(!player.cd63)player.cd63={depth:0,complication:null,triggered:false};
+ return player.cd63
+}
+
+function cd63ApplyChoice(risk){
+ const s=cd63State();s.depth=player.depth||0;s.triggered=false;s.complication=null;
+ if(risk){
+   s.complication={...CD63_COMPLICATIONS[R(CD63_COMPLICATIONS.length)]};
+   log("COMPLICATION — "+s.complication.name+" accompagne votre approche audacieuse.");
+   toast("COMPLICATION D'ÉTAGE")
+ }else{
+   player.san=Math.min(player.maxsan||100,player.san+1);
+   log("APPROCHE PRUDENTE — Vous prenez le temps de sécuriser vos arrières. +1 SAN.");
+   toast("APPROCHE SÉCURISÉE")
+ }
+}
+
+/* On conserve le choix 0.62 puis on applique une conséquence visible immédiatement. */
+const cd63Choose=cd62Choose;
+cd62Choose=function(i){
+ const r=cd63Choose.apply(this,arguments);
+ cd63ApplyChoice(i===1);
+ render();
+ return r
+};
+
+/* Une complication risquée se manifeste une fois pendant l'étage. */
+const cd63Move=move;
+move=function(dx,dy){
+ const r=cd63Move.apply(this,arguments),s=cd63State();
+ if(!battle&&s.complication&&!s.triggered&&rng()<.06){
+   s.triggered=true;
+   if(s.complication.id==="pressure"){
+     player.san=Math.max(0,player.san-2);
+     log("COMPLICATION — La pression de l'étage devient insoutenable. -2 SAN.");
+   }else if(s.complication.id==="ambush"){
+     log("COMPLICATION — Quelque chose vous suivait depuis plusieurs salles.");
+     if(!battle)spawnEnemy();
+   }else{
+     player.myth=Math.min(100,(player.myth||0)+1);
+     player.san=Math.max(0,player.san-1);
+     log("COMPLICATION — La géométrie se plie autour de vous. +1% Mythe, -1 SAN.");
+   }
+   toast("LA COMPLICATION SE DÉCLENCHE");
+   render();
+ }
+ return r
+};
+
+/* Réinitialisation à chaque nouvelle partie. */
+const cd63NewRun=newRun;
+newRun=function(){
+ const r=cd63NewRun.apply(this,arguments);
+ player.cd63={depth:player.depth||0,complication:null,triggered:false};
  return r
 };
 
