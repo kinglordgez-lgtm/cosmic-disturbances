@@ -511,7 +511,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.51.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.52.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3361,6 +3361,79 @@ openCharacter=function(){
 
 const cd51NewRun=newRun;
 newRun=function(){const r=cd51NewRun.apply(this,arguments);player.cd51={wounds:[],lastHp:player.hp||0};return r};
+
+
+/* === V0.52.0 : rumeurs persistantes et état du monde === */
+const CD52_RUMORS=[
+ {id:"bells",text:"On dit que les cloches sous Blackwater sonnent avant chaque disparition.",kind:"occult"},
+ {id:"docks",text:"Des dockers jurent avoir vu des silhouettes remonter du fleuve après minuit.",kind:"town"},
+ {id:"doctor",text:"Le médecin de garde aurait condamné une salle entière de la morgue.",kind:"town"},
+ {id:"stars",text:"Un astronome affirme que certaines étoiles ont changé de place.",kind:"occult"},
+ {id:"tunnels",text:"Il existerait un passage sous les caves qui ne figure sur aucun plan.",kind:"explore"},
+ {id:"fungus",text:"Une poussière grise serait apparue dans plusieurs maisons abandonnées.",kind:"occult"}
+];
+function cd52State(){if(!player.cd52)player.cd52={known:[],heard:0};return player.cd52}
+function cd52Hear(){
+ const s=cd52State(),pool=CD52_RUMORS.filter(r=>!s.known.includes(r.id));
+ if(!pool.length)return false;
+ const r=pool[R(pool.length)];s.known.push(r.id);s.heard++;
+ log("RUMEUR — "+r.text);toast("NOUVELLE RUMEUR");
+ if(r.kind==="town"&&player.reputation)player.reputation.town=(player.reputation.town||0)+1;
+ if(r.kind==="occult"&&player.reputation)player.reputation.occult=(player.reputation.occult||0)+1;
+ return true
+}
+
+/* Les échanges avec les habitants peuvent désormais laisser une trace durable. */
+const cd52Talk=cd18Talk;
+cd18Talk=function(mode){
+ const before=(player.reputation&&player.reputation.town)||0,r=cd52Talk.apply(this,arguments);
+ if(mode==="questionner"&&rng()<.24)cd52Hear();
+ return r
+};
+
+/* Les événements spéciaux peuvent aussi révéler une rumeur. */
+const cd52Event=cd39Choose;
+cd39Choose=function(i){
+ const r=cd52Event.apply(this,arguments);
+ if(rng()<.20)cd52Hear();
+ return r
+};
+
+/* Certaines rumeurs influencent légèrement l'exploration. */
+const cd52Investigate=investigate;
+investigate=function(){
+ const s=cd52State(),r=cd52Investigate.apply(this,arguments);
+ if(s.known.includes("tunnels")&&rng()<.08){player.xp=(player.xp||0)+1;log("RUMEUR DES TUNNELS — Un détail du terrain confirme ce que vous aviez entendu. +1 XP.")}
+ if(s.known.includes("fungus")&&cd48Omen&&cd48Omen.id==="fungus"&&rng()<.12){player.san=Math.min(player.maxsan||100,player.san+1);log("RUMEUR CONFIRMÉE — Vous étiez préparé à la floraison grise. +1 SAN.")}
+ return r
+};
+
+/* Journal latéral : dernière rumeur connue. */
+const cd52Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ const r=cd52Tracker.apply(this,arguments),box=document.getElementById("questTrackerBody"),s=cd52State();
+ if(box&&s.known.length&&!document.getElementById("cd52Rumor")){
+   const rr=CD52_RUMORS.find(x=>x.id===s.known[s.known.length-1]);
+   if(rr){const d=document.createElement("div");d.id="cd52Rumor";d.style.cssText="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.16);font-size:11px";d.innerHTML="<b>RUMEUR</b><br>"+rr.text;box.appendChild(d)}
+ }
+ return r
+};
+
+/* Fiche personnage : toutes les rumeurs découvertes durant la run. */
+const cd52Character=openCharacter;
+openCharacter=function(){
+ const r=cd52Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd52State();
+ if(root&&!document.getElementById("cd52Rumors")){
+   const d=document.createElement("div");d.id="cd52Rumors";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
+   const arr=s.known.map(id=>CD52_RUMORS.find(x=>x.id===id)).filter(Boolean);
+   d.innerHTML="<b>RUMEURS CONNUES</b><br>"+(arr.length?arr.map(x=>"• "+x.text).join("<br>"):"Aucune.");
+   root.appendChild(d)
+ }
+ return r
+};
+
+const cd52NewRun=newRun;
+newRun=function(){const r=cd52NewRun.apply(this,arguments);player.cd52={known:[],heard:0};return r};
 
 </script>
 
