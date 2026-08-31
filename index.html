@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.74.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.75.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4632,6 +4632,19 @@ investigate=function(){
 };
 const cd74NewRun=newRun;
 newRun=function(){const r=cd74NewRun.apply(this,arguments);player.cd74={depth:player.depth||0,triggered:false,total:0};cd74Depth=player.depth||0;return r};
+
+
+/* === V0.75.0 : expérience professionnelle persistante === */
+function cd75State(){if(!player.cd75)player.cd75={marks:[],total:0};return player.cd75}
+function cd75Remember(){const s=cd75State(),job=player.char&&player.char.job;if(!job)return;s.marks.push({job,depth:player.depth||0});if(s.marks.length>6)s.marks.shift();s.total++;log("EXPÉRIENCE — Votre métier laisse une trace dans votre manière d'aborder Blackwater.")}
+const cd75Try=cd74Try;
+cd74Try=function(){const b=cd74State().total||0,r=cd75Try.apply(this,arguments);if((cd74State().total||0)>b)cd75Remember();return r};
+const cd75Investigate=investigate;
+investigate=function(){const r=cd75Investigate.apply(this,arguments),s=cd75State();if(s.total>=3&&s.total%3===0&&!s["reward"+s.total]){s["reward"+s.total]=true;player.xp=(player.xp||0)+2;log("EXPÉRIENCE PROFESSIONNELLE — Vos précédentes observations se recoupent : +2 XP.");toast("EXPÉRIENCE PROFESSIONNELLE")}return r};
+const cd75Character=openCharacter;
+openCharacter=function(){const r=cd75Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd75State();if(root&&s.total&&!document.getElementById("cd75Experience")){const d=document.createElement("div");d.id="cd75Experience";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>EXPÉRIENCE PROFESSIONNELLE</b><br>Événements vécus : "+s.total+(s.marks.length?"<br>"+s.marks.slice(-3).map(x=>"• "+x.job+" — profondeur "+x.depth).join("<br>"):"");root.appendChild(d)}return r};
+const cd75NewRun=newRun;
+newRun=function(){const r=cd75NewRun.apply(this,arguments);player.cd75={marks:[],total:0};return r};
 
 </script>
 
