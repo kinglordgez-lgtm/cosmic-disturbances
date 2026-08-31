@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.70.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.71.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4461,6 +4461,56 @@ const cd70NewRun=newRun;
 newRun=function(){
  const r=cd70NewRun.apply(this,arguments);
  player.cd70={knowledge:{},discoveries:0};
+ return r
+};
+
+
+/* === V0.71.0 : maîtrise progressive du bestiaire === */
+function cd71State(){
+ if(!player.cd71)player.cd71={kills:{},mastered:{}};
+ return player.cd71
+}
+function cd71KeyFromEnemy(e){
+ if(!e)return null;
+ return e.baseName||e.name||null
+}
+function cd71RecordKill(e){
+ const k=cd71KeyFromEnemy(e);if(!k)return;
+ const s=cd71State();s.kills[k]=(s.kills[k]||0)+1;
+ if(s.kills[k]>=3&&!s.mastered[k]){
+   s.mastered[k]=true;
+   log("MAÎTRISE DU BESTIAIRE — "+k+" : comportement désormais familier.");
+   toast("CRÉATURE MAÎTRISÉE")
+ }
+}
+/* Enregistrer l'espèce avant que win() ne vide le combat. */
+const cd71Win=win;
+win=function(){
+ const defeated=enemy;
+ const r=cd71Win.apply(this,arguments);
+ if(defeated)cd71RecordKill(defeated);
+ return r
+};
+/* Une espèce maîtrisée inflige légèrement moins de dégâts : le personnage anticipe. */
+const cd71EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ const k=cd71KeyFromEnemy(enemy),s=cd71State();
+ if(battle&&enemy&&k&&s.mastered[k]){
+   const hp0=player.hp;
+   const r=cd71EnemyTurn.apply(this,arguments);
+   if(player.hp<hp0){
+     const prevented=Math.min(2,hp0-player.hp);
+     player.hp=Math.min(player.maxhp||999,player.hp+prevented);
+     if(prevented>0)log("MAÎTRISE — Vous anticipez "+k+" et réduisez les dégâts de "+prevented+".");
+   }
+   return r
+ }
+ return cd71EnemyTurn.apply(this,arguments)
+};
+const cd71NewRun=newRun;
+newRun=function(){
+ const r=cd71NewRun.apply(this,arguments);
+ player.cd71={kills:{},mastered:{}};
  return r
 };
 
