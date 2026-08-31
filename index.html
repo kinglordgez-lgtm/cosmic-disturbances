@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.75.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.76.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4645,6 +4645,50 @@ const cd75Character=openCharacter;
 openCharacter=function(){const r=cd75Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd75State();if(root&&s.total&&!document.getElementById("cd75Experience")){const d=document.createElement("div");d.id="cd75Experience";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>EXPÉRIENCE PROFESSIONNELLE</b><br>Événements vécus : "+s.total+(s.marks.length?"<br>"+s.marks.slice(-3).map(x=>"• "+x.job+" — profondeur "+x.depth).join("<br>"):"");root.appendChild(d)}return r};
 const cd75NewRun=newRun;
 newRun=function(){const r=cd75NewRun.apply(this,arguments);player.cd75={marks:[],total:0};return r};
+
+
+/* === V0.76.0 : instinct de trait === */
+function cd76State(){
+ if(!player.cd76)player.cd76={depth:null,used:false,total:0};
+ return player.cd76
+}
+function cd76Trait(){
+ return player.char&&player.char.trait||""
+}
+function cd76Trigger(){
+ const s=cd76State(),t=cd76Trait();
+ if(!t||s.used)return;
+ s.used=true;s.total++;
+ let msg="",xp=0,hp=0,san=0;
+ if(t==="Sang-froid"){san=2;msg="Vous reprenez immédiatement le contrôle de vos nerfs."}
+ else if(t==="Curieux"){xp=2;msg="Un détail que d'autres auraient ignoré retient votre attention."}
+ else if(t==="Méfiant"){hp=2;msg="Votre prudence vous évite de vous exposer inutilement."}
+ else if(t==="Insomniaque"){xp=1;san=1;msg="La fatigue vous a appris à observer quand les autres décrochent."}
+ else if(t==="Œil exercé"){xp=2;msg="Votre regard isole un détail presque invisible."}
+ else if(t==="Volonté de fer"){san=2;msg="Vous refusez de céder à l'impression d'irréalité."}
+ else if(t==="Superstitieux"){san=1;xp=1;msg="Vos vieux réflexes superstitieux vous soufflent de ne pas insister."}
+ else if(t==="Cicatrice étrange"){hp=1;xp=1;msg="Votre cicatrice réagit avant même que vous compreniez pourquoi."}
+ else return;
+ if(xp)player.xp=(player.xp||0)+xp;
+ if(hp)player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+hp);
+ if(san)player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+san);
+ log("INSTINCT DE TRAIT — "+t+" : "+msg+(xp?" +"+xp+" XP.":"")+(hp?" +"+hp+" PV.":"")+(san?" +"+san+" SAN.":""));
+ toast("INSTINCT : "+t);
+}
+const cd76Investigate=investigate;
+investigate=function(){
+ const s=cd76State(),d=player.depth||0;
+ if(s.depth!==d){s.depth=d;s.used=false}
+ const r=cd76Investigate.apply(this,arguments);
+ if(!s.used)cd76Trigger();
+ return r
+};
+const cd76NewRun=newRun;
+newRun=function(){
+ const r=cd76NewRun.apply(this,arguments);
+ player.cd76={depth:player.depth||0,used:false,total:0};
+ return r
+};
 
 </script>
 
