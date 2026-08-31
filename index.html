@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.71.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.72.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4513,6 +4513,49 @@ newRun=function(){
  player.cd71={kills:{},mastered:{}};
  return r
 };
+
+
+/* === V0.72.0 : ennemis vétérans qui survivent et reviennent === */
+const CD72_TITLES=["le Balafré","l'Insondable","le Revenant","aux Yeux pâles"];
+function cd72State(){if(!player.cd72)player.cd72={nemesis:null,returns:0};return player.cd72}
+function cd72Base(e){return e?(e.baseName||e.name||null):null}
+function cd72MaybeRemember(e){
+ if(!e||e.cd72Veteran)return;
+ const s=cd72State();
+ if(!s.nemesis&&rng()<.18){
+   const base=cd72Base(e);
+   s.nemesis={base:base,title:CD72_TITLES[R(CD72_TITLES.length)],level:1};
+   log("PRÉSAGE — Vous n'êtes pas certain que "+base+" soit réellement mort.");
+   toast("UNE PRÉSENCE PERSISTE")
+ }
+}
+const cd72Win=win;
+win=function(){
+ const defeated=enemy;
+ const r=cd72Win.apply(this,arguments);
+ if(defeated)cd72MaybeRemember(defeated);
+ return r
+};
+
+const cd72Spawn=spawnEnemy;
+spawnEnemy=function(){
+ const r=cd72Spawn.apply(this,arguments),s=cd72State();
+ if(battle&&enemy&&s.nemesis&&!enemy.cd72Veteran&&rng()<.12){
+   const n=s.nemesis;
+   enemy.baseName=enemy.baseName||enemy.name;
+   enemy.name=n.base+" "+n.title;
+   enemy.cd72Veteran=true;
+   enemy.maxhp=Math.ceil((enemy.maxhp||enemy.hp)*1.35);
+   enemy.hp=enemy.maxhp;
+   enemy.atk=(enemy.atk||1)+2+n.level;
+   s.returns++;
+   log("ENNEMI RÉCURRENT — "+enemy.name+" vous a retrouvé.");
+   toast("IL EST REVENU")
+ }
+ return r
+};
+const cd72NewRun=newRun;
+newRun=function(){const r=cd72NewRun.apply(this,arguments);player.cd72={nemesis:null,returns:0};return r};
 
 </script>
 
