@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.69.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.70.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4411,6 +4411,58 @@ const cd69Spawn=spawnEnemy;
 spawnEnemy=function(){const r=cd69Spawn.apply(this,arguments);const s=cd69State();s.enemy=enemy;s.ready=false;s.used=false;return r};
 const cd69NewRun=newRun;
 newRun=function(){const r=cd69NewRun.apply(this,arguments);player.cd69={enemy:null,ready:false,used:false,total:0};return r};
+
+
+/* === V0.70.0 : mémoire tactique des créatures === */
+function cd70State(){
+ if(!player.cd70)player.cd70={knowledge:{},discoveries:0};
+ return player.cd70
+}
+function cd70Key(){
+ if(!enemy)return null;
+ return enemy.baseName||enemy.name||null
+}
+function cd70Learn(){
+ const k=cd70Key();if(!k)return;
+ const s=cd70State();
+ if(!s.knowledge[k]){
+   s.knowledge[k]={weak:cd68EnemyWeak()||"inconnue",uses:0};
+   s.discoveries++;
+   log("MÉMOIRE TACTIQUE — Les informations sur "+k+" sont désormais conservées.");
+   toast("CONNAISSANCE CONSERVÉE")
+ }
+}
+/* Un indice réussi est désormais mémorisé pour les rencontres futures. */
+const cd70Prepare=cd69Prepare;
+cd69Prepare=function(){
+ const r=cd70Prepare.apply(this,arguments);
+ cd70Learn();
+ return r
+};
+/* Lors d'une rencontre avec une espèce déjà comprise, l'indice est rappelé immédiatement. */
+const cd70Spawn=spawnEnemy;
+spawnEnemy=function(){
+ const r=cd70Spawn.apply(this,arguments);
+ if(battle&&enemy){
+   const k=cd70Key(),s=cd70State(),m=k&&s.knowledge[k];
+   if(m){
+     m.uses=(m.uses||0)+1;
+     setTimeout(function(){
+       if(battle&&enemy&&cd70Key()===k){
+         log("MÉMOIRE TACTIQUE — "+k+" : faiblesse connue, "+m.weak+".");
+         toast("FAIBLESSE DÉJÀ CONNUE");
+       }
+     },140);
+   }
+ }
+ return r
+};
+const cd70NewRun=newRun;
+newRun=function(){
+ const r=cd70NewRun.apply(this,arguments);
+ player.cd70={knowledge:{},discoveries:0};
+ return r
+};
 
 </script>
 
