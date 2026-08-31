@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.67.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.68.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4337,6 +4337,40 @@ renderQuestTracker=function(){
 };
 const cd67NewRun=newRun;
 newRun=function(){const r=cd67NewRun.apply(this,arguments);player.cd67={chain:null,step:0,total:0};cd67Depth=player.depth||0;return r};
+
+
+/* === V0.68.0 : indices de faiblesse avant combat === */
+const CD68_CLUES=[
+ {skill:"Observation",text:"Des traces inhabituelles suggèrent une vulnérabilité."},
+ {skill:"Occultisme",text:"Un détail rituel révèle quelque chose sur la créature."},
+ {skill:"Érudition",text:"Un souvenir de lecture vous revient au bon moment."}
+];
+function cd68State(){if(!player.cd68)player.cd68={seen:0,success:0,last:null};return player.cd68}
+function cd68EnemyWeak(){
+ if(!enemy)return null;
+ const base=(enemy.baseName&&creatures[enemy.baseName])||creatures[enemy.name]||null;
+ return (enemy.weak)||(base&&base.weak)||null
+}
+function cd68Clue(){
+ if(!battle||!enemy)return;
+ const s=cd68State(); if(s.last===enemy)return;
+ s.last=enemy;s.seen++;
+ const c=CD68_CLUES[R(CD68_CLUES.length)],sk=(player.char&&player.char.skills&&player.char.skills[c.skill])||0;
+ const ok=R(100)<Math.min(85,20+sk);
+ if(ok){
+   s.success++;const w=cd68EnemyWeak();
+   log("INDICE TACTIQUE — "+c.text+(w?" Faiblesse probable : "+w+".":" La créature semble cacher une vulnérabilité."));
+   toast("INDICE TACTIQUE");
+ }else log("INDICE TACTIQUE — Vous remarquez un détail, mais ne parvenez pas à l'interpréter.");
+}
+const cd68Spawn=spawnEnemy;
+spawnEnemy=function(){
+ const r=cd68Spawn.apply(this,arguments);
+ if(battle&&enemy)setTimeout(cd68Clue,100);
+ return r
+};
+const cd68NewRun=newRun;
+newRun=function(){const r=cd68NewRun.apply(this,arguments);player.cd68={seen:0,success:0,last:null};return r};
 
 </script>
 
