@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.66.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.67.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4293,6 +4293,50 @@ cd38RewardGoal=function(){
 };
 const cd66NewRun=newRun;
 newRun=function(){const r=cd66NewRun.apply(this,arguments);player.cd66={pending:false,total:0};return r};
+
+
+/* === V0.67.0 : chaînes d'exploration === */
+const CD67_CHAINS=[
+ {id:"scholar",name:"Fil de l'interdit",steps:["Enquêter une fois","Étudier une créature","Atteindre l'étage suivant"]},
+ {id:"hunter",name:"Piste sanglante",steps:["Vaincre une créature","Enquêter une fois","Atteindre l'étage suivant"]}
+];
+function cd67State(){if(!player.cd67)player.cd67={chain:null,step:0,total:0};return player.cd67}
+function cd67Start(){
+ const s=cd67State();if(s.chain)return;
+ s.chain={...CD67_CHAINS[R(CD67_CHAINS.length)]};s.step=0;
+ log("FIL D'ENQUÊTE — "+s.chain.name+" : "+s.chain.steps[0]+".");toast("NOUVEAU FIL D'ENQUÊTE")
+}
+function cd67Advance(kind){
+ const s=cd67State();if(!s.chain)return;
+ const need=s.chain.id==="scholar"?["investigate","study","descend"]:["kill","investigate","descend"];
+ if(need[s.step]!==kind)return;
+ s.step++;
+ if(s.step>=3){
+   player.xp=(player.xp||0)+6;player.san=Math.min(player.maxsan||100,player.san+2);s.total++;
+   log("FIL D'ENQUÊTE ACHEVÉ — "+s.chain.name+". +6 XP, +2 SAN.");toast("FIL D'ENQUÊTE ACHEVÉ");s.chain=null;s.step=0;
+ }else log("FIL D'ENQUÊTE — Étape suivante : "+s.chain.steps[s.step]+".")
+}
+const cd67Investigate=investigate;
+investigate=function(){const r=cd67Investigate.apply(this,arguments);cd67Advance("investigate");return r};
+const cd67Study=cd15StudyEnemy;
+cd15StudyEnemy=function(){const r=cd67Study.apply(this,arguments);cd67Advance("study");return r};
+const cd67Win=win;
+win=function(){const r=cd67Win.apply(this,arguments);cd67Advance("kill");return r};
+let cd67Depth=(player&&player.depth)||0;
+const cd67Resolve=resolveTile;
+resolveTile=function(){
+ const r=cd67Resolve.apply(this,arguments),d=player?player.depth||0:0;
+ if(d!==cd67Depth){cd67Depth=d;cd67Advance("descend");if(!cd67State().chain&&d>=2&&rng()<.55)cd67Start()}
+ return r
+};
+const cd67Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ const r=cd67Tracker.apply(this,arguments),s=cd67State(),box=document.getElementById("questTrackerBody");
+ if(box&&s.chain&&!document.getElementById("cd67Chain")){const d=document.createElement("div");d.id="cd67Chain";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";d.innerHTML="<b>FIL D'ENQUÊTE</b><br>"+s.chain.name+" — "+s.chain.steps[s.step]+" ("+(s.step+1)+"/3)";box.appendChild(d)}
+ return r
+};
+const cd67NewRun=newRun;
+newRun=function(){const r=cd67NewRun.apply(this,arguments);player.cd67={chain:null,step:0,total:0};cd67Depth=player.depth||0;return r};
 
 </script>
 
