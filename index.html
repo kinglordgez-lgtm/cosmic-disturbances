@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.79.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.80.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4844,6 +4844,59 @@ const cd79NewRun=newRun;
 newRun=function(){
  const r=cd79NewRun.apply(this,arguments);
  player.cd79={depth:player.depth||0,echoed:false,total:0};
+ return r
+};
+
+
+/* === V0.80.0 : rémanence entre les étages === */
+function cd80State(){
+ if(!player.cd80)player.cd80={mark:null,sourceDepth:null,armed:false,total:0};
+ return player.cd80
+}
+function cd80Arm(){
+ const s=cd80State(),o=player.cd78&&player.cd78.omen;
+ if(!o||!(player.cd79&&player.cd79.echoed))return;
+ s.mark=o[1];
+ s.sourceDepth=player.depth||0;
+ s.armed=true;
+ log("RÉMANENCE — Le présage semble vouloir vous suivre au-delà de cet étage.");
+}
+function cd80Trigger(){
+ const s=cd80State();
+ if(!s.armed||s.sourceDepth===(player.depth||0))return;
+ s.armed=false;s.total++;
+ let text="";
+ if(s.mark==="san"){
+   player.san=Math.max(0,(player.san||0)-1);
+   text="Le souvenir du phénomène revient sans prévenir : -1 SAN.";
+ }else if(s.mark==="xp"){
+   player.xp=(player.xp||0)+2;
+   text="Une intuition née à l'étage précédent éclaire cette nouvelle piste : +2 XP.";
+ }else{
+   player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);
+   text="Vous reconnaissez un signe familier et évitez un mauvais passage : +2 PV.";
+ }
+ log("RÉMANENCE DU PRÉSAGE — "+text);
+ toast("RÉMANENCE DU PRÉSAGE");
+}
+const cd80Investigate=investigate;
+investigate=function(){
+ const r=cd80Investigate.apply(this,arguments);
+ cd80Trigger();
+ return r
+};
+const cd80ResolveTile=resolveTile;
+resolveTile=function(){
+ const oldDepth=player.depth||0;
+ const hadEcho=!!(player.cd79&&player.cd79.echoed);
+ const r=cd80ResolveTile.apply(this,arguments);
+ if((player.depth||0)!==oldDepth&&hadEcho)cd80Arm();
+ return r
+};
+const cd80NewRun=newRun;
+newRun=function(){
+ const r=cd80NewRun.apply(this,arguments);
+ player.cd80={mark:null,sourceDepth:null,armed:false,total:0};
  return r
 };
 
