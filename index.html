@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.81.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.82.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4973,6 +4973,54 @@ investigate=function(){
    s.charges=2;
    log("EMPREINTE — La marque se stabilise. Elle influencera vos 2 prochaines enquêtes.");
  }
+ return r
+};
+
+
+/* === V0.82.0 : cicatrice de réalité === */
+function cd82State(){
+ if(!player.cd82)player.cd82={depth:null,triggered:false,total:0};
+ return player.cd82
+}
+function cd82Reset(){
+ const s=cd82State(),d=player.depth||0;
+ if(s.depth!==d){s.depth=d;s.triggered=false}
+}
+function cd82Try(){
+ const s=cd82State(),e=cd81State();
+ if(s.triggered||e.total<1)return;
+ s.triggered=true;s.total++;
+ const type=e.type;
+ if(type==="san"){
+   player.xp=(player.xp||0)+2;
+   log("CICATRICE DE RÉALITÉ — L'horreur déjà vécue vous permet de reconnaître une anomalie : +2 XP.");
+ }else if(type==="xp"){
+   player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("CICATRICE DE RÉALITÉ — Une logique familière se dessine dans l'impossible : +1 SAN.");
+ }else{
+   player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);
+   log("CICATRICE DE RÉALITÉ — Votre corps anticipe instinctivement le danger : +2 PV.");
+ }
+ toast("CICATRICE DE RÉALITÉ");
+}
+const cd82Investigate=investigate;
+investigate=function(){
+ cd82Reset();
+ const r=cd82Investigate.apply(this,arguments);
+ if(!cd82State().triggered&&cd81State().total>0)cd82Try();
+ return r
+};
+const cd82ResolveTile=resolveTile;
+resolveTile=function(){
+ const oldDepth=player.depth||0;
+ const r=cd82ResolveTile.apply(this,arguments);
+ if((player.depth||0)!==oldDepth)cd82Reset();
+ return r
+};
+const cd82NewRun=newRun;
+newRun=function(){
+ const r=cd82NewRun.apply(this,arguments);
+ player.cd82={depth:player.depth||0,triggered:false,total:0};
  return r
 };
 
