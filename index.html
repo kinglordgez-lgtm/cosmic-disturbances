@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.76.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.77.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4687,6 +4687,56 @@ const cd76NewRun=newRun;
 newRun=function(){
  const r=cd76NewRun.apply(this,arguments);
  player.cd76={depth:player.depth||0,used:false,total:0};
+ return r
+};
+
+
+/* === V0.77.0 : tension d'exploration === */
+function cd77State(){
+ if(!player.cd77)player.cd77={depth:player.depth||0,tension:0,total:0};
+ return player.cd77
+}
+function cd77ResetDepth(){
+ const s=cd77State(),d=player.depth||0;
+ if(s.depth!==d){s.depth=d;s.tension=0;log("TENSION — Le nouvel étage semble retenir son souffle.")}
+}
+function cd77Add(n){
+ const s=cd77State();s.tension=Math.min(4,(s.tension||0)+n);
+ if(s.tension===2)log("TENSION — Quelque chose paraît suivre vos recherches.");
+ if(s.tension>=4){
+   s.tension=0;s.total++;
+   const roll=R(3);
+   if(roll===0){
+     player.san=Math.max(0,(player.san||0)-1);
+     log("PRESSION — Un bruit impossible vous fait perdre 1 SAN.");
+   }else if(roll===1){
+     player.xp=(player.xp||0)+2;
+     log("PRESSION — Sous la peur, vous remarquez un indice crucial : +2 XP.");
+   }else{
+     player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);
+     log("PRESSION — Vous trouvez un instant de répit : +2 PV.");
+   }
+   toast("LA TENSION CÈDE");
+ }
+}
+const cd77Investigate=investigate;
+investigate=function(){
+ cd77ResetDepth();
+ const r=cd77Investigate.apply(this,arguments);
+ cd77Add(1);
+ return r
+};
+const cd77ResolveTile=resolveTile;
+resolveTile=function(){
+ const oldDepth=player.depth||0;
+ const r=cd77ResolveTile.apply(this,arguments);
+ if((player.depth||0)!==oldDepth)cd77ResetDepth();
+ return r
+};
+const cd77NewRun=newRun;
+newRun=function(){
+ const r=cd77NewRun.apply(this,arguments);
+ player.cd77={depth:player.depth||0,tension:0,total:0};
  return r
 };
 
