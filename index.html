@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.80.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.80.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4899,6 +4899,29 @@ newRun=function(){
  player.cd80={mark:null,sourceDepth:null,armed:false,total:0};
  return r
 };
+
+
+/* === V0.80.1 : correctif rémanence === */
+const cd801Echo=cd79Echo;
+cd79Echo=function(){
+ const before=!!(player.cd79&&player.cd79.echoed);
+ const r=cd801Echo.apply(this,arguments);
+ if(!before&&player.cd79&&player.cd79.echoed){
+   const s=cd80State(),o=player.cd78&&player.cd78.omen;
+   if(o){s.mark=o[1];s.sourceDepth=player.depth||0;s.armed=true;
+     log("RÉMANENCE — Quelque chose de ce présage s'accroche à vous.");}
+ }
+ return r
+};
+const cd801Investigate=investigate;
+investigate=function(){
+ const s=cd80State(),trigger=!!(s.armed&&s.sourceDepth!==(player.depth||0));
+ const r=cd801Investigate.apply(this,arguments);
+ if(trigger&&s.armed)cd80Trigger();
+ return r
+};
+const cd801NewRun=newRun;
+newRun=function(){const r=cd801NewRun.apply(this,arguments);player.cd80={mark:null,sourceDepth:null,armed:false,total:0};return r};
 
 </script>
 
