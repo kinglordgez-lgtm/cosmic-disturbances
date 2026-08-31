@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.64.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.65.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4242,6 +4242,23 @@ openCharacter=function(){
 };
 const cd64NewRun=newRun;
 newRun=function(){const r=cd64NewRun.apply(this,arguments);player.cd64={depth:player.depth||0,event:null,triggered:false,total:0};cd64LastDepth=player.depth||0;return r};
+
+
+/* === V0.65.0 : objectifs secondaires facultatifs === */
+const CD65_SIDE=[
+{id:"san",name:"Garder son sang-froid",text:"Finir l'objectif d'étage sans perdre plus de 3 SAN."},
+{id:"hp",name:"Rester indemne",text:"Finir l'objectif d'étage sans perdre plus de 5 PV."},
+{id:"study",name:"Documenter l'horreur",text:"Étudier une créature avant de finir l'objectif."}];
+function cd65State(){if(!player.cd65)player.cd65={depth:0,side:null,startHp:0,startSan:0,studied:false,total:0};return player.cd65}
+function cd65NewFloor(){const s=cd65State(),d=player.depth||0;if(s.depth===d)return;s.depth=d;s.side={...CD65_SIDE[R(CD65_SIDE.length)]};s.startHp=player.hp;s.startSan=player.san;s.studied=false;log("OBJECTIF SECONDAIRE — "+s.side.name+" : "+s.side.text)}
+function cd65Success(){const s=cd65State();if(!s.side)return false;if(s.side.id==="san")return s.startSan-player.san<=3;if(s.side.id==="hp")return s.startHp-player.hp<=5;return !!s.studied}
+function cd65Finish(){const s=cd65State();if(!s.side)return;if(cd65Success()){player.xp=(player.xp||0)+3;s.total++;log("OBJECTIF SECONDAIRE RÉUSSI — "+s.side.name+". +3 XP.");toast("OBJECTIF SECONDAIRE RÉUSSI")}else log("OBJECTIF SECONDAIRE MANQUÉ — "+s.side.name+".");s.side=null}
+let cd65LastDepth=(player&&player.depth)||0;
+const cd65Resolve=resolveTile;resolveTile=function(){const r=cd65Resolve.apply(this,arguments),d=player?player.depth||0:0;if(d!==cd65LastDepth){cd65LastDepth=d;cd65NewFloor()}return r};
+const cd65Study=cd15StudyEnemy;cd15StudyEnemy=function(){const r=cd65Study.apply(this,arguments);const s=cd65State();if(s.side&&s.side.id==="study")s.studied=true;return r};
+const cd65Reward=cd38RewardGoal;cd38RewardGoal=function(){cd65Finish();return cd65Reward.apply(this,arguments)};
+const cd65Tracker=renderQuestTracker;renderQuestTracker=function(){const r=cd65Tracker.apply(this,arguments),s=cd65State(),box=document.getElementById("questTrackerBody");if(box&&s.side&&!document.getElementById("cd65Side")){const d=document.createElement("div");d.id="cd65Side";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";d.innerHTML="<b>OBJECTIF SECONDAIRE</b><br>"+s.side.name+" — "+s.side.text+" <span class='small'>(+3 XP)</span>";box.appendChild(d)}return r};
+const cd65NewRun=newRun;newRun=function(){const r=cd65NewRun.apply(this,arguments);player.cd65={depth:player.depth||0,side:null,startHp:player.hp,startSan:player.san,studied:false,total:0};cd65LastDepth=player.depth||0;return r};
 
 </script>
 
