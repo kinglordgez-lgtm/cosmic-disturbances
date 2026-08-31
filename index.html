@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.73.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.74.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4589,6 +4589,49 @@ openCharacter=function(){
 };
 const cd73NewRun=newRun;
 newRun=function(){const r=cd73NewRun.apply(this,arguments);player.cd73={trophies:[],veterans:0};return r};
+
+
+/* === V0.74.0 : événements de profession === */
+const CD74_EVENTS={
+ "Détective privé": ["Une scène vous paraît trop propre. Vous relevez un détail négligé.","Investigation"],
+ "Détective privée": ["Une scène vous paraît trop propre. Vous relevez un détail négligé.","Investigation"],
+ "Médecin": ["Une odeur clinique impossible flotte ici. Vous reconnaissez un signe pathologique.","Médecine"],
+ "Professeur": ["Une inscription évoque un texte que vous pensiez apocryphe.","Érudition"],
+ "Professeure": ["Une inscription évoque un texte que vous pensiez apocryphe.","Érudition"],
+ "Journaliste": ["Une contradiction dans les témoignages attire immédiatement votre attention.","Investigation"],
+ "Marin": ["L'humidité et les courants d'air vous indiquent un passage anormal.","Endurance"],
+ "Marine": ["L'humidité et les courants d'air vous indiquent un passage anormal.","Endurance"],
+ "Antiquaire": ["L'objet devant vous appartient à une tradition que peu reconnaîtraient.","Occultisme"],
+ "Photographe": ["La lumière tombe selon un angle impossible. Vous remarquez ce que d'autres manqueraient.","Observation"],
+ "Infirmier": ["Votre expérience vous fait remarquer une trace physiologique inquiétante.","Médecine"],
+ "Infirmière": ["Votre expérience vous fait remarquer une trace physiologique inquiétante.","Médecine"]
+};
+function cd74State(){if(!player.cd74)player.cd74={depth:0,triggered:false,total:0};return player.cd74}
+function cd74Try(){
+ const s=cd74State();if(s.triggered||battle||!player.char)return false;
+ const job=player.char.job,e=CD74_EVENTS[job];if(!e)return false;
+ s.triggered=true;s.total++;
+ const sk=(player.char.skills&&player.char.skills[e[1]])||0;
+ const ok=R(100)<Math.min(90,30+sk);
+ if(ok){player.xp=(player.xp||0)+2;log("PROFESSION — "+e[0]+" "+e[1]+" vous aide : +2 XP.");toast("INSTINCT PROFESSIONNEL")}
+ else{log("PROFESSION — "+e[0]+" Cette fois, vous n'en tirez aucune certitude.");toast("INTUITION INCERTAINE")}
+ render();return true
+}
+let cd74Depth=(player&&player.depth)||0;
+const cd74Resolve=resolveTile;
+resolveTile=function(){
+ const r=cd74Resolve.apply(this,arguments),d=player?player.depth||0:0;
+ if(d!==cd74Depth){cd74Depth=d;player.cd74={depth:d,triggered:false,total:cd74State().total||0}}
+ return r
+};
+const cd74Investigate=investigate;
+investigate=function(){
+ const r=cd74Investigate.apply(this,arguments),s=cd74State();
+ if(!s.triggered&&rng()<.35)cd74Try();
+ return r
+};
+const cd74NewRun=newRun;
+newRun=function(){const r=cd74NewRun.apply(this,arguments);player.cd74={depth:player.depth||0,triggered:false,total:0};cd74Depth=player.depth||0;return r};
 
 </script>
 
