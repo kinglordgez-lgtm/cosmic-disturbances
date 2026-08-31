@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.65.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.66.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4259,6 +4259,40 @@ const cd65Study=cd15StudyEnemy;cd15StudyEnemy=function(){const r=cd65Study.apply
 const cd65Reward=cd38RewardGoal;cd38RewardGoal=function(){cd65Finish();return cd65Reward.apply(this,arguments)};
 const cd65Tracker=renderQuestTracker;renderQuestTracker=function(){const r=cd65Tracker.apply(this,arguments),s=cd65State(),box=document.getElementById("questTrackerBody");if(box&&s.side&&!document.getElementById("cd65Side")){const d=document.createElement("div");d.id="cd65Side";d.style.cssText="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.15);font-size:11px";d.innerHTML="<b>OBJECTIF SECONDAIRE</b><br>"+s.side.name+" — "+s.side.text+" <span class='small'>(+3 XP)</span>";box.appendChild(d)}return r};
 const cd65NewRun=newRun;newRun=function(){const r=cd65NewRun.apply(this,arguments);player.cd65={depth:player.depth||0,side:null,startHp:player.hp,startSan:player.san,studied:false,total:0};cd65LastDepth=player.depth||0;return r};
+
+
+/* === V0.66.0 : décisions après objectif d'étage === */
+const CD66_AFTERMATH=[
+ {id:"rest",name:"Sécuriser le secteur",text:"Récupérer 3 PV et 2 SAN avant de poursuivre."},
+ {id:"push",name:"Pousser l'enquête",text:"Gagner 4 XP, mais perdre 2 SAN."}
+];
+function cd66State(){if(!player.cd66)player.cd66={pending:false,total:0};return player.cd66}
+function cd66Open(){
+ const s=cd66State();if(s.pending||battle)return false;s.pending=true;
+ cdOpenPanel("APRÈS L'OBJECTIF",`<p>L'objectif principal est accompli. Que faites-vous avant de poursuivre ?</p><div class="menuGrid"><button onclick="cd66Choose('rest')"><b>SÉCURISER LE SECTEUR</b><br><span class="small">+3 PV, +2 SAN</span></button><button onclick="cd66Choose('push')"><b>POUSSER L'ENQUÊTE</b><br><span class="small">+4 XP, -2 SAN</span></button></div>`);
+ return true
+}
+function cd66Choose(id){
+ const s=cd66State();if(!s.pending)return;s.pending=false;s.total++;
+ if(id==="rest"){
+   player.hp=Math.min(player.maxhp||999,player.hp+3);
+   player.san=Math.min(player.maxsan||100,player.san+2);
+   log("APRÈS L'OBJECTIF — Vous sécurisez le secteur. +3 PV, +2 SAN.");
+ }else{
+   player.xp=(player.xp||0)+4;player.san=Math.max(0,player.san-2);
+   log("APRÈS L'OBJECTIF — Vous poussez l'enquête plus loin. +4 XP, -2 SAN.");
+ }
+ toast("DÉCISION APPLIQUÉE");closeOverlays();render()
+}
+/* La récompense normale reste intacte, puis le choix s'ouvre. */
+const cd66Reward=cd38RewardGoal;
+cd38RewardGoal=function(){
+ const r=cd66Reward.apply(this,arguments);
+ setTimeout(function(){if(!battle)cd66Open()},180);
+ return r
+};
+const cd66NewRun=newRun;
+newRun=function(){const r=cd66NewRun.apply(this,arguments);player.cd66={pending:false,total:0};return r};
 
 </script>
 
