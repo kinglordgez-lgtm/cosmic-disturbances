@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.72.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.73.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -4556,6 +4556,39 @@ spawnEnemy=function(){
 };
 const cd72NewRun=newRun;
 newRun=function(){const r=cd72NewRun.apply(this,arguments);player.cd72={nemesis:null,returns:0};return r};
+
+
+/* === V0.73.0 : trophées de chasse pour ennemis récurrents === */
+const CD73_TROPHIES=[
+ {name:"Cicatrice impossible",bonus:"san"},
+ {name:"Fragment d'os noir",bonus:"hp"},
+ {name:"Signe arraché",bonus:"xp"}
+];
+function cd73State(){if(!player.cd73)player.cd73={trophies:[],veterans:0};return player.cd73}
+function cd73Award(e){
+ if(!e||!e.cd72Veteran)return;
+ const s=cd73State(),t={...CD73_TROPHIES[R(CD73_TROPHIES.length)],from:e.name};
+ s.trophies.push(t);s.veterans++;
+ if(t.bonus==="san"){player.san=Math.min(player.maxsan||100,player.san+3);log("TROPHÉE — "+t.name+" : +3 SAN.")}
+ else if(t.bonus==="hp"){player.hp=Math.min(player.maxhp||999,player.hp+5);log("TROPHÉE — "+t.name+" : +5 PV.")}
+ else{player.xp=(player.xp||0)+5;log("TROPHÉE — "+t.name+" : +5 XP.")}
+ toast("TROPHÉE DE CHASSE OBTENU")
+}
+const cd73Win=win;
+win=function(){const defeated=enemy;const r=cd73Win.apply(this,arguments);if(defeated&&defeated.cd72Veteran)cd73Award(defeated);return r};
+
+const cd73Character=openCharacter;
+openCharacter=function(){
+ const r=cd73Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd73State();
+ if(root&&s.trophies.length&&!document.getElementById("cd73Trophies")){
+   const d=document.createElement("div");d.id="cd73Trophies";d.style.cssText="margin-top:8px;font-size:12px";
+   d.innerHTML="<b>TROPHÉES DE CHASSE</b><br>"+s.trophies.slice(-4).map(x=>"• "+x.name+" — "+x.from).join("<br>");
+   root.appendChild(d)
+ }
+ return r
+};
+const cd73NewRun=newRun;
+newRun=function(){const r=cd73NewRun.apply(this,arguments);player.cd73={trophies:[],veterans:0};return r};
 
 </script>
 
