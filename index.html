@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.89.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.90.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5291,6 +5291,33 @@ const cd89ResolveTile=resolveTile;
 resolveTile=function(){const d=player.depth||0,r=cd89ResolveTile.apply(this,arguments);if((player.depth||0)!==d)cd89Reset();return r};
 const cd89NewRun=newRun;
 newRun=function(){const r=cd89NewRun.apply(this,arguments);player.cd89={depth:player.depth||0,seen:false,total:0};return r};
+
+
+/* === V0.90.0 : conséquence de piste === */
+const CD90_RESULTS=[
+ ["Vous contournez une zone où quelque chose attendait dans l'ombre.","safe"],
+ ["La piste vous conduit à un fragment de témoignage abandonné.","xp"],
+ ["Vous trouvez les restes d'un ancien refuge encore utilisable.","heal"],
+ ["Le chemin indiqué débouche sur un symbole qui n'était visible que sous cet angle.","san"]
+];
+function cd90State(){if(!player.cd90)player.cd90={depth:null,done:false,total:0};return player.cd90}
+function cd90Reset(){const s=cd90State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.done=false}}
+function cd90Try(){
+ const s=cd90State(),q=cd89State();if(s.done||!q.seen)return;
+ s.done=true;s.total++;const x=CD90_RESULTS[R(CD90_RESULTS.length)];
+ log("CONSÉQUENCE DE PISTE — "+x[0]);
+ if(x[1]==="safe"){player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+1);player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);log("Vous gagnez un peu de répit : +1 PV, +1 SAN.")}
+ else if(x[1]==="xp"){player.xp=(player.xp||0)+3;log("Le témoignage complète votre enquête : +3 XP.")}
+ else if(x[1]==="heal"){player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+3);log("Vous profitez du refuge : +3 PV.")}
+ else{player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+2);log("Comprendre le signe calme momentanément votre esprit : +2 SAN.")}
+ toast("CONSÉQUENCE DE PISTE")
+}
+const cd90Investigate=investigate;
+investigate=function(){cd90Reset();const had=!!cd89State().seen,r=cd90Investigate.apply(this,arguments);if((had||cd89State().seen)&&!cd90State().done)cd90Try();return r};
+const cd90ResolveTile=resolveTile;
+resolveTile=function(){const d=player.depth||0,r=cd90ResolveTile.apply(this,arguments);if((player.depth||0)!==d)cd90Reset();return r};
+const cd90NewRun=newRun;
+newRun=function(){const r=cd90NewRun.apply(this,arguments);player.cd90={depth:player.depth||0,done:false,total:0};return r};
 
 </script>
 
