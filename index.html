@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.83.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.84.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5048,6 +5048,62 @@ const cd83ResolveTile=resolveTile;
 resolveTile=function(){const r=cd83ResolveTile.apply(this,arguments);cd83Update();return r};
 const cd83NewRun=newRun;
 newRun=function(){const r=cd83NewRun.apply(this,arguments);player.cd83={level:0,lastScar:0,total:0};return r};
+
+
+/* === V0.84.0 : perception altérée === */
+const CD84_VISIONS=[
+ "Pendant une seconde, le couloir semble beaucoup plus long qu'il ne devrait l'être.",
+ "Une porte apparaît dans votre vision périphérique, puis disparaît lorsque vous la regardez.",
+ "Vous entendez vos propres pas quelques secondes avant de les faire.",
+ "Les murs paraissent respirer au même rythme que vous.",
+ "Votre reflet esquisse un mouvement que vous n'avez pas encore effectué."
+];
+function cd84State(){
+ if(!player.cd84)player.cd84={depth:null,seen:false,total:0};
+ return player.cd84
+}
+function cd84Reset(){
+ const s=cd84State(),d=player.depth||0;
+ if(s.depth!==d){s.depth=d;s.seen=false}
+}
+function cd84Try(){
+ const s=cd84State(),a=cd83State();
+ if(s.seen||a.level<1)return;
+ s.seen=true;s.total++;
+ const vision=CD84_VISIONS[R(CD84_VISIONS.length)];
+ log("PERCEPTION ALTÉRÉE — "+vision);
+ if(a.level===1){
+   player.san=Math.max(0,(player.san||0)-1);
+   log("L'expérience vous déstabilise encore : -1 SAN.");
+ }else if(a.level===2){
+   player.xp=(player.xp||0)+1;
+   log("Vous commencez à lire l'impossible plutôt qu'à le subir : +1 XP.");
+ }else{
+   player.xp=(player.xp||0)+2;
+   log("L'impossible vous semble presque familier : +2 XP.");
+ }
+ toast("PERCEPTION ALTÉRÉE");
+}
+const cd84Investigate=investigate;
+investigate=function(){
+ cd84Reset();
+ const r=cd84Investigate.apply(this,arguments);
+ if(!cd84State().seen&&cd83State().level>=1)cd84Try();
+ return r
+};
+const cd84ResolveTile=resolveTile;
+resolveTile=function(){
+ const oldDepth=player.depth||0;
+ const r=cd84ResolveTile.apply(this,arguments);
+ if((player.depth||0)!==oldDepth)cd84Reset();
+ return r
+};
+const cd84NewRun=newRun;
+newRun=function(){
+ const r=cd84NewRun.apply(this,arguments);
+ player.cd84={depth:player.depth||0,seen:false,total:0};
+ return r
+};
 
 </script>
 
