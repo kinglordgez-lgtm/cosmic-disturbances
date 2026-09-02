@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.91.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.92.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5355,6 +5355,42 @@ const cd91ResolveTile=resolveTile;
 resolveTile=function(){const r=cd91ResolveTile.apply(this,arguments);return r};
 const cd91NewRun=newRun;
 newRun=function(){const r=cd91NewRun.apply(this,arguments);player.cd91={visited:{},total:0};return r};
+
+
+/* === V0.92.0 : familiarité inquiétante === */
+const CD92_ECHOES=[
+ "Vous reconnaissez cette disposition des pierres avant même de l'avoir observée.",
+ "Ce couloir vous semble familier, mais vous êtes certain de ne jamais l'avoir parcouru.",
+ "Votre main se dirige spontanément vers une marque que vous n'aviez pas encore remarquée.",
+ "Vous connaissez presque la prochaine irrégularité du mur."
+];
+function cd92State(){if(!player.cd92)player.cd92={lastMemory:0,total:0};return player.cd92}
+function cd92Try(){
+ const s=cd92State(),m=cd91State();
+ if(m.total<=s.lastMemory)return;
+ s.lastMemory=m.total;
+ if(m.total<2)return;
+ s.total++;
+ log("FAMILIARITÉ INQUIÉTANTE — "+CD92_ECHOES[R(CD92_ECHOES.length)]);
+ if(m.total%2===0){
+   player.xp=(player.xp||0)+2;
+   log("Cette étrange familiarité accélère votre enquête : +2 XP.");
+ }else{
+   player.san=Math.max(0,(player.san||0)-1);
+   player.xp=(player.xp||0)+1;
+   log("Comprendre trop vite a un prix : -1 SAN, +1 XP.");
+ }
+ toast("FAMILIARITÉ INQUIÉTANTE")
+}
+const cd92Investigate=investigate;
+investigate=function(){
+ const before=cd91State().total||0;
+ const r=cd92Investigate.apply(this,arguments);
+ if((cd91State().total||0)>before)cd92Try();
+ return r
+};
+const cd92NewRun=newRun;
+newRun=function(){const r=cd92NewRun.apply(this,arguments);player.cd92={lastMemory:0,total:0};return r};
 
 </script>
 
