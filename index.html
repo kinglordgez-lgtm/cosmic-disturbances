@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.88.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.89.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5263,6 +5263,34 @@ const cd88ResolveTile=resolveTile;
 resolveTile=function(){const d=player.depth||0,r=cd88ResolveTile.apply(this,arguments);if((player.depth||0)!==d)cd88Reset();return r};
 const cd88NewRun=newRun;
 newRun=function(){const r=cd88NewRun.apply(this,arguments);player.cd88={depth:player.depth||0,seen:false,total:0};return r};
+
+
+/* === V0.89.0 : piste environnementale === */
+const CD89_CLUES=[
+ ["Un courant d'air impossible révèle un passage oublié.","passage"],
+ ["La trace se répète à intervalles réguliers comme un avertissement.","danger"],
+ ["Un détail relie cet endroit à une présence déjà rencontrée.","creature"],
+ ["Les marques semblent indiquer qu'un objet a été dissimulé à proximité.","cache"]
+];
+function cd89State(){if(!player.cd89)player.cd89={depth:null,seen:false,total:0};return player.cd89}
+function cd89Reset(){const s=cd89State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.seen=false}}
+function cd89Try(){
+ const s=cd89State(),t=cd88State();if(s.seen||!t.seen)return;
+ s.seen=true;s.total++;
+ const c=CD89_CLUES[R(CD89_CLUES.length)];
+ log("PISTE ENVIRONNEMENTALE — "+c[0]);
+ if(c[1]==="passage"){player.xp=(player.xp||0)+2;log("Vous mémorisez un itinéraire inhabituel : +2 XP.")}
+ else if(c[1]==="danger"){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);log("Être prévenu rend l'inconnu moins brutal : +1 SAN.")}
+ else if(c[1]==="creature"){player.xp=(player.xp||0)+1;log("Cette connexion enrichit vos connaissances : +1 XP.")}
+ else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);log("Vous récupérez de quoi poursuivre l'exploration : +2 PV.")}
+ toast("PISTE ENVIRONNEMENTALE")
+}
+const cd89Investigate=investigate;
+investigate=function(){cd89Reset();const r=cd89Investigate.apply(this,arguments);if(cd88State().seen&&!cd89State().seen)cd89Try();return r};
+const cd89ResolveTile=resolveTile;
+resolveTile=function(){const d=player.depth||0,r=cd89ResolveTile.apply(this,arguments);if((player.depth||0)!==d)cd89Reset();return r};
+const cd89NewRun=newRun;
+newRun=function(){const r=cd89NewRun.apply(this,arguments);player.cd89={depth:player.depth||0,seen:false,total:0};return r};
 
 </script>
 
