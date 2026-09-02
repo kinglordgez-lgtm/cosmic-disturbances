@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.82.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.83.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5023,6 +5023,31 @@ newRun=function(){
  player.cd82={depth:player.depth||0,triggered:false,total:0};
  return r
 };
+
+
+/* === V0.83.0 : adaptation à l'horreur === */
+function cd83State(){if(!player.cd83)player.cd83={level:0,lastScar:0,total:0};return player.cd83}
+function cd83Update(){
+ const s=cd83State(),scars=(player.cd82&&player.cd82.total)||0;
+ if(scars<=s.lastScar)return;
+ s.lastScar=scars;
+ const lvl=Math.min(3,Math.floor(scars/2));
+ if(lvl>s.level){
+  s.level=lvl;s.total++;
+  const names=["","Endurci","Aguerri","Marqué par l'impossible"];
+  log("ADAPTATION — "+names[lvl]+". Votre esprit apprend à survivre à ce qui ne devrait pas exister.");
+  if(lvl===1){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+2);log("ADAPTATION — +2 SAN.")}
+  else if(lvl===2){player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+3);log("ADAPTATION — +3 PV.")}
+  else{player.xp=(player.xp||0)+5;log("ADAPTATION — +5 XP.")}
+  toast("ADAPTATION À L'HORREUR")
+ }
+}
+const cd83Investigate=investigate;
+investigate=function(){const r=cd83Investigate.apply(this,arguments);cd83Update();return r};
+const cd83ResolveTile=resolveTile;
+resolveTile=function(){const r=cd83ResolveTile.apply(this,arguments);cd83Update();return r};
+const cd83NewRun=newRun;
+newRun=function(){const r=cd83NewRun.apply(this,arguments);player.cd83={level:0,lastScar:0,total:0};return r};
 
 </script>
 
