@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.85.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.86.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5106,23 +5106,96 @@ newRun=function(){
 };
 
 
-/* === V0.85.0 : intuition impossible === */
-function cd85State(){if(!player.cd85)player.cd85={depth:null,used:false,total:0};return player.cd85}
-function cd85Reset(){const s=cd85State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.used=false}}
+/* === V0.85.0 : intuition de l'impossible === */
+function cd85State(){
+ if(!player.cd85)player.cd85={depth:null,used:false,total:0};
+ return player.cd85
+}
+function cd85Reset(){
+ const s=cd85State(),d=player.depth||0;
+ if(s.depth!==d){s.depth=d;s.used=false}
+}
 function cd85Try(){
- const s=cd85State(),v=cd84State(),a=cd83State();if(s.used||!v.seen||a.level<1)return;
- s.used=true;s.total++;const roll=R(3);
- if(roll===0){player.xp=(player.xp||0)+2;log("INTUITION IMPOSSIBLE — Une image venue de nulle part vous révèle un détail utile : +2 XP.")}
- else if(roll===1){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);log("INTUITION IMPOSSIBLE — Vous acceptez l'incohérence au lieu de la combattre : +1 SAN.")}
- else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);log("INTUITION IMPOSSIBLE — Un pressentiment vous fait éviter instinctivement un danger : +2 PV.")}
- toast("INTUITION IMPOSSIBLE")
+ const s=cd85State(),v=cd84State(),a=cd83State();
+ if(s.used||!v.seen||a.level<1)return;
+ s.used=true;s.total++;
+ if(a.level===1){
+   player.xp=(player.xp||0)+1;
+   log("INTUITION DE L'IMPOSSIBLE — Votre vision laisse derrière elle un détail exploitable : +1 XP.");
+ }else if(a.level===2){
+   player.xp=(player.xp||0)+2;
+   player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("INTUITION DE L'IMPOSSIBLE — Vous distinguez un motif dans l'anomalie : +2 XP, +1 SAN.");
+ }else{
+   player.xp=(player.xp||0)+3;
+   log("INTUITION DE L'IMPOSSIBLE — L'anomalie devient presque une carte dans votre esprit : +3 XP.");
+ }
+ toast("INTUITION DE L'IMPOSSIBLE");
 }
 const cd85Investigate=investigate;
-investigate=function(){cd85Reset();const had=!!cd84State().seen,r=cd85Investigate.apply(this,arguments);if((had||cd84State().seen)&&!cd85State().used)cd85Try();return r};
+investigate=function(){
+ cd85Reset();
+ const hadVision=!!cd84State().seen;
+ const r=cd85Investigate.apply(this,arguments);
+ /* L'intuition vient sur l'enquête SUIVANT celle où la perception est apparue. */
+ if(hadVision&&!cd85State().used)cd85Try();
+ return r
+};
 const cd85ResolveTile=resolveTile;
-resolveTile=function(){const d=player.depth||0,r=cd85ResolveTile.apply(this,arguments);if((player.depth||0)!==d)cd85Reset();return r};
+resolveTile=function(){
+ const oldDepth=player.depth||0;
+ const r=cd85ResolveTile.apply(this,arguments);
+ if((player.depth||0)!==oldDepth)cd85Reset();
+ return r
+};
 const cd85NewRun=newRun;
-newRun=function(){const r=cd85NewRun.apply(this,arguments);player.cd85={depth:player.depth||0,used:false,total:0};return r};
+newRun=function(){
+ const r=cd85NewRun.apply(this,arguments);
+ player.cd85={depth:player.depth||0,used:false,total:0};
+ return r
+};
+
+
+/* === V0.86.2 : pressentiment === */
+const CD86_SIGNS=[
+ "Vous savez, sans raison, que quelque chose se trouve derrière le prochain détour.",
+ "Une certitude étrangère vous ordonne de ralentir.",
+ "Vous avez le souvenir très net d'un endroit où vous n'êtes jamais venu.",
+ "Pendant un instant, vous connaissez la forme du danger avant de le voir."
+];
+function cd86State(){if(!player.cd86)player.cd86={depth:null,used:false,total:0};return player.cd86}
+function cd86Reset(){const s=cd86State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.used=false}}
+function cd86Try(){
+ const s=cd86State(),i=cd85State(),v=cd84State();
+ if(s.used||i.total<1||!v.seen)return;
+ s.used=true;s.total++;
+ log("PRESSENTIMENT — "+CD86_SIGNS[R(CD86_SIGNS.length)]);
+ const n=R(3);
+ if(n===0){player.xp=(player.xp||0)+2;log("PRESSENTIMENT — Une piste se dessine : +2 XP.")}
+ else if(n===1){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);log("PRESSENTIMENT — Le choc mental est amorti : +1 SAN.")}
+ else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);log("PRESSENTIMENT — Vous évitez instinctivement un danger : +2 PV.")}
+ toast("PRESSENTIMENT")
+}
+const cd86Investigate=investigate;
+investigate=function(){
+ cd86Reset();
+ const before=cd85State().total||0;
+ const r=cd86Investigate.apply(this,arguments);
+ if((cd85State().total||0)>before&&!cd86State().used)cd86Try();
+ return r
+};
+const cd86ResolveTile=resolveTile;
+resolveTile=function(){
+ const d=player.depth||0,r=cd86ResolveTile.apply(this,arguments);
+ if((player.depth||0)!==d)cd86Reset();
+ return r
+};
+const cd86NewRun=newRun;
+newRun=function(){
+ const r=cd86NewRun.apply(this,arguments);
+ player.cd86={depth:player.depth||0,used:false,total:0};
+ return r
+};
 
 </script>
 
