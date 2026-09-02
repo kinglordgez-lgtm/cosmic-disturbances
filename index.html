@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.84.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.85.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5104,6 +5104,25 @@ newRun=function(){
  player.cd84={depth:player.depth||0,seen:false,total:0};
  return r
 };
+
+
+/* === V0.85.0 : intuition impossible === */
+function cd85State(){if(!player.cd85)player.cd85={depth:null,used:false,total:0};return player.cd85}
+function cd85Reset(){const s=cd85State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.used=false}}
+function cd85Try(){
+ const s=cd85State(),v=cd84State(),a=cd83State();if(s.used||!v.seen||a.level<1)return;
+ s.used=true;s.total++;const roll=R(3);
+ if(roll===0){player.xp=(player.xp||0)+2;log("INTUITION IMPOSSIBLE — Une image venue de nulle part vous révèle un détail utile : +2 XP.")}
+ else if(roll===1){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);log("INTUITION IMPOSSIBLE — Vous acceptez l'incohérence au lieu de la combattre : +1 SAN.")}
+ else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);log("INTUITION IMPOSSIBLE — Un pressentiment vous fait éviter instinctivement un danger : +2 PV.")}
+ toast("INTUITION IMPOSSIBLE")
+}
+const cd85Investigate=investigate;
+investigate=function(){cd85Reset();const had=!!cd84State().seen,r=cd85Investigate.apply(this,arguments);if((had||cd84State().seen)&&!cd85State().used)cd85Try();return r};
+const cd85ResolveTile=resolveTile;
+resolveTile=function(){const d=player.depth||0,r=cd85ResolveTile.apply(this,arguments);if((player.depth||0)!==d)cd85Reset();return r};
+const cd85NewRun=newRun;
+newRun=function(){const r=cd85NewRun.apply(this,arguments);player.cd85={depth:player.depth||0,used:false,total:0};return r};
 
 </script>
 
