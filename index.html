@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.90.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.91.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5318,6 +5318,43 @@ const cd90ResolveTile=resolveTile;
 resolveTile=function(){const d=player.depth||0,r=cd90ResolveTile.apply(this,arguments);if((player.depth||0)!==d)cd90Reset();return r};
 const cd90NewRun=newRun;
 newRun=function(){const r=cd90NewRun.apply(this,arguments);player.cd90={depth:player.depth||0,done:false,total:0};return r};
+
+
+/* === V0.91.0 : mémoire des lieux === */
+function cd91State(){
+ if(!player.cd91)player.cd91={visited:{},total:0};
+ return player.cd91
+}
+function cd91Key(){return "P"+(player.depth||0)}
+function cd91Try(){
+ const s=cd91State(),k=cd91Key();
+ if(s.visited[k])return;
+ s.visited[k]=true;s.total++;
+ if(s.total===1){
+   log("MÉMOIRE DES LIEUX — Vous commencez à mémoriser les signes propres à Blackwater.");
+   player.xp=(player.xp||0)+1;
+   log("Vos premières observations forment une carte mentale : +1 XP.");
+ }else if(s.total%3===0){
+   log("MÉMOIRE DES LIEUX — Des motifs déjà rencontrés réapparaissent dans ce secteur.");
+   player.xp=(player.xp||0)+2;
+   player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("Reconnaître ces motifs vous donne un avantage : +2 XP, +1 SAN.");
+ }else{
+   log("MÉMOIRE DES LIEUX — Cet étage rejoint votre carte mentale de Blackwater.");
+ }
+ toast("MÉMOIRE DES LIEUX")
+}
+const cd91Investigate=investigate;
+investigate=function(){
+ const before=cd90State().total||0;
+ const r=cd91Investigate.apply(this,arguments);
+ if((cd90State().total||0)>before)cd91Try();
+ return r
+};
+const cd91ResolveTile=resolveTile;
+resolveTile=function(){const r=cd91ResolveTile.apply(this,arguments);return r};
+const cd91NewRun=newRun;
+newRun=function(){const r=cd91NewRun.apply(this,arguments);player.cd91={visited:{},total:0};return r};
 
 </script>
 
