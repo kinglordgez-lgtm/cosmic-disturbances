@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.93.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.94.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5401,6 +5401,36 @@ const cd93Investigate=investigate;
 investigate=function(){const b=cd92State().total||0,r=cd93Investigate.apply(this,arguments);if((cd92State().total||0)>b)cd93Try();return r};
 const cd93NewRun=newRun;
 newRun=function(){const r=cd93NewRun.apply(this,arguments);player.cd93={lastFamiliarity:0,total:0};return r};
+
+
+/* === V0.94.0 : fracture temporelle === */
+const CD94_FRACTURES=[
+ "Pendant quelques secondes, deux versions du couloir semblent occuper le même espace.",
+ "Votre montre avance brutalement, puis revient à l'heure précédente.",
+ "Une ombre traverse la pièce avant que la chose qui devrait la projeter n'apparaisse.",
+ "Vous entendez la fin d'un bruit avant son commencement."
+];
+function cd94State(){if(!player.cd94)player.cd94={lastDejaVu:0,total:0};return player.cd94}
+function cd94Try(){
+ const s=cd94State(),d=cd93State();
+ if(d.total<=s.lastDejaVu)return;
+ s.lastDejaVu=d.total;s.total++;
+ log("FRACTURE TEMPORELLE — "+CD94_FRACTURES[R(CD94_FRACTURES.length)]);
+ const n=R(3);
+ if(n===0){player.xp=(player.xp||0)+3;log("Vous observez la fracture avant qu'elle ne se referme : +3 XP.")}
+ else if(n===1){player.san=Math.max(0,(player.san||0)-2);log("Deux instants incompatibles se superposent dans votre esprit : -2 SAN.")}
+ else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);player.xp=(player.xp||0)+1;log("Vous profitez d'une seconde qui semble se répéter : +2 PV, +1 XP.")}
+ toast("FRACTURE TEMPORELLE")
+}
+const cd94Investigate=investigate;
+investigate=function(){
+ const before=cd93State().total||0;
+ const r=cd94Investigate.apply(this,arguments);
+ if((cd93State().total||0)>before)cd94Try();
+ return r
+};
+const cd94NewRun=newRun;
+newRun=function(){const r=cd94NewRun.apply(this,arguments);player.cd94={lastDejaVu:0,total:0};return r};
 
 </script>
 
