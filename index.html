@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.92.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.93.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5391,6 +5391,16 @@ investigate=function(){
 };
 const cd92NewRun=newRun;
 newRun=function(){const r=cd92NewRun.apply(this,arguments);player.cd92={lastMemory:0,total:0};return r};
+
+
+/* === V0.93.0 : déjà-vu impossible === */
+const CD93_SCENES=["Vous voyez pendant un instant votre propre silhouette disparaître au prochain angle.","Une phrase vous traverse l'esprit une seconde avant qu'elle n'apparaisse dans vos notes.","Vous vous souvenez d'avoir fui cet endroit, alors que cela n'est jamais arrivé.","Le sol semble porter la trace exacte de vos pas avant votre passage."];
+function cd93State(){if(!player.cd93)player.cd93={lastFamiliarity:0,total:0};return player.cd93}
+function cd93Try(){const s=cd93State(),f=cd92State();if(f.total<=s.lastFamiliarity)return;s.lastFamiliarity=f.total;s.total++;log("DÉJÀ-VU IMPOSSIBLE — "+CD93_SCENES[R(CD93_SCENES.length)]);const n=R(3);if(n===0){player.xp=(player.xp||0)+3;log("Vous exploitez ce souvenir impossible : +3 XP.")}else if(n===1){player.san=Math.max(0,(player.san||0)-2);player.xp=(player.xp||0)+2;log("Le paradoxe vous révèle quelque chose, mais vous ébranle : -2 SAN, +2 XP.")}else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);log("Vous anticipez un danger que vous avez l'impression d'avoir déjà subi : +2 PV.")}toast("DÉJÀ-VU IMPOSSIBLE")}
+const cd93Investigate=investigate;
+investigate=function(){const b=cd92State().total||0,r=cd93Investigate.apply(this,arguments);if((cd92State().total||0)>b)cd93Try();return r};
+const cd93NewRun=newRun;
+newRun=function(){const r=cd93NewRun.apply(this,arguments);player.cd93={lastFamiliarity:0,total:0};return r};
 
 </script>
 
