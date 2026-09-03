@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.94.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.95.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5431,6 +5431,36 @@ investigate=function(){
 };
 const cd94NewRun=newRun;
 newRun=function(){const r=cd94NewRun.apply(this,arguments);player.cd94={lastDejaVu:0,total:0};return r};
+
+
+/* === V0.95.0 : résidu temporel === */
+const CD95_RESIDUES=[
+ ["Une seconde supplémentaire semble rester accrochée à vos gestes.","xp"],
+ ["Votre souffle se dédouble brièvement, comme l'écho d'un autre instant.","san"],
+ ["Une douleur disparaît avant même que vous compreniez l'avoir ressentie.","hp"],
+ ["Un détail de la scène revient deux fois, exactement à l'identique.","xp"]
+];
+function cd95State(){if(!player.cd95)player.cd95={lastFracture:0,total:0};return player.cd95}
+function cd95Try(){
+ const s=cd95State(),f=cd94State();
+ if(f.total<=s.lastFracture)return;
+ s.lastFracture=f.total;s.total++;
+ const x=CD95_RESIDUES[R(CD95_RESIDUES.length)];
+ log("RÉSIDU TEMPOREL — "+x[0]);
+ if(x[1]==="xp"){player.xp=(player.xp||0)+2;log("Vous exploitez cet instant résiduel : +2 XP.")}
+ else if(x[1]==="san"){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);log("L'écho confirme que la fracture s'est refermée : +1 SAN.")}
+ else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);log("Votre corps profite de cette anomalie : +2 PV.")}
+ toast("RÉSIDU TEMPOREL")
+}
+const cd95Investigate=investigate;
+investigate=function(){
+ const before=cd94State().total||0;
+ const r=cd95Investigate.apply(this,arguments);
+ if((cd94State().total||0)>before)cd95Try();
+ return r
+};
+const cd95NewRun=newRun;
+newRun=function(){const r=cd95NewRun.apply(this,arguments);player.cd95={lastFracture:0,total:0};return r};
 
 </script>
 
