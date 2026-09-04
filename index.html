@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.96.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.97.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5472,6 +5472,39 @@ const cd96Investigate=investigate;
 investigate=function(){cd96Reset();const r=cd96Investigate.apply(this,arguments);cd96Try();return r};
 const cd96NewRun=newRun;
 newRun=function(){const r=cd96NewRun.apply(this,arguments);player.cd96={depth:player.depth||0,count:0,done:false,total:0};return r};
+
+/* === V0.97.0 : vigilance === */
+function cd97State(){if(!player.cd97)player.cd97={depth:null,ready:false,total:0};return player.cd97}
+function cd97Reset(){const s=cd97State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.ready=false}}
+function cd97Prepare(){
+ const s=cd97State();cd97Reset();
+ if(s.ready)return;
+ s.ready=true;s.total++;
+ log("VIGILANCE — Après le danger, vous progressez avec davantage de prudence.");
+ toast("VIGILANCE")
+}
+const cd97Investigate=investigate;
+investigate=function(){
+ cd97Reset();
+ const before=cd96State().total||0;
+ const r=cd97Investigate.apply(this,arguments);
+ if((cd96State().total||0)>before)cd97Prepare();
+ else if(cd97State().ready){
+   const sk=(((player.char||{}).skills||{}).Observation)||0;
+   const roll=R(100)+1;
+   if(roll<=sk){
+     player.xp=(player.xp||0)+1;
+     log("VIGILANCE EXPLOITÉE — Vous repérez un détail dangereux avant de vous exposer : +1 XP.");
+   }else{
+     log("VIGILANCE — Rien d'immédiatement exploitable ne se révèle.");
+   }
+   cd97State().ready=false;
+ }
+ return r
+};
+const cd97NewRun=newRun;
+newRun=function(){const r=cd97NewRun.apply(this,arguments);player.cd97={depth:player.depth||0,ready:false,total:0};return r};
+
 </script>
 
 </body>
