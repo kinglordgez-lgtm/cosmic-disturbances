@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.98.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.99.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5515,6 +5515,34 @@ const cd98Investigate=investigate;
 investigate=function(){cd98Reset();const r=cd98Investigate.apply(this,arguments);cd98Try();return r};
 const cd98NewRun=newRun;
 newRun=function(){const r=cd98NewRun.apply(this,arguments);player.cd98={depth:player.depth||0,done:false,total:0};return r};
+
+
+/* === V0.99.0 : instinct aguerri === */
+function cd99State(){if(!player.cd99)player.cd99={lastInstinct:0,streak:0,total:0};return player.cd99}
+function cd99Try(){
+ const s=cd99State(),i=cd98State();
+ if(i.total<=s.lastInstinct)return;
+ s.lastInstinct=i.total;
+ s.streak++;
+ if(s.streak<2){
+   log("INSTINCT AGUERRI — Votre corps commence à retenir les signes du danger.");
+   return;
+ }
+ s.streak=0;s.total++;
+ player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+ player.xp=(player.xp||0)+2;
+ log("INSTINCT AGUERRI — Les réflexes acquis face à l'impossible deviennent durables : +1 SAN, +2 XP.");
+ toast("INSTINCT AGUERRI")
+}
+const cd99Investigate=investigate;
+investigate=function(){
+ const before=cd98State().total||0;
+ const r=cd99Investigate.apply(this,arguments);
+ if((cd98State().total||0)>before)cd99Try();
+ return r
+};
+const cd99NewRun=newRun;
+newRun=function(){const r=cd99NewRun.apply(this,arguments);player.cd99={lastInstinct:0,streak:0,total:0};return r};
 
 </script>
 
