@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.5.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5691,6 +5691,21 @@ investigate=function(){
 };
 const cd150NewRun=newRun;
 newRun=function(){const r=cd150NewRun.apply(this,arguments);player.cd150={unlocked:false,method:null,lastCases:0,total:0};return r};
+
+
+/* === V1.5.1 : correctif méthode d'enquête === */
+function cd151EnsureMethod(){
+ const d=cd140State(),s=cd150State();if(s.unlocked||d.cases<2)return;
+ s.lastCases=d.cases;const m=CD150_METHODS[R(CD150_METHODS.length)];
+ s.unlocked=true;s.method=m;s.total=(s.total||0)+1;
+ const sk=(((player.char||{}).skills||{})[m[1]]||0),roll=R(100)+1;
+ log("MÉTHODE D'ENQUÊTE — "+m[0]+" : "+m[2]);
+ log("Mise en pratique, test de "+m[1]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){player.xp=(player.xp||0)+3;log("MÉTHODE MAÎTRISÉE — Cette façon d'enquêter devient un véritable réflexe : +3 XP.");toast("MÉTHODE MAÎTRISÉE")}
+ else{player.xp=(player.xp||0)+1;log("MÉTHODE EN COURS — Le principe est compris, mais demande encore de la pratique : +1 XP.");toast("MÉTHODE EN COURS")}
+}
+const cd151Investigate=investigate;
+investigate=function(){const r=cd151Investigate.apply(this,arguments);cd151EnsureMethod();return r};
 
 </script>
 
