@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5601,6 +5601,39 @@ investigate=function(){
 };
 const cd110NewRun=newRun;
 newRun=function(){const r=cd110NewRun.apply(this,arguments);player.cd110={depth:player.depth||0,done:false,lastLucidity:0,total:0};return r};
+
+
+/* === V1.2.0 : preuve décisive === */
+const CD120_PROOFS=[
+ ["Une concordance entre deux témoignages révèle le même détail impossible.","Investigation"],
+ ["Un symbole secondaire confirme une relation occulte jusque-là incertaine.","Occultisme"],
+ ["Un détail matériel, presque invisible, correspond exactement à votre hypothèse.","Observation"]
+];
+function cd120State(){if(!player.cd120)player.cd120={depth:null,tries:0,done:false,total:0};return player.cd120}
+function cd120Reset(){const s=cd120State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.tries=0;s.done=false}}
+function cd120Try(){
+ const s=cd120State();cd120Reset();if(s.done)return;
+ const hyp=cd110State();if(!hyp.done)return;
+ s.tries++;if(s.tries<2)return;
+ s.done=true;s.total++;
+ const x=CD120_PROOFS[R(CD120_PROOFS.length)],sk=(((player.char||{}).skills||{})[x[1]]||0);
+ const roll=R(100)+1;
+ log("PREUVE DÉCISIVE — "+x[0]+" Test de "+x[1]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+4;
+   player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("CONCLUSION ÉTABLIE — Votre hypothèse tient enfin face aux faits : +4 XP, +1 SAN.");
+   toast("CONCLUSION ÉTABLIE")
+ }else{
+   player.xp=(player.xp||0)+1;
+   log("PREUVE INCOMPLÈTE — L'indice est réel, mais il ne suffit pas encore à conclure : +1 XP.");
+   toast("PREUVE INCOMPLÈTE")
+ }
+}
+const cd120Investigate=investigate;
+investigate=function(){cd120Reset();const r=cd120Investigate.apply(this,arguments);cd120Try();return r};
+const cd120NewRun=newRun;
+newRun=function(){const r=cd120NewRun.apply(this,arguments);player.cd120={depth:player.depth||0,tries:0,done:false,total:0};return r};
 
 </script>
 
