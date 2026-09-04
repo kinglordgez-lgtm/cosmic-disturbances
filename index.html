@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5644,6 +5644,15 @@ const cd130Investigate=investigate;
 investigate=function(){const b=cd120State().total||0,r=cd130Investigate.apply(this,arguments);if((cd120State().total||0)>b)cd130Try();return r};
 const cd130NewRun=newRun;
 newRun=function(){const r=cd130NewRun.apply(this,arguments);player.cd130={lastProof:0,total:0};return r};
+
+
+/* === V1.4.0 : dossier d'enquête === */
+function cd140State(){if(!player.cd140)player.cd140={cases:0,milestone:0};return player.cd140}
+function cd140Try(){const s=cd140State(),c=cd130State();if(c.total<=s.cases)return;s.cases=c.total;log("DOSSIER D'ENQUÊTE — Conclusion archivée. Dossiers résolus : "+s.cases+".");if(s.cases>=3&&s.milestone<1){s.milestone=1;player.xp=(player.xp||0)+5;player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+2);log("ENQUÊTEUR CHEVRONNÉ — Trois dossiers ont laissé des méthodes durables : +5 XP, +2 SAN.");toast("ENQUÊTEUR CHEVRONNÉ")}else toast("DOSSIER ARCHIVÉ")}
+const cd140Investigate=investigate;
+investigate=function(){const b=cd130State().total||0,r=cd140Investigate.apply(this,arguments);if((cd130State().total||0)>b)cd140Try();return r};
+const cd140NewRun=newRun;
+newRun=function(){const r=cd140NewRun.apply(this,arguments);player.cd140={cases:0,milestone:0};return r};
 
 </script>
 
