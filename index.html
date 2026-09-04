@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.99.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5543,6 +5543,36 @@ investigate=function(){
 };
 const cd99NewRun=newRun;
 newRun=function(){const r=cd99NewRun.apply(this,arguments);player.cd99={lastInstinct:0,streak:0,total:0};return r};
+
+
+/* === V1.0.0 : lucidité d'enquête === */
+function cd100State(){if(!player.cd100)player.cd100={depth:null,progress:0,done:false,total:0};return player.cd100}
+function cd100Reset(){const s=cd100State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.progress=0;s.done=false}}
+function cd100Try(){
+ const s=cd100State();cd100Reset();if(s.done)return;
+ s.progress++;
+ if(s.progress===1){log("LUCIDITÉ D'ENQUÊTE — Les indices de cet étage commencent à former un ensemble cohérent.");return}
+ if(s.progress<3)return;
+ s.done=true;s.total++;
+ const skills=((player.char||{}).skills||{});
+ const score=Math.round(((skills.Investigation||0)+(skills.Observation||0)+(skills.Occultisme||0))/3);
+ const roll=R(100)+1;
+ log("LUCIDITÉ D'ENQUÊTE — Test de synthèse : "+roll+"/"+score+".");
+ if(roll<=score){
+   player.xp=(player.xp||0)+3;
+   player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("Vous reliez les faits sans céder à l'impossible : +3 XP, +1 SAN.");
+   toast("LUCIDITÉ ACQUISE")
+ }else{
+   player.xp=(player.xp||0)+1;
+   log("Le tableau reste incomplet, mais une piste se précise : +1 XP.");
+   toast("LUCIDITÉ PARTIELLE")
+ }
+}
+const cd100Investigate=investigate;
+investigate=function(){cd100Reset();const r=cd100Investigate.apply(this,arguments);cd100Try();return r};
+const cd100NewRun=newRun;
+newRun=function(){const r=cd100NewRun.apply(this,arguments);player.cd100={depth:player.depth||0,progress:0,done:false,total:0};return r};
 
 </script>
 
