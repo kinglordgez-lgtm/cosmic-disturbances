@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.5.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5706,6 +5706,36 @@ function cd151EnsureMethod(){
 }
 const cd151Investigate=investigate;
 investigate=function(){const r=cd151Investigate.apply(this,arguments);cd151EnsureMethod();return r};
+
+
+/* === V1.6.0 : perfectionnement de méthode === */
+function cd160State(){if(!player.cd160)player.cd160={attempts:0,mastered:false,total:0};return player.cd160}
+function cd160Try(){
+ const m=cd150State(),s=cd160State();
+ if(!m.unlocked||s.mastered)return;
+ s.attempts++;
+ if(s.attempts<2)return;
+ const method=m.method||["Méthode personnelle","Investigation",""];
+ const skill=method[1]||"Investigation";
+ const sk=(((player.char||{}).skills||{})[skill]||0),roll=R(100)+1;
+ log("PERFECTIONNEMENT — Vous remettez votre méthode à l'épreuve. Test de "+skill+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   s.mastered=true;s.total++;
+   player.xp=(player.xp||0)+4;
+   player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("MÉTHODE PERFECTIONNÉE — Votre technique devient fiable même sous pression : +4 XP, +1 SAN.");
+   toast("MÉTHODE PERFECTIONNÉE")
+ }else{
+   s.attempts=0;
+   player.xp=(player.xp||0)+1;
+   log("PERFECTIONNEMENT INACHEVÉ — L'expérience révèle encore une faiblesse dans votre méthode : +1 XP.");
+   toast("PERFECTIONNEMENT INACHEVÉ")
+ }
+}
+const cd160Investigate=investigate;
+investigate=function(){const r=cd160Investigate.apply(this,arguments);cd160Try();return r};
+const cd160NewRun=newRun;
+newRun=function(){const r=cd160NewRun.apply(this,arguments);player.cd160={attempts:0,mastered:false,total:0};return r};
 
 </script>
 
