@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5634,6 +5634,16 @@ const cd120Investigate=investigate;
 investigate=function(){cd120Reset();const r=cd120Investigate.apply(this,arguments);cd120Try();return r};
 const cd120NewRun=newRun;
 newRun=function(){const r=cd120NewRun.apply(this,arguments);player.cd120={depth:player.depth||0,tries:0,done:false,total:0};return r};
+
+
+/* === V1.3.0 : conséquence de conclusion === */
+const CD130_OUTCOMES=[["Vous identifiez un itinéraire moins exposé aux phénomènes du secteur.","safe"],["La conclusion révèle un détail utilisable dans vos recherches futures.","xp"],["Comprendre la logique du lieu vous permet enfin de reprendre votre souffle.","san"]];
+function cd130State(){if(!player.cd130)player.cd130={lastProof:0,total:0};return player.cd130}
+function cd130Try(){const s=cd130State(),p=cd120State();if(p.total<=s.lastProof)return;s.lastProof=p.total;s.total++;const x=CD130_OUTCOMES[R(CD130_OUTCOMES.length)];log("CONSÉQUENCE DE CONCLUSION — "+x[0]);if(x[1]==="safe"){player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);log("Vous exploitez cette compréhension : +2 PV, +1 SAN.")}else if(x[1]==="xp"){player.xp=(player.xp||0)+3;log("Cette conclusion enrichit durablement votre enquête : +3 XP.")}else{player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+2);log("Donner un sens aux événements stabilise votre esprit : +2 SAN.")}toast("CONSÉQUENCE DE CONCLUSION")}
+const cd130Investigate=investigate;
+investigate=function(){const b=cd120State().total||0,r=cd130Investigate.apply(this,arguments);if((cd120State().total||0)>b)cd130Try();return r};
+const cd130NewRun=newRun;
+newRun=function(){const r=cd130NewRun.apply(this,arguments);player.cd130={lastProof:0,total:0};return r};
 
 </script>
 
