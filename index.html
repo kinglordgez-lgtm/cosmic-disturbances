@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5573,6 +5573,34 @@ const cd100Investigate=investigate;
 investigate=function(){cd100Reset();const r=cd100Investigate.apply(this,arguments);cd100Try();return r};
 const cd100NewRun=newRun;
 newRun=function(){const r=cd100NewRun.apply(this,arguments);player.cd100={depth:player.depth||0,progress:0,done:false,total:0};return r};
+
+
+/* === V1.1.0 : hypothèse d'enquête === */
+const CD110_HYP=[
+ ["Quelqu'un prépare méthodiquement les lieux avant votre arrivée.","Investigation"],
+ ["Les phénomènes suivent une logique qui n'est pas entièrement humaine.","Occultisme"],
+ ["Certains détails visibles ont été placés pour attirer votre regard.","Observation"]
+];
+function cd110State(){if(!player.cd110)player.cd110={depth:null,done:false,lastLucidity:0,total:0};return player.cd110}
+function cd110Reset(){const s=cd110State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.done=false;s.lastLucidity=cd100State().total||0}}
+function cd110Try(){
+ const s=cd110State(),l=cd100State();cd110Reset();
+ if(s.done||l.total<=s.lastLucidity)return;
+ s.done=true;s.lastLucidity=l.total;s.total++;
+ const x=CD110_HYP[R(CD110_HYP.length)],sk=(((player.char||{}).skills||{})[x[1]]||0),roll=R(100)+1;
+ log("HYPOTHÈSE D'ENQUÊTE — "+x[0]+" Test de "+x[1]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){player.xp=(player.xp||0)+2;log("HYPOTHÈSE ÉTAYÉE — Les indices soutiennent votre théorie : +2 XP.");toast("HYPOTHÈSE ÉTAYÉE")}
+ else{log("HYPOTHÈSE FRAGILE — Il manque encore une preuve décisive.");toast("HYPOTHÈSE FRAGILE")}
+}
+const cd110Investigate=investigate;
+investigate=function(){
+ cd110Reset();const before=cd100State().total||0;
+ const r=cd110Investigate.apply(this,arguments);
+ if((cd100State().total||0)>before)cd110Try();
+ return r
+};
+const cd110NewRun=newRun;
+newRun=function(){const r=cd110NewRun.apply(this,arguments);player.cd110={depth:player.depth||0,done:false,lastLucidity:0,total:0};return r};
 
 </script>
 
