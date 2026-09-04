@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 0.97.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 0.98.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5504,6 +5504,17 @@ investigate=function(){
 };
 const cd97NewRun=newRun;
 newRun=function(){const r=cd97NewRun.apply(this,arguments);player.cd97={depth:player.depth||0,ready:false,total:0};return r};
+
+
+/* === V0.98.0 : instinct de survie === */
+const CD98_INSTINCTS=[["Vous ralentissez instinctivement avant une zone trop silencieuse.","Observation"],["Une odeur anormale vous fait retenir votre souffle.","Médecine"],["Un motif gravé vous avertit avant même d'être compris.","Occultisme"],["Votre corps se raidit une seconde avant le danger.","Endurance"]];
+function cd98State(){if(!player.cd98)player.cd98={depth:null,done:false,total:0};return player.cd98}
+function cd98Reset(){const s=cd98State(),d=player.depth||0;if(s.depth!==d){s.depth=d;s.done=false}}
+function cd98Try(){const s=cd98State();cd98Reset();if(s.done)return;const v=cd97State();if(!v.total)return;s.done=true;s.total++;const x=CD98_INSTINCTS[R(CD98_INSTINCTS.length)],sk=(((player.char||{}).skills||{})[x[1]]||0),roll=R(100)+1;log("INSTINCT DE SURVIE — "+x[0]+" Test de "+x[1]+" : "+roll+"/"+sk+".");if(roll<=sk){player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+2);player.xp=(player.xp||0)+1;log("Votre instinct vous donne une longueur d'avance : +2 PV, +1 XP.");toast("INSTINCT DE SURVIE")}else{log("Le pressentiment disparaît sans révéler sa source.");toast("INSTINCT INCERTAIN")}}
+const cd98Investigate=investigate;
+investigate=function(){cd98Reset();const r=cd98Investigate.apply(this,arguments);cd98Try();return r};
+const cd98NewRun=newRun;
+newRun=function(){const r=cd98NewRun.apply(this,arguments);player.cd98={depth:player.depth||0,done:false,total:0};return r};
 
 </script>
 
