@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5653,6 +5653,44 @@ const cd140Investigate=investigate;
 investigate=function(){const b=cd130State().total||0,r=cd140Investigate.apply(this,arguments);if((cd130State().total||0)>b)cd140Try();return r};
 const cd140NewRun=newRun;
 newRun=function(){const r=cd140NewRun.apply(this,arguments);player.cd140={cases:0,milestone:0};return r};
+
+
+/* === V1.5.0 : méthode d'enquête === */
+const CD150_METHODS=[
+ ["RECoupement méthodique","Investigation","Vous comparez systématiquement les faits avant de retenir une piste."],
+ ["Lecture des signes","Occultisme","Vous apprenez à distinguer un symbole utile d'une simple provocation de l'impossible."],
+ ["Œil de terrain","Observation","Vous repérez plus vite les détails matériels qui contredisent le récit apparent."]
+];
+function cd150State(){if(!player.cd150)player.cd150={unlocked:false,method:null,lastCases:0,total:0};return player.cd150}
+function cd150Try(){
+ const s=cd150State(),d=cd140State();
+ if(d.cases<=s.lastCases)return;
+ s.lastCases=d.cases;
+ if(s.unlocked||d.cases<2)return;
+ const m=CD150_METHODS[R(CD150_METHODS.length)];
+ s.unlocked=true;s.method=m;s.total++;
+ const sk=(((player.char||{}).skills||{})[m[1]]||0),roll=R(100)+1;
+ log("MÉTHODE D'ENQUÊTE — "+m[0]+" : "+m[2]);
+ log("Mise en pratique, test de "+m[1]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+3;
+   log("MÉTHODE MAÎTRISÉE — Cette façon d'enquêter devient un véritable réflexe : +3 XP.");
+   toast("MÉTHODE MAÎTRISÉE")
+ }else{
+   player.xp=(player.xp||0)+1;
+   log("MÉTHODE EN COURS — Le principe est compris, mais demande encore de la pratique : +1 XP.");
+   toast("MÉTHODE EN COURS")
+ }
+}
+const cd150Investigate=investigate;
+investigate=function(){
+ const before=cd140State().cases||0;
+ const r=cd150Investigate.apply(this,arguments);
+ if((cd140State().cases||0)>before)cd150Try();
+ return r
+};
+const cd150NewRun=newRun;
+newRun=function(){const r=cd150NewRun.apply(this,arguments);player.cd150={unlocked:false,method:null,lastCases:0,total:0};return r};
 
 </script>
 
