@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6524,6 +6524,35 @@ function cd350Try(){
 }
 const cd350NpcPanel=cd18NpcPanel;
 cd18NpcPanel=function(){const r=cd350NpcPanel.apply(this,arguments);cd350Try();return r};
+
+
+/* === V3.6.0 : instinct de retraite — survivre est parfois la victoire === */
+function cd360State(){if(!player.cd360)player.cd360={shown:false};return player.cd360}
+function cd360Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:350px;max-width:74vw;padding:14px 18px;border:2px solid #8c7561;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#d0a978;font-size:17px;font-weight:700'>INSTINCT DE RETRAITE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4000)
+}
+function cd360Try(){
+ const s=cd360State();if(s.shown||!battle||!enemy)return;s.shown=true;
+ const hp=Math.max(1,player.hp||1),max=Math.max(hp,player.maxHp||player.hpMax||hp);
+ const skills=((player.char||{}).skills||{}),opts=[
+  ["CHERCHER UNE ISSUE","Observation","Vous repérez la ligne de fuite avant d'être encerclé."],
+  ["BRISER LE CONTACT","Armes","Vous créez un instant d'hésitation chez l'adversaire."],
+  ["GARDER DES FORCES","Endurance","Vous refusez de sacrifier votre survie à l'orgueil."]
+ ],o=opts[R(opts.length)],sk=skills[o[1]]||0,roll=R(100)+1;
+ log("INSTINCT DE RETRAITE — "+o[0]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+2;
+   log("ISSUE REPÉRÉE — Vous savez déjà comment rompre le combat : +2 XP.");
+   toast("ISSUE REPÉRÉE");cd360Banner("ISSUE REPÉRÉE",o[2]+" La fuite devient une option tactique crédible.");
+ }else{
+   log("PIÈGE REFERMÉ — La créature contrôle momentanément vos possibilités de retrait.");
+   toast("PIÈGE REFERMÉ");cd360Banner("PIÈGE REFERMÉ",o[2]+" Toute retraite paraît dangereuse.");
+ }
+}
+const cd360Attack=attack;
+attack=function(){const r=cd360Attack.apply(this,arguments);cd360Try();return r};
 
 </script>
 
