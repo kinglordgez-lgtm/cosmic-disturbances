@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.7.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5766,6 +5766,16 @@ const cd171Investigate=investigate;
 investigate=function(){const r=cd171Investigate.apply(this,arguments);cd171EnsureSignature();return r};
 const cd171NewRun=newRun;
 newRun=function(){const r=cd171NewRun.apply(this,arguments);player.cd171={investigations:0};return r};
+
+
+/* === V1.8.0 : pression du secteur === */
+const CD180_PRESSURES=[["AIR VICIÉ","Une odeur métallique épaissit l'air. Chaque respiration devient consciente.","Endurance","hp"],["ANGLES HOSTILES","Les lignes du décor semblent se déplacer lorsque vous détournez les yeux.","Observation","san"],["MURMURES PARASITES","Une voix sans source tente de terminer vos pensées à votre place.","Psychologie","san"]];
+function cd180State(){if(!player.cd180)player.cd180={floor:null,investigations:0,done:false};return player.cd180}
+function cd180Try(){const s=cd180State(),floor=(player.floor??player.depth??0);if(s.floor!==floor){s.floor=floor;s.investigations=0;s.done=false}if(s.done)return;s.investigations++;if(s.investigations<3)return;s.done=true;const e=CD180_PRESSURES[R(CD180_PRESSURES.length)],skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;log("PRESSION DU SECTEUR — "+e[0]+" : "+e[1]);log("Test de "+e[2]+" : "+roll+"/"+sk+".");if(roll<=sk){player.xp=(player.xp||0)+2;log("PRESSION SURMONTÉE — Vous gardez le contrôle : +2 XP.");toast("PRESSION SURMONTÉE")}else if(e[3]==="hp"){player.hp=Math.max(1,(player.hp||1)-2);log("PRESSION SUBIE — L'effort vous épuise : -2 PV.");toast("PRESSION SUBIE")}else{player.san=Math.max(0,(player.san||0)-2);log("PRESSION SUBIE — Quelque chose s'insinue dans votre esprit : -2 SAN.");toast("PRESSION SUBIE")}}
+const cd180Investigate=investigate;
+investigate=function(){const r=cd180Investigate.apply(this,arguments);cd180Try();return r};
+const cd180NewRun=newRun;
+newRun=function(){const r=cd180NewRun.apply(this,arguments);player.cd180={floor:null,investigations:0,done:false};return r};
 
 </script>
 
