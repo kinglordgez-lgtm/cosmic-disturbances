@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6695,6 +6695,48 @@ cd400Choice=function(choice){
    player.san=Math.max(0,(player.san||0)-1);
    log("CONTREPARTIE — OBSERVER : -1 SAN. Comprendre la créature exige de la regarder trop longtemps.");
    cd410Banner("REGARD PROLONGÉ","+1 XP, mais -1 SAN : apprendre a un prix.");
+ }
+ return r;
+};
+
+
+/* === V4.2.0 : doctrine du bestiaire — savoir quoi faire change le combat === */
+function cd420State(){if(!player.cd420)player.cd420={shown:false,studied:false};return player.cd420}
+function cd420Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:100002;min-width:360px;max-width:76vw;padding:14px 18px;border:2px solid #708a78;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#9fc0a7;font-size:17px;font-weight:700'>DOCTRINE DU BESTIAIRE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4000)
+}
+const cd420Study=cd15StudyEnemy;
+cd15StudyEnemy=function(){
+ const r=cd420Study.apply(this,arguments);
+ const s=cd420State();s.studied=true;
+ log("DOCTRINE — Vous avez observé cette menace : votre prochaine posture pourra exploiter ce savoir.");
+ toast("MENACE ANALYSÉE");
+ return r;
+};
+const cd420Choice=cd400Choice;
+cd400Choice=function(choice){
+ const r=cd420Choice.apply(this,arguments),s=cd420State();
+ if(s.shown)return r;s.shown=true;
+ if(s.studied&&enemy){
+   if(choice==="prudence"){
+     player.hp=Math.min(player.maxHp||player.hpMax||player.hp,(player.hp||1)+1);
+     log("DOCTRINE APPLIQUÉE — PRUDENCE : lecture défensive correcte, +1 PV.");
+     cd420Banner("LECTURE DÉFENSIVE","L'étude de la créature révèle quand céder du terrain. +1 PV.");
+   }else if(choice==="pression"){
+     if(typeof enemy.hp==="number")enemy.hp=Math.max(1,enemy.hp-2);
+     log("DOCTRINE APPLIQUÉE — PRESSION : ouverture reconnue, ennemi -2 PV.");
+     cd420Banner("OUVERTURE RECONNUE","Vous frappez au moment où son comportement devient prévisible. Ennemi -2 PV.");
+   }else{
+     player.xp=(player.xp||0)+2;
+     log("DOCTRINE APPLIQUÉE — OBSERVER : le savoir se confirme, +2 XP.");
+     cd420Banner("SCHÉMA CONFIRMÉ","Votre observation valide un comportement du bestiaire. +2 XP.");
+   }
+ }else{
+   player.san=Math.max(0,(player.san||0)-1);
+   log("MENACE INCONNUE — Vous choisissez sans connaissance fiable : -1 SAN.");
+   cd420Banner("MENACE INCONNUE","Sans étude préalable, votre posture repose sur une intuition dangereuse. -1 SAN.");
  }
  return r;
 };
