@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.0.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5857,6 +5857,34 @@ const cd201Investigate=investigate;
 investigate=function(){const r=cd201Investigate.apply(this,arguments);cd201ShowApproach();return r};
 const cd201NewRun=newRun;
 newRun=function(){const r=cd201NewRun.apply(this,arguments);player.cd201={shown:false};return r};
+
+
+/* === V2.1.0 : intuition de terrain === */
+const CD210_SIGNS=[
+ ["COURANT D'AIR IMPOSSIBLE","Un souffle froid vient d'un mur plein.","Observation","xp"],
+ ["TRACE DE SEL NOIR","Une ligne de sel brûlé coupe le passage sans raison visible.","Occultisme","san"],
+ ["PAS INTERROMPUS","Des empreintes cessent net au milieu du sol.","Investigation","xp"]
+];
+function cd210State(){if(!player.cd210)player.cd210={shown:false};return player.cd210}
+function cd210Try(){
+ const s=cd210State();if(s.shown)return;s.shown=true;
+ const e=CD210_SIGNS[R(CD210_SIGNS.length)],skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;
+ log("INTUITION DE TERRAIN — "+e[0]+" : "+e[1]);
+ log("Test de "+e[2]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+2;
+   if(e[3]==="san")player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("SIGNE INTERPRÉTÉ — Vous comprenez assez vite ce qui cloche : +2 XP"+(e[3]==="san"?", +1 SAN":"")+".");
+   toast("SIGNE INTERPRÉTÉ")
+ }else{
+   log("MAUVAIS PRESSENTIMENT — Le détail vous échappe, mais vous savez désormais qu'il faut vous méfier.");
+   toast("MAUVAIS PRESSENTIMENT")
+ }
+}
+const cd210Investigate=investigate;
+investigate=function(){const r=cd210Investigate.apply(this,arguments);cd210Try();return r};
+const cd210NewRun=newRun;
+newRun=function(){const r=cd210NewRun.apply(this,arguments);player.cd210={shown:false};return r};
 
 </script>
 
