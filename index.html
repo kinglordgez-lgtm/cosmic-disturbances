@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5914,6 +5914,34 @@ const cd220Investigate=investigate;
 investigate=function(){const r=cd220Investigate.apply(this,arguments);cd220Try();return r};
 const cd220NewRun=newRun;
 newRun=function(){const r=cd220NewRun.apply(this,arguments);player.cd220={shown:false};return r};
+
+
+/* === V2.3.0 : anomalie matérielle === */
+const CD230_ANOMALIES=[
+ ["MONTRE ARRÊTÉE","Une montre trouvée au sol s'est arrêtée à une heure qui n'existe sur aucun cadran.","Érudition","xp"],
+ ["OMBRE SANS OBJET","Une ombre étroite traverse le mur sans qu'aucune forme ne la projette.","Observation","san"],
+ ["ÉCRITURE INVERSÉE","Quelques mots gravés dans la pierre ne deviennent lisibles qu'en détournant le regard.","Occultisme","xp"]
+];
+function cd230State(){if(!player.cd230)player.cd230={shown:false};return player.cd230}
+function cd230Try(){
+ const s=cd230State();if(s.shown)return;s.shown=true;
+ const e=CD230_ANOMALIES[R(CD230_ANOMALIES.length)],skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;
+ log("ANOMALIE MATÉRIELLE — "+e[0]+" : "+e[1]);
+ log("Test de "+e[2]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+3;
+   log("ANOMALIE DOCUMENTÉE — Vous conservez assez de détails pour en tirer quelque chose : +3 XP.");
+   toast("ANOMALIE DOCUMENTÉE")
+ }else{
+   if(e[3]==="san")player.san=Math.max(0,(player.san||0)-1);
+   log("ANOMALIE INEXPLIQUÉE — Le phénomène disparaît avant que vous puissiez le comprendre"+(e[3]==="san"?" : -1 SAN.":"."));
+   toast("ANOMALIE INEXPLIQUÉE")
+ }
+}
+const cd230Investigate=investigate;
+investigate=function(){const r=cd230Investigate.apply(this,arguments);cd230Try();return r};
+const cd230NewRun=newRun;
+newRun=function(){const r=cd230NewRun.apply(this,arguments);player.cd230={shown:false};return r};
 
 </script>
 
