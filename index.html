@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6773,6 +6773,46 @@ cd400Choice=function(choice){
    toast("DOCTRINE MAL APPLIQUÉE");cd430Banner("MAUVAISE RÉPONSE",p.name+" — Votre étude était juste, votre tactique ne l'est pas. -1 SAN.");
  }else{
    log("DOCTRINE INCERTAINE — Le profil tactique de cette créature reste inconnu.");
+ }
+ return r;
+};
+
+
+/* === V4.4.0 : adaptation hostile — l'ennemi apprend votre posture === */
+function cd440State(){if(!player.cd440)player.cd440={shown:false,choice:""};return player.cd440}
+function cd440Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:100004;min-width:370px;max-width:76vw;padding:14px 18px;border:2px solid #8e6262;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#d39a9a;font-size:17px;font-weight:700'>ADAPTATION HOSTILE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4100)
+}
+const cd440Choice=cd400Choice;
+cd400Choice=function(choice){
+ const r=cd440Choice.apply(this,arguments);
+ const s=cd440State();s.choice=choice;return r;
+};
+const cd440EnemyTurn=enemyTurn;
+enemyTurn=function(){
+ const r=cd440EnemyTurn.apply(this,arguments),s=cd440State();
+ if(s.shown||!s.choice||!battle||!enemy)return r;s.shown=true;
+ const roll=R(100)+1;
+ if(roll<=55){
+   if(s.choice==="prudence"){
+     player.san=Math.max(0,(player.san||0)-1);
+     log("ADAPTATION HOSTILE — La créature cesse de forcer votre garde et attaque votre sang-froid : -1 SAN.");
+     toast("GARDE CONTOURNÉE");cd440Banner("GARDE CONTOURNÉE","L'ennemi comprend votre prudence et déplace la pression vers votre esprit. -1 SAN.");
+   }else if(s.choice==="pression"){
+     player.hp=Math.max(1,(player.hp||1)-1);
+     log("ADAPTATION HOSTILE — Votre agressivité devient prévisible : contre-attaque, -1 PV.");
+     toast("ÉLAN PUNI");cd440Banner("ÉLAN PUNI","Votre rythme agressif devient lisible. L'ennemi exploite l'ouverture. -1 PV.");
+   }else{
+     if(enemy&&typeof enemy.hp==="number")enemy.hp=Math.min(enemy.maxHp||enemy.hpMax||999,enemy.hp+1);
+     log("ADAPTATION HOSTILE — Pendant que vous observez, la créature reprend l'initiative : +1 PV ennemi.");
+     toast("INITIATIVE PERDUE");cd440Banner("INITIATIVE PERDUE","Observer trop longtemps donne à l'horreur le temps de se réorganiser. Ennemi +1 PV.");
+   }
+ }else{
+   player.xp=(player.xp||0)+2;
+   log("ADAPTATION DÉJOUÉE — La créature tente de lire votre posture, mais vous cassez le rythme : +2 XP.");
+   toast("ADAPTATION DÉJOUÉE");cd440Banner("ADAPTATION DÉJOUÉE","Vous changez subtilement de rythme avant que l'ennemi ne puisse vous exploiter. +2 XP.");
  }
  return r;
 };
