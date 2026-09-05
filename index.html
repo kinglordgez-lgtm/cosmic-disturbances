@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.7.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5746,6 +5746,26 @@ const cd170Investigate=investigate;
 investigate=function(){const r=cd170Investigate.apply(this,arguments);cd170Try();return r};
 const cd170NewRun=newRun;
 newRun=function(){const r=cd170NewRun.apply(this,arguments);player.cd170={unlocked:false,total:0};return r};
+
+
+/* === V1.7.1 : signature testable sur une nouvelle partie === */
+function cd171State(){if(!player.cd171)player.cd171={investigations:0};return player.cd171}
+function cd171EnsureSignature(){
+ const s=cd170State(),t=cd171State();if(s.unlocked)return;
+ t.investigations++;if(t.investigations<4)return;
+ s.unlocked=true;s.total=(s.total||0)+1;
+ const k=((player.char||{}).skills||{}),a=[["Investigation",k.Investigation||0],["Observation",k.Observation||0],["Occultisme",k.Occultisme||0]].sort((x,y)=>y[1]-x[1]),best=a[0][0];
+ let x=best==="Observation"?["FLAIR DE TERRAIN","Votre regard entraîné isole les détails qui comptent.","xp"]:best==="Occultisme"?["SANG-FROID ANALYTIQUE","Vous imposez une logique aux signes de l'impossible.","san"]:["RÉFLEXE D'INVESTIGATEUR","Votre méthode vous évite les erreurs les plus coûteuses.","hp"];
+ log("SIGNATURE D'ENQUÊTEUR — "+x[0]+" : "+x[1]);
+ if(x[2]==="san"){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+2);log("Signature acquise : +2 SAN.")}
+ else if(x[2]==="xp"){player.xp=(player.xp||0)+3;log("Signature acquise : +3 XP.")}
+ else{player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+3);log("Signature acquise : +3 PV.")}
+ toast("SIGNATURE D'ENQUÊTEUR")
+}
+const cd171Investigate=investigate;
+investigate=function(){const r=cd171Investigate.apply(this,arguments);cd171EnsureSignature();return r};
+const cd171NewRun=newRun;
+newRun=function(){const r=cd171NewRun.apply(this,arguments);player.cd171={investigations:0};return r};
 
 </script>
 
