@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6468,6 +6468,38 @@ function cd330Try(){
 }
 const cd330Loot=loot;
 loot=function(){const r=cd330Loot.apply(this,arguments);cd330Try();return r};
+
+
+/* === V3.4.0 : savoir interdit — le Mythe devient une ressource à double tranchant === */
+function cd340State(){if(!player.cd340)player.cd340={shown:false};return player.cd340}
+function cd340Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:350px;max-width:74vw;padding:14px 18px;border:2px solid #8f78a8;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#bca3d6;font-size:17px;font-weight:700'>SAVOIR INTERDIT</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4200)
+}
+function cd340Try(){
+ const s=cd340State();if(s.shown)return;s.shown=true;
+ const myth=player.myth||0, skills=((player.char||{}).skills||{});
+ const occult=skills.Occultisme||0, erud=skills["Érudition"]||0;
+ const effective=Math.min(85,Math.max(12,Math.floor((occult+erud)/3)+myth*2));
+ const roll=R(100)+1;
+ log("SAVOIR INTERDIT — Le Mythe tente de compléter ce que vos sens ne comprennent pas.");
+ log("Compréhension interdite : "+roll+"/"+effective+" (MYTHE "+myth+"%).");
+ if(roll<=effective){
+   player.xp=(player.xp||0)+3;
+   player.myth=Math.min(100,myth+1);
+   log("CONNEXION IMPOSSIBLE — Une vérité se dessine : +3 XP, +1 MYTHE.");
+   toast("CONNEXION IMPOSSIBLE");
+   cd340Banner("CONNEXION IMPOSSIBLE","Votre connaissance du Mythe révèle un lien invisible. +3 XP, +1 MYTHE.");
+ }else{
+   player.san=Math.max(0,(player.san||0)-2);
+   log("VERTIGE COSMIQUE — Vous entrevoyez quelque chose sans pouvoir le comprendre : -2 SAN.");
+   toast("VERTIGE COSMIQUE");
+   cd340Banner("VERTIGE COSMIQUE","La connaissance ouvre une porte que votre esprit ne peut refermer. -2 SAN.");
+ }
+}
+const cd340Investigate=investigate;
+investigate=function(){const r=cd340Investigate.apply(this,arguments);cd340Try();return r};
 
 </script>
 
