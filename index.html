@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 1.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5776,6 +5776,35 @@ const cd180Investigate=investigate;
 investigate=function(){const r=cd180Investigate.apply(this,arguments);cd180Try();return r};
 const cd180NewRun=newRun;
 newRun=function(){const r=cd180NewRun.apply(this,arguments);player.cd180={floor:null,investigations:0,done:false};return r};
+
+
+/* === V1.9.0 : cache opportuniste === */
+const CD190_CACHES=[
+ ["TROUSSE OUBLIÉE","Sous une lame de parquet, une trousse médicale moisie reste exploitable.","Médecine","hp"],
+ ["NOTES DÉCHIRÉES","Des fragments de notes relient deux détails jusque-là sans rapport.","Investigation","xp"],
+ ["CHARME BRISÉ","Un petit talisman noirci porte encore une faible protection.","Occultisme","san"]
+];
+function cd190State(){if(!player.cd190)player.cd190={investigations:0,done:false};return player.cd190}
+function cd190Try(){
+ const s=cd190State();if(s.done)return;s.investigations++;if(s.investigations<2)return;s.done=true;
+ const e=CD190_CACHES[R(CD190_CACHES.length)],skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;
+ log("CACHE OPPORTUNISTE — "+e[0]+" : "+e[1]);
+ log("Test de "+e[2]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   if(e[3]==="hp"){player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+3);log("CACHE EXPLOITÉE — Vous récupérez de quoi tenir : +3 PV.")}
+   else if(e[3]==="san"){player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+2);log("CACHE EXPLOITÉE — Le charme calme momentanément votre esprit : +2 SAN.")}
+   else{player.xp=(player.xp||0)+3;log("CACHE EXPLOITÉE — Les notes font progresser l'enquête : +3 XP.")}
+   toast("CACHE EXPLOITÉE")
+ }else{
+   player.xp=(player.xp||0)+1;
+   log("CACHE MAL EXPLOITÉE — Vous n'en tirez qu'un indice incomplet : +1 XP.");
+   toast("CACHE MAL EXPLOITÉE")
+ }
+}
+const cd190Investigate=investigate;
+investigate=function(){const r=cd190Investigate.apply(this,arguments);cd190Try();return r};
+const cd190NewRun=newRun;
+newRun=function(){const r=cd190NewRun.apply(this,arguments);player.cd190={investigations:0,done:false};return r};
 
 </script>
 
