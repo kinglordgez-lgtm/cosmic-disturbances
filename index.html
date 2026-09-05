@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.0.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5838,6 +5838,25 @@ const cd200Investigate=investigate;
 investigate=function(){const r=cd200Investigate.apply(this,arguments);cd200Try();return r};
 const cd200NewRun=newRun;
 newRun=function(){const r=cd200NewRun.apply(this,arguments);player.cd200={investigations:0,done:false,approach:null};return r};
+
+
+/* === V2.0.1 : correctif approche — déclenchement visible immédiat === */
+function cd201State(){if(!player.cd201)player.cd201={shown:false};return player.cd201}
+function cd201ShowApproach(){
+ const s=cd201State();if(s.shown)return;s.shown=true;
+ const skills=((player.char||{}).skills||{});
+ const a=CD200_APPROACHES.slice().sort((x,y)=>(skills[y[2]]||0)-(skills[x[2]]||0))[0];
+ const sk=skills[a[2]]||0,roll=R(100)+1;
+ if(player.cd200){player.cd200.done=true;player.cd200.approach=a[0]}
+ log("APPROCHE D'ENQUÊTE — "+a[0]+" : "+a[1]);
+ log("Test de "+a[2]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){player.xp=(player.xp||0)+3;log("APPROCHE RÉUSSIE — Votre méthode vous donne un avantage immédiat : +3 XP.");toast("APPROCHE RÉUSSIE")}
+ else{player.xp=(player.xp||0)+1;log("APPROCHE RISQUÉE — Votre méthode révèle quelque chose, mais sans certitude : +1 XP.");toast("APPROCHE RISQUÉE")}
+}
+const cd201Investigate=investigate;
+investigate=function(){const r=cd201Investigate.apply(this,arguments);cd201ShowApproach();return r};
+const cd201NewRun=newRun;
+newRun=function(){const r=cd201NewRun.apply(this,arguments);player.cd201={shown:false};return r};
 
 </script>
 
