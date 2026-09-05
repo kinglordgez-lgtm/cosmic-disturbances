@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.0.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.0.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6236,6 +6236,61 @@ render=function(){
  const r=cd301Render.apply(this,arguments);
  if(cd301QuestActive()&&!cd300State().shown)cd300Try();
  return r;
+};
+
+
+/* === V3.0.2 : instinct de piste visible et indépendant ===
+   Une quête est considérée active dès que player.quest existe avec des étapes.
+   Le résultat reste affiché dans le tracker afin qu'il soit impossible à manquer. */
+function cd302QuestActive(){
+ return !!(player&&player.quest&&!player.quest.done&&
+   (player.quest.title||player.quest.steps||typeof player.quest.step==="number"));
+}
+function cd302Ensure(){
+ const s=cd300State();
+ if(cd302QuestActive()&&!s.shown)cd300Try();
+ return cd300State();
+}
+const cd302Tracker=renderQuestTracker;
+renderQuestTracker=function(){
+ cd302Ensure();
+ const r=cd302Tracker.apply(this,arguments);
+ const s=cd300State();
+ if(s.shown){
+   const box=document.getElementById("questTracker");
+   if(box&&!box.querySelector(".cd302Trail")){
+     const d=document.createElement("div");
+     d.className="cd302Trail";
+     d.style.cssText="border-left:3px solid #c9a85b;padding:7px 9px;margin:8px 0;font-weight:700";
+     d.textContent="INSTINCT DE PISTE — "+(s.result||"ACTIVÉ");
+     box.insertBefore(d,box.firstChild);
+   }
+ }
+ return r;
+};
+const cd302OldTry=cd300Try;
+cd300Try=function(){
+ const s=cd300State();
+ if(s.shown)return s.result||"";
+ cd302OldTry();
+ /* Les versions précédentes ne mémorisaient pas le résultat. On le déduit du dernier test
+    par un second test uniquement si nécessaire pour rendre l'état explicite. */
+ if(!s.result){
+   const skills=((player.char||{}).skills||{});
+   const best=Math.max(skills.Investigation||0,skills.Psychologie||0,skills.Observation||0);
+   const roll=R(100)+1;
+   if(roll<=best){
+     s.result="PISTE AFFINÉE";
+     player.xp=(player.xp||0)+2;
+     log("PISTE AFFINÉE — Votre instinct isole un détail utile : +2 XP.");
+     toast("PISTE AFFINÉE");
+   }else{
+     s.result="PISTE BROUILLÉE";
+     log("PISTE BROUILLÉE — Plusieurs directions restent plausibles.");
+     toast("PISTE BROUILLÉE");
+   }
+ }
+ return s.result;
 };
 
 </script>
