@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.8.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.8.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6099,6 +6099,20 @@ const cd281Talk=cd18Talk;
 cd18Talk=function(){
  cd281Try();
  return cd281Talk.apply(this,arguments)
+};
+
+
+/* === V2.8.2 : correctif dialogue PNJ réel ===
+   Déclenchement direct à l'appel de cd18Talk, sans dépendre de la tuile carte. */
+function cd282Try(){
+ const s=cd280State();
+ if(s.shown)return;
+ cd280Try();
+}
+const cd282Talk=cd18Talk;
+cd18Talk=function(){
+ cd282Try();
+ return cd282Talk.apply(this,arguments)
 };
 
 </script>

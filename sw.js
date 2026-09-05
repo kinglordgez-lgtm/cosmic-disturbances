@@ -1,4 +1,4 @@
-const CACHE='cosmic-v2810';
+const CACHE='cosmic-v2820';
 self.addEventListener('install',event=>{
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html'])));
