@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6438,6 +6438,36 @@ function cd320Try(){
 }
 const cd320EnemyTurn=enemyTurn;
 enemyTurn=function(){cd320Try();return cd320EnemyTurn.apply(this,arguments)};
+
+
+/* === V3.3.0 : contamination des trouvailles === */
+function cd330State(){if(!player.cd330)player.cd330={shown:false};return player.cd330}
+function cd330Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:340px;max-width:72vw;padding:14px 18px;border:2px solid #b89a5a;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#d7b66b;font-size:17px;font-weight:700'>CONTAMINATION DES TROUVAILLES</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4000)
+}
+function cd330Try(){
+ const s=cd330State();if(s.shown)return;s.shown=true;
+ const skills=((player.char||{}).skills||{}),opts=[
+  ["ODEUR IMPOSSIBLE","Médecine","Une senteur organique persiste là où rien ne devrait vivre."],
+  ["GRAVURE PARASITE","Occultisme","Le motif semble différent chaque fois que vous le regardez."],
+  ["POUSSIÈRE MOBILE","Observation","La poussière se déplace à contre-courant de votre souffle."]
+ ],o=opts[R(opts.length)],sk=skills[o[1]]||0,roll=R(100)+1;
+ log("TROUVAILLE SUSPECTE — "+o[0]+" : test de "+o[1]+" "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+2;
+   log("SOUILLURE IDENTIFIÉE — Vous isolez le danger avant qu'il ne vous atteigne : +2 XP.");
+   toast("SOUILLURE IDENTIFIÉE");cd330Banner("SOUILLURE IDENTIFIÉE",o[2]+" Danger évité.");
+ }else{
+   player.san=Math.max(0,(player.san||0)-1);
+   player.myth=Math.min(100,(player.myth||0)+1);
+   log("CONTACT IMPUR — Quelque chose vous accompagne désormais : -1 SAN, +1 MYTHE.");
+   toast("CONTACT IMPUR");cd330Banner("CONTACT IMPUR",o[2]+" -1 SAN, +1 MYTHE.");
+ }
+}
+const cd330Loot=loot;
+loot=function(){const r=cd330Loot.apply(this,arguments);cd330Try();return r};
 
 </script>
 
