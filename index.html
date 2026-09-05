@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.1.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6408,6 +6408,36 @@ render=function(){
   cd312Check();
   return r;
 };
+
+
+/* === V3.2.0 : sang-froid sous la menace === */
+function cd320State(){if(!player.cd320)player.cd320={shown:false};return player.cd320}
+function cd320Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:330px;max-width:72vw;padding:14px 18px;border:2px solid #b89a5a;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#d7b66b;font-size:17px;font-weight:700'>SANG-FROID SOUS LA MENACE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},3800)
+}
+function cd320Try(){
+ const s=cd320State();if(s.shown||!battle||!enemy)return;s.shown=true;
+ const skills=((player.char||{}).skills||{}),opts=[
+  ["TENIR LE REGARD","Psychologie","Vous refusez de laisser la créature dicter votre peur."],
+  ["LIRE SA POSTURE","Observation","Vous cherchez le mouvement qui précède l'attaque."],
+  ["SERRER LES DENTS","Endurance","Vous transformez la peur en tension contrôlée."]
+ ],o=opts[R(opts.length)],sk=skills[o[1]]||0,roll=R(100)+1;
+ log("SANG-FROID — "+o[0]+" : test de "+o[1]+" "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+2;
+   if(enemy&&typeof enemy.hp==="number")enemy.hp=Math.max(1,enemy.hp-1);
+   log("NERFS D'ACIER — Vous imposez votre rythme : +2 XP, ennemi fragilisé.");
+   toast("NERFS D'ACIER");cd320Banner("NERFS D'ACIER",o[2]+" Ennemi fragilisé.");
+ }else{
+   player.san=Math.max(0,(player.san||0)-1);
+   log("PEUR VISCÉRALE — La menace vous atteint : -1 SAN.");
+   toast("PEUR VISCÉRALE");cd320Banner("PEUR VISCÉRALE",o[2]+" -1 SAN.");
+ }
+}
+const cd320EnemyTurn=enemyTurn;
+enemyTurn=function(){cd320Try();return cd320EnemyTurn.apply(this,arguments)};
 
 </script>
 
