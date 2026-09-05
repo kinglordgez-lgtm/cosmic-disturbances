@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.8.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.8.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6123,6 +6123,46 @@ const cd283NpcPanel=cd18NpcPanel;
 cd18NpcPanel=function(){
  cd280Try();
  return cd283NpcPanel.apply(this,arguments);
+};
+
+
+/* === V2.8.4 : première impression visible dans la fenêtre PNJ ===
+   Le résultat est maintenant stocké puis affiché directement dans le panneau social. */
+cd280Try=function(){
+ const s=cd280State();
+ if(s.shown)return s.result||"";
+ s.shown=true;
+ const e=CD280_IMPRESSIONS[R(CD280_IMPRESSIONS.length)],
+ skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;
+ log("PREMIÈRE IMPRESSION — "+e[0]+" : "+e[1]);
+ log("Test de "+e[2]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+2;
+   s.result="CONTACT CERNÉ";
+   s.detail=e[0]+" — "+e[1]+" (+2 XP)";
+   log("CONTACT CERNÉ — Vous trouvez immédiatement le bon angle d'approche : +2 XP.");
+   toast("CONTACT CERNÉ");
+ }else{
+   s.result="IMPRESSION INCERTAINE";
+   s.detail=e[0]+" — "+e[1];
+   log("IMPRESSION INCERTAINE — Vous préférez ne pas tirer de conclusion trop vite.");
+   toast("IMPRESSION INCERTAINE");
+ }
+ return s.result;
+};
+
+const cd284OpenPanel=cdOpenPanel;
+cdOpenPanel=function(title,body){
+ const isNpc=typeof body==="string"&&body.includes("cd18Talk('questionner')")&&body.includes("RASSURER")&&body.includes("MENACER");
+ if(isNpc){
+   cd280Try();
+   const s=cd280State();
+   const banner=`<div class=entry style="border-left:3px solid #c9a85b;padding-left:10px;margin:8px 0">
+   <b>PREMIÈRE IMPRESSION — ${s.result||"..."}</b><br>${s.detail||""}
+   </div>`;
+   body=banner+body;
+ }
+ return cd284OpenPanel.call(this,title,body);
 };
 
 </script>
