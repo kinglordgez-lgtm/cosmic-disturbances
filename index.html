@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6553,6 +6553,32 @@ function cd360Try(){
 }
 const cd360Attack=attack;
 attack=function(){const r=cd360Attack.apply(this,arguments);cd360Try();return r};
+
+
+/* === V3.7.0 : dette du Mythe — la connaissance laisse une trace === */
+function cd370State(){if(!player.cd370)player.cd370={shown:false,debt:0};return player.cd370}
+function cd370Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:350px;max-width:74vw;padding:14px 18px;border:2px solid #806b91;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#b89bce;font-size:17px;font-weight:700'>DETTE DU MYTHE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4200)
+}
+function cd370Try(){
+ const s=cd370State();if(s.shown)return;s.shown=true;
+ const myth=Math.max(0,player.myth||0),san=Math.max(0,player.san||0);
+ const chance=Math.min(80,20+myth*5+Math.max(0,30-san)),roll=R(100)+1;
+ log("DETTE DU MYTHE — test "+roll+"/"+chance+" (MYTHE "+myth+"%, SAN "+san+").");
+ if(roll<=chance){
+   s.debt=1; player.myth=Math.min(100,myth+1);
+   log("ÉCHO INHUMAIN — Quelque chose répond à votre curiosité : +1 MYTHE.");
+   toast("ÉCHO INHUMAIN");cd370Banner("ÉCHO INHUMAIN","Votre compréhension attire une présence. +1 MYTHE. Une dette invisible demeure.");
+ }else{
+   player.xp=(player.xp||0)+2;
+   log("ESPRIT CLOISONNÉ — Vous refermez mentalement la porte : +2 XP.");
+   toast("ESPRIT CLOISONNÉ");cd370Banner("ESPRIT CLOISONNÉ","Vous contenez provisoirement ce que vous venez d'apprendre. +2 XP.");
+ }
+}
+const cd370Investigate=investigate;
+investigate=function(){const r=cd370Investigate.apply(this,arguments);cd370Try();return r};
 
 </script>
 
