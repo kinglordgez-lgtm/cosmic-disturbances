@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5942,6 +5942,37 @@ const cd230Investigate=investigate;
 investigate=function(){const r=cd230Investigate.apply(this,arguments);cd230Try();return r};
 const cd230NewRun=newRun;
 newRun=function(){const r=cd230NewRun.apply(this,arguments);player.cd230={shown:false};return r};
+
+
+/* === V2.4.0 : ouverture tactique de combat === */
+const CD240_OPENINGS=[
+ ["GARDE BASSE","La créature expose brièvement une zone vulnérable.","Observation"],
+ ["RYTHME PRÉVISIBLE","Ses mouvements répètent une séquence exploitable.","Investigation"],
+ ["SIGNE DE RECUL","Un geste rituel semble provoquer chez elle une hésitation instinctive.","Occultisme"]
+];
+function cd240State(){if(!player.cd240)player.cd240={enemy:null,shown:false};return player.cd240}
+function cd240Try(){
+ if(!battle||!enemy)return;
+ const s=cd240State(),key=(enemy.name||"créature")+"@"+(player.floor??player.depth??0);
+ if(s.enemy!==key){s.enemy=key;s.shown=false}
+ if(s.shown)return;s.shown=true;
+ const e=CD240_OPENINGS[R(CD240_OPENINGS.length)],skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;
+ log("OUVERTURE TACTIQUE — "+e[0]+" : "+e[1]);
+ log("Test de "+e[2]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+2;
+   if(enemy&&typeof enemy.hp==="number")enemy.hp=Math.max(1,enemy.hp-1);
+   log("OUVERTURE EXPLOITÉE — Vous prenez l'initiative : +2 XP, l'ennemi perd 1 PV.");
+   toast("OUVERTURE EXPLOITÉE")
+ }else{
+   log("OUVERTURE MANQUÉE — L'instant disparaît avant que vous puissiez en profiter.");
+   toast("OUVERTURE MANQUÉE")
+ }
+}
+const cd240Attack=attack;
+attack=function(){cd240Try();return cd240Attack.apply(this,arguments)};
+const cd240NewRun=newRun;
+newRun=function(){const r=cd240NewRun.apply(this,arguments);player.cd240={enemy:null,shown:false};return r};
 
 </script>
 

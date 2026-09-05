@@ -1,7 +1,7 @@
 {
   "name": "Cosmic Disturbances",
   "short_name": "Cosmic",
-  "start_url": "./?v=2300",
+  "start_url": "./?v=2400",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#05070a",
