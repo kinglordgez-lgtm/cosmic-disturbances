@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6737,6 +6737,42 @@ cd400Choice=function(choice){
    player.san=Math.max(0,(player.san||0)-1);
    log("MENACE INCONNUE — Vous choisissez sans connaissance fiable : -1 SAN.");
    cd420Banner("MENACE INCONNUE","Sans étude préalable, votre posture repose sur une intuition dangereuse. -1 SAN.");
+ }
+ return r;
+};
+
+
+/* === V4.3.0 : doctrines par type de menace === */
+function cd430State(){if(!player.cd430)player.cd430={shown:false};return player.cd430}
+function cd430Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:100003;min-width:370px;max-width:76vw;padding:14px 18px;border:2px solid #697f93;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#9eb5ca;font-size:17px;font-weight:700'>DOCTRINE DE MENACE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4200)
+}
+function cd430Profile(){
+ const n=((enemy&&enemy.name)||"").toLowerCase();
+ if(/profond|dagon|noyé/.test(n))return {best:"prudence",name:"MENACE ABYSSALE",why:"Sa violence frontale récompense la garde et le recul mesuré."};
+ if(/cultiste/.test(n))return {best:"pression",name:"MENACE HUMAINE",why:"L'hésitation humaine se brise par une pression immédiate."};
+ if(/mi-go|fongique/.test(n))return {best:"observation",name:"MENACE EXTRATERRESTRE",why:"Son anatomie étrangère exige d'abord de comprendre."};
+ if(/goule|chien|tindalos|byakhee/.test(n))return {best:"prudence",name:"PRÉDATEUR",why:"Ses accélérations punissent l'exposition."};
+ return {best:"observation",name:"INCLASSABLE",why:"Face à l'inconnu, l'information reste votre meilleure arme."};
+}
+const cd430Choice=cd400Choice;
+cd400Choice=function(choice){
+ const r=cd430Choice.apply(this,arguments),s=cd430State();
+ if(s.shown||!enemy)return r;s.shown=true;
+ const studied=!!(player.cd420&&player.cd420.studied),p=cd430Profile();
+ if(studied&&choice===p.best){
+   player.xp=(player.xp||0)+3;
+   if(enemy&&typeof enemy.hp==="number")enemy.hp=Math.max(1,enemy.hp-1);
+   log("DOCTRINE ADAPTÉE — "+p.name+" : posture correcte, +3 XP, ennemi -1 PV.");
+   toast("DOCTRINE ADAPTÉE");cd430Banner("DOCTRINE ADAPTÉE",p.name+" — "+p.why+" +3 XP, ennemi -1 PV.");
+ }else if(studied){
+   player.san=Math.max(0,(player.san||0)-1);
+   log("DOCTRINE MAL APPLIQUÉE — "+p.name+" : vous aviez l'information, mais choisissez une mauvaise réponse : -1 SAN.");
+   toast("DOCTRINE MAL APPLIQUÉE");cd430Banner("MAUVAISE RÉPONSE",p.name+" — Votre étude était juste, votre tactique ne l'est pas. -1 SAN.");
+ }else{
+   log("DOCTRINE INCERTAINE — Le profil tactique de cette créature reste inconnu.");
  }
  return r;
 };
