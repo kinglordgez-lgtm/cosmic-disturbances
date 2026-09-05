@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.1.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.1.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6352,6 +6352,62 @@ function cd311Check(){
 }
 const cd311Render=render;
 render=function(){const r=cd311Render.apply(this,arguments);cd311Check();return r};
+
+
+/* === V3.1.2 : instinct d'exploration, coordonnées carte réelles px/py === */
+function cd312State(){
+  if(!player.cd312){
+    player.cd312={x:typeof px==="number"?px:null,y:typeof py==="number"?py:null,steps:0,shown:false,result:""};
+  }
+  return player.cd312;
+}
+function cd312Banner(text, detail){
+  const old=document.getElementById("cd312Banner");
+  if(old) old.remove();
+  const box=document.createElement("div");
+  box.id="cd312Banner";
+  box.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:320px;max-width:70vw;padding:14px 18px;border:2px solid #b89a5a;background:#0b0e14;color:#eee;font-family:monospace;font-weight:700;text-align:center;box-shadow:0 8px 30px #000;border-radius:8px;";
+  box.innerHTML="<div style='color:#d7b66b;font-size:18px;margin-bottom:6px'>INSTINCT D'EXPLORATION</div><div style='font-size:20px'>"+text+"</div><div style='font-size:14px;font-weight:400;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+  document.body.appendChild(box);
+  setTimeout(()=>{if(box&&box.parentNode)box.remove()},4200);
+}
+function cd312Try(){
+  const s=cd312State();
+  if(s.shown) return;
+  s.shown=true;
+  const e=CD310_SIGNS[R(CD310_SIGNS.length)];
+  const skills=((player.char||{}).skills||{});
+  const sk=skills[e[2]]||0, roll=R(100)+1;
+  log("INSTINCT D'EXPLORATION — "+e[0]+" : "+e[1]);
+  log("Test de "+e[2]+" : "+roll+"/"+sk+".");
+  if(roll<=sk){
+    player.xp=(player.xp||0)+2;
+    s.result="PASSAGE LU";
+    log("PASSAGE LU — Vous comprenez mieux la géométrie du secteur : +2 XP.");
+    toast("PASSAGE LU");
+    cd312Banner("PASSAGE LU",e[0]+" — "+e[1]);
+  }else{
+    s.result="SENSATION TROUBLE";
+    log("SENSATION TROUBLE — Le lieu refuse encore de livrer sa logique.");
+    toast("SENSATION TROUBLE");
+    cd312Banner("SENSATION TROUBLE",e[0]+" — "+e[1]);
+  }
+}
+function cd312Check(){
+  if(typeof px!=="number"||typeof py!=="number") return;
+  const s=cd312State();
+  if(s.x===null||s.y===null){s.x=px;s.y=py;return;}
+  if(px!==s.x||py!==s.y){
+    s.x=px;s.y=py;s.steps++;
+    if(s.steps>=2&&!s.shown) cd312Try();
+  }
+}
+const cd312Render=render;
+render=function(){
+  const r=cd312Render.apply(this,arguments);
+  cd312Check();
+  return r;
+};
 
 </script>
 
