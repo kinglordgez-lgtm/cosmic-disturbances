@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5973,6 +5973,16 @@ const cd240Attack=attack;
 attack=function(){cd240Try();return cd240Attack.apply(this,arguments)};
 const cd240NewRun=newRun;
 newRun=function(){const r=cd240NewRun.apply(this,arguments);player.cd240={enemy:null,shown:false};return r};
+
+
+/* === V2.5.0 : riposte instinctive === */
+const CD250_RIPOSTES=[["PAS DE CÔTÉ","Vous anticipez l'attaque et frappez pendant le déséquilibre.","Observation"],["FEINTE COURTE","Vous provoquez une réaction prévisible avant de contre-attaquer.","Armes"],["GESTE PROTECTEUR","Un réflexe appris vous maintient hors de l'angle le plus dangereux.","Endurance"]];
+function cd250State(){if(!player.cd250)player.cd250={enemy:null,shown:false};return player.cd250}
+function cd250Try(){if(!battle||!enemy)return;const s=cd250State(),key=(enemy.name||"créature")+"@"+(player.floor??player.depth??0);if(s.enemy!==key){s.enemy=key;s.shown=false}if(s.shown)return;s.shown=true;const e=CD250_RIPOSTES[R(CD250_RIPOSTES.length)],skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;log("RIPOSTE INSTINCTIVE — "+e[0]+" : "+e[1]);log("Test de "+e[2]+" : "+roll+"/"+sk+".");if(roll<=sk){player.xp=(player.xp||0)+2;if(enemy&&typeof enemy.hp==="number")enemy.hp=Math.max(1,enemy.hp-1);log("RIPOSTE RÉUSSIE — Votre contre-attaque touche : +2 XP, ennemi -1 PV.");toast("RIPOSTE RÉUSSIE")}else{log("RIPOSTE AVORTÉE — Vous renoncez juste avant de vous exposer.");toast("RIPOSTE AVORTÉE")}}
+const cd250Attack=attack;
+attack=function(){const r=cd250Attack.apply(this,arguments);if(battle&&enemy)cd250Try();return r};
+const cd250NewRun=newRun;
+newRun=function(){const r=cd250NewRun.apply(this,arguments);player.cd250={enemy:null,shown:false};return r};
 
 </script>
 
