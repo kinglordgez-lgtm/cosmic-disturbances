@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 1.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -5805,6 +5805,39 @@ const cd190Investigate=investigate;
 investigate=function(){const r=cd190Investigate.apply(this,arguments);cd190Try();return r};
 const cd190NewRun=newRun;
 newRun=function(){const r=cd190NewRun.apply(this,arguments);player.cd190={investigations:0,done:false};return r};
+
+
+/* === V2.0.0 : choix d'approche === */
+const CD200_APPROACHES=[
+ ["PRUDENCE","Vous ralentissez, écoutez et vérifiez chaque issue.","Observation"],
+ ["RAISON","Vous reconstruisez les faits avant d'accepter l'étrange.","Investigation"],
+ ["OCCULTE","Vous confrontez directement les signes à vos connaissances interdites.","Occultisme"]
+];
+function cd200State(){if(!player.cd200)player.cd200={investigations:0,done:false,approach:null};return player.cd200}
+function cd200Try(){
+ const s=cd200State();if(s.done)return;s.investigations++;if(s.investigations<3)return;s.done=true;
+ const skills=((player.char||{}).skills||{});
+ const ranked=CD200_APPROACHES.slice().sort((a,b)=>(skills[b[2]]||0)-(skills[a[2]]||0));
+ const a=ranked[0];s.approach=a[0];
+ const sk=skills[a[2]]||0,roll=R(100)+1;
+ log("APPROCHE D'ENQUÊTE — "+a[0]+" : "+a[1]);
+ log("Test de "+a[2]+" : "+roll+"/"+sk+".");
+ if(roll<=sk){
+   player.xp=(player.xp||0)+3;
+   if(a[0]==="PRUDENCE")player.hp=Math.min(player.maxHp||player.hp||0,(player.hp||0)+1);
+   if(a[0]==="OCCULTE")player.san=Math.min(player.maxSan||player.san||0,(player.san||0)+1);
+   log("APPROCHE RÉUSSIE — Votre manière d'enquêter vous donne un avantage immédiat : +3 XP"+(a[0]==="PRUDENCE"?", +1 PV":a[0]==="OCCULTE"?", +1 SAN":"")+".");
+   toast("APPROCHE RÉUSSIE")
+ }else{
+   player.xp=(player.xp||0)+1;
+   log("APPROCHE RISQUÉE — Votre méthode révèle quelque chose, mais sans certitude : +1 XP.");
+   toast("APPROCHE RISQUÉE")
+ }
+}
+const cd200Investigate=investigate;
+investigate=function(){const r=cd200Investigate.apply(this,arguments);cd200Try();return r};
+const cd200NewRun=newRun;
+newRun=function(){const r=cd200NewRun.apply(this,arguments);player.cd200={investigations:0,done:false,approach:null};return r};
 
 </script>
 
