@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6579,6 +6579,33 @@ function cd370Try(){
 }
 const cd370Investigate=investigate;
 investigate=function(){const r=cd370Investigate.apply(this,arguments);cd370Try();return r};
+
+
+/* === V3.8.0 : inventaire sous tension — porter a un prix === */
+function cd380State(){if(!player.cd380)player.cd380={shown:false};return player.cd380}
+function cd380Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:350px;max-width:74vw;padding:14px 18px;border:2px solid #7f8794;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#c0c7d1;font-size:17px;font-weight:700'>INVENTAIRE SOUS TENSION</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4200)
+}
+function cd380Try(){
+ const s=cd380State();if(s.shown)return;s.shown=true;
+ const skills=((player.char||{}).skills||{}),end=skills.Endurance||0;
+ const inv=Array.isArray(player.inv)?player.inv:(Array.isArray(player.inventory)?player.inventory:[]);
+ const load=inv.length, target=Math.max(10,Math.min(90,end-load*2+15)),roll=R(100)+1;
+ log("INVENTAIRE SOUS TENSION — charge "+load+", Endurance "+end+", test "+roll+"/"+target+".");
+ if(roll<=target){
+   player.xp=(player.xp||0)+2;
+   log("CHARGE MAÎTRISÉE — Vous réorganisez votre équipement sans perdre de mobilité : +2 XP.");
+   toast("CHARGE MAÎTRISÉE");cd380Banner("CHARGE MAÎTRISÉE","Vous répartissez le poids et gardez l'essentiel accessible. +2 XP.");
+ }else{
+   player.hp=Math.max(1,(player.hp||1)-1);
+   log("SURCHARGE — Le poids et l'encombrement vous épuisent : -1 PV.");
+   toast("SURCHARGE");cd380Banner("SURCHARGE","Chaque objet utile devient aussi un poids. -1 PV.");
+ }
+}
+const cd380Loot=loot;
+loot=function(){const r=cd380Loot.apply(this,arguments);cd380Try();return r};
 
 </script>
 
