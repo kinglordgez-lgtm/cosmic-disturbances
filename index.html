@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6500,6 +6500,30 @@ function cd340Try(){
 }
 const cd340Investigate=investigate;
 investigate=function(){const r=cd340Investigate.apply(this,arguments);cd340Try();return r};
+
+
+/* === V3.5.0 : témoin sous pression — SAN et interactions humaines === */
+function cd350State(){if(!player.cd350)player.cd350={shown:false};return player.cd350}
+function cd350Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:350px;max-width:74vw;padding:14px 18px;border:2px solid #9b8051;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#d4b16a;font-size:17px;font-weight:700'>TÉMOIN SOUS PRESSION</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4200)
+}
+function cd350Try(){
+ const s=cd350State();if(s.shown)return;s.shown=true;
+ const skills=((player.char||{}).skills||{}),san=Math.max(0,Math.min(100,player.san||0));
+ const opts=[
+ ["LIRE LE VISAGE","Psychologie","Vous observez les hésitations plutôt que les mots."],
+ ["RECOUPER LE RÉCIT","Investigation","Vous cherchez la contradiction qui trahit le mensonge."],
+ ["RESTER IMPASSIBLE","Endurance","Vous empêchez votre propre peur de contaminer l'échange."]
+ ],o=opts[R(opts.length)],base=skills[o[1]]||0;
+ const penalty=Math.floor((100-san)/10)*2,target=Math.max(8,base-penalty),roll=R(100)+1;
+ log("TÉMOIN SOUS PRESSION — "+o[0]+" : "+roll+"/"+target+" ("+o[1]+", pénalité SAN "+penalty+").");
+ if(roll<=target){player.xp=(player.xp||0)+2;log("FAILLE DÉCELÉE — Un détail involontaire échappe au témoin : +2 XP.");toast("FAILLE DÉCELÉE");cd350Banner("FAILLE DÉCELÉE",o[2]+" Vous obtenez un indice humain exploitable.");}
+ else{log("MÉFIANCE INSTALLÉE — Votre état trouble l'échange; le témoin se referme.");toast("MÉFIANCE INSTALLÉE");cd350Banner("MÉFIANCE INSTALLÉE",o[2]+" Le témoin devient plus difficile à lire.");}
+}
+const cd350NpcPanel=cd18NpcPanel;
+cd18NpcPanel=function(){const r=cd350NpcPanel.apply(this,arguments);cd350Try();return r};
 
 </script>
 
