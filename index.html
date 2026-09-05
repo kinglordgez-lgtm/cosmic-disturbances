@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 2.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 2.8.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6074,6 +6074,32 @@ const cd280Talk=cd18Talk;
 cd18Talk=function(){cd280Try();return cd280Talk.apply(this,arguments)};
 const cd280NewRun=newRun;
 newRun=function(){const r=cd280NewRun.apply(this,arguments);player.cd280={shown:false};return r};
+
+
+/* === V2.8.1 : correctif première impression ===
+   Le déclenchement ne dépend plus uniquement de cd18Talk :
+   il s'arme dès que le contexte PNJ est réellement affiché. */
+function cd281NpcContext(){
+ if(typeof player==="undefined"||!player)return false;
+ const tile=(typeof map!=="undefined"&&map[player.y]&&map[player.y][player.x])?map[player.y][player.x]:null;
+ return tile==="☺";
+}
+function cd281Try(){
+ const s=cd280State(); if(s.shown)return;
+ if(!cd281NpcContext())return;
+ cd280Try();
+}
+const cd281RenderContext=renderContext;
+renderContext=function(){
+ const r=cd281RenderContext.apply(this,arguments);
+ cd281Try();
+ return r
+};
+const cd281Talk=cd18Talk;
+cd18Talk=function(){
+ cd281Try();
+ return cd281Talk.apply(this,arguments)
+};
 
 </script>
 
