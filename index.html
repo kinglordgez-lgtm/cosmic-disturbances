@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6670,6 +6670,34 @@ function cd400Panel(){
 }
 const cd400EnemyTurn=enemyTurn;
 enemyTurn=function(){cd400Panel();return cd400EnemyTurn.apply(this,arguments)};
+
+
+/* === V4.1.0 : postures à double tranchant === */
+function cd410State(){if(!player.cd410)player.cd410={applied:false,enemyHits:0};return player.cd410}
+function cd410Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:100001;min-width:350px;max-width:74vw;padding:14px 18px;border:2px solid #a98b59;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#d4b16a;font-size:17px;font-weight:700'>CONSÉQUENCE DE POSTURE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},3600)
+}
+const cd410OldChoice=cd400Choice;
+cd400Choice=function(choice){
+ const r=cd410OldChoice.apply(this,arguments);
+ const s=cd410State();s.applied=true;
+ if(choice==="prudence"){
+   player.atk=Math.max(1,(player.atk||1)-1);
+   log("CONTREPARTIE — PRUDENCE : -1 ATQ. Vous survivez mieux, mais frappez moins fort.");
+   cd410Banner("GARDE FERMÉE","+1 DEF, mais -1 ATQ : la survie prime sur l'élan.");
+ }else if(choice==="pression"){
+   player.def=Math.max(0,(player.def||0)-1);
+   log("CONTREPARTIE — PRESSION : -1 DEF. Vous vous exposez pour accélérer le combat.");
+   cd410Banner("GARDE OUVERTE","+1 ATQ, mais -1 DEF : chaque erreur coûtera davantage.");
+ }else{
+   player.san=Math.max(0,(player.san||0)-1);
+   log("CONTREPARTIE — OBSERVER : -1 SAN. Comprendre la créature exige de la regarder trop longtemps.");
+   cd410Banner("REGARD PROLONGÉ","+1 XP, mais -1 SAN : apprendre a un prix.");
+ }
+ return r;
+};
 
 </script>
 
