@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6639,6 +6639,37 @@ function cd390Try(){
 }
 const cd390Attack=attack;
 attack=function(){const r=cd390Attack.apply(this,arguments);cd390Try();return r};
+
+
+/* === V4.0.0 : posture tactique — un vrai choix avant l'affrontement === */
+function cd400State(){if(!player.cd400)player.cd400={shown:false,choice:""};return player.cd400}
+function cd400Choice(choice){
+ const s=cd400State(); if(s.choice)return; s.choice=choice;
+ const skills=((player.char||{}).skills||{});
+ if(choice==="prudence"){
+   player.def=(player.def||0)+1;
+   log("POSTURE — PRUDENCE : +1 DEF pour cette préparation.");
+   toast("PRUDENCE");
+ }else if(choice==="pression"){
+   player.atk=(player.atk||0)+1;
+   log("POSTURE — PRESSION : +1 ATQ pour cette préparation.");
+   toast("PRESSION");
+ }else{
+   player.xp=(player.xp||0)+1;
+   log("POSTURE — OBSERVATION : vous sacrifiez l'élan pour comprendre : +1 XP.");
+   toast("OBSERVATION");
+ }
+ const b=document.getElementById("cd400Panel"); if(b)b.remove();
+}
+function cd400Panel(){
+ const s=cd400State(); if(s.shown||s.choice||!battle||!enemy)return; s.shown=true;
+ const b=document.createElement("div");b.id="cd400Panel";
+ b.style.cssText="position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:100000;width:min(720px,78vw);padding:15px 18px;border:2px solid #a98b59;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:9px;box-shadow:0 10px 34px #000";
+ b.innerHTML="<div style='color:#d4b16a;font-size:18px;font-weight:700'>POSTURE TACTIQUE</div><div style='font-size:14px;color:#adb4c0;margin:7px 0 12px'>Avant de vous engager, choisissez ce que vous êtes prêt à sacrifier.</div><div style='display:flex;gap:8px;justify-content:center;flex-wrap:wrap'><button onclick=\"cd400Choice('prudence')\">PRUDENCE<br><small>+1 DEF</small></button><button onclick=\"cd400Choice('pression')\">PRESSION<br><small>+1 ATQ</small></button><button onclick=\"cd400Choice('observation')\">OBSERVER<br><small>+1 XP</small></button></div>";
+ document.body.appendChild(b);
+}
+const cd400EnemyTurn=enemyTurn;
+enemyTurn=function(){cd400Panel();return cd400EnemyTurn.apply(this,arguments)};
 
 </script>
 
