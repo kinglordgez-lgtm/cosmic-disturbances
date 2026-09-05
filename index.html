@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6606,6 +6606,39 @@ function cd380Try(){
 }
 const cd380Loot=loot;
 loot=function(){const r=cd380Loot.apply(this,arguments);cd380Try();return r};
+
+
+/* === V3.9.0 : convergence des risques — les systèmes se combinent === */
+function cd390State(){if(!player.cd390)player.cd390={shown:false};return player.cd390}
+function cd390Banner(title,detail){
+ const b=document.createElement("div");b.style.cssText="position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:99999;min-width:360px;max-width:76vw;padding:14px 18px;border:2px solid #9a6f78;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000";
+ b.innerHTML="<div style='color:#d19aaa;font-size:17px;font-weight:700'>CONVERGENCE DES RISQUES</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+ document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4300)
+}
+function cd390Try(){
+ const s=cd390State();if(s.shown||!battle||!enemy)return;s.shown=true;
+ const debt=(player.cd370&&player.cd370.debt)||0;
+ const inv=Array.isArray(player.inv)?player.inv:(Array.isArray(player.inventory)?player.inventory:[]);
+ const load=inv.length, myth=player.myth||0;
+ // Première vraie interaction entre systèmes : dette du Mythe + charge + combat.
+ const pressure=debt*18+Math.max(0,load-2)*5+myth*2;
+ const skills=((player.char||{}).skills||{}),end=skills.Endurance||0,obs=skills.Observation||0;
+ const target=Math.max(8,Math.min(88,Math.floor((end+obs)/2)-pressure+25)),roll=R(100)+1;
+ log("CONVERGENCE DES RISQUES — dette "+debt+", charge "+load+", MYTHE "+myth+"%, test "+roll+"/"+target+".");
+ if(roll<=target){
+   player.xp=(player.xp||0)+3;
+   if(enemy&&typeof enemy.hp==="number")enemy.hp=Math.max(1,enemy.hp-1);
+   log("PRÉPARATION PAYANTE — Vous transformez vos contraintes en avantage : +3 XP, ennemi fragilisé.");
+   toast("PRÉPARATION PAYANTE");cd390Banner("PRÉPARATION PAYANTE","Votre charge, votre peur et vos connaissances restent sous contrôle. +3 XP.");
+ }else{
+   player.san=Math.max(0,(player.san||0)-1);
+   player.hp=Math.max(1,(player.hp||1)-1);
+   log("EFFET DOMINO — Vos contraintes se renforcent mutuellement : -1 PV, -1 SAN.");
+   toast("EFFET DOMINO");cd390Banner("EFFET DOMINO","La charge gêne vos gestes tandis que la connaissance interdite parasite votre attention. -1 PV, -1 SAN.");
+ }
+}
+const cd390Attack=attack;
+attack=function(){const r=cd390Attack.apply(this,arguments);cd390Try();return r};
 
 </script>
 
