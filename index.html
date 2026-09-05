@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 3.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 3.1.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6328,6 +6328,30 @@ move=function(){
 };
 const cd310NewRun=newRun;
 newRun=function(){const r=cd310NewRun.apply(this,arguments);player.cd310={steps:0,shown:false};return r};
+
+
+/* === V3.1.1 : déplacement réellement constaté === */
+function cd311State(){
+ if(!player.cd311)player.cd311={x:player.x,y:player.y,steps:0,shown:false,result:""};
+ return player.cd311;
+}
+function cd311Check(){
+ const s=cd311State();
+ if(player.x!==s.x||player.y!==s.y){
+   s.x=player.x;s.y=player.y;s.steps++;
+   if(s.steps>=2&&!s.shown){
+     s.shown=true;
+     const e=CD310_SIGNS[R(CD310_SIGNS.length)],
+       skills=((player.char||{}).skills||{}),sk=skills[e[2]]||0,roll=R(100)+1;
+     log("INSTINCT D'EXPLORATION — "+e[0]+" : "+e[1]);
+     log("Test de "+e[2]+" : "+roll+"/"+sk+".");
+     if(roll<=sk){player.xp=(player.xp||0)+2;s.result="PASSAGE LU";log("PASSAGE LU — Vous comprenez mieux la géométrie du secteur : +2 XP.");toast("PASSAGE LU")}
+     else{s.result="SENSATION TROUBLE";log("SENSATION TROUBLE — Le lieu refuse encore de livrer sa logique.");toast("SENSATION TROUBLE")}
+   }
+ }
+}
+const cd311Render=render;
+render=function(){const r=cd311Render.apply(this,arguments);cd311Check();return r};
 
 </script>
 
