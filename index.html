@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7053,6 +7053,54 @@ attack=function(){
   cd480Sync();
   const r=cd480Attack.apply(this,arguments);
   cd480Try();
+  return r;
+};
+
+
+
+/* === V4.9.0 : nerfs à vif — le personnage réagit quand ses PV passent sous 50% === */
+function cd490State(){
+  if(!player.cd490) player.cd490={ref:null,shown:false};
+  return player.cd490;
+}
+function cd490Sync(){
+  const s=cd490State();
+  if(!battle||!enemy){s.ref=null;s.shown=false;return s}
+  if(s.ref!==enemy){s.ref=enemy;s.shown=false}
+  return s;
+}
+function cd490Try(beforeHp){
+  if(!battle||!enemy||!player)return;
+  const s=cd490Sync();
+  const max=Math.max(1,Number(player.maxhp||player.hp||1));
+  const threshold=Math.floor(max*.5);
+  if(s.shown||player.hp<=0||player.hp>threshold||beforeHp<=threshold)return;
+  s.shown=true;
+  const skill=(player.char&&player.char.skills)||{};
+  const options=[
+    {name:"SANG-FROID",stat:"Psychologie",ok:"NERFS D'ACIER",fail:"PANIQUE CONTENUE"},
+    {name:"RÉFLEXE DE SURVIE",stat:"Endurance",ok:"SECOND SOUFFLE",fail:"SOUFFLE COUPÉ"},
+    {name:"LUCIDITÉ BRUTALE",stat:"Observation",ok:"DANGER LU",fail:"VISION TROUBLÉE"}
+  ];
+  const o=options[R(options.length)];
+  const score=Number(skill[o.stat]||35),roll=1+R(100),success=roll<=score;
+  if(success){
+    player.hp=Math.min(max,player.hp+2);
+    player.xp=(player.xp||0)+1;
+    log("NERFS À VIF — "+o.ok+" : "+o.stat+" "+roll+"/"+score+" ✓. +2 PV, +1 XP.");
+    toast(o.ok+" — +2 PV");
+  }else{
+    player.san=Math.max(0,(player.san||0)-1);
+    log("NERFS À VIF — "+o.fail+" : "+o.stat+" "+roll+"/"+score+" ✗. -1 SAN.");
+    toast(o.fail+" — -1 SAN");
+  }
+}
+const cd490EnemyTurn=enemyTurn;
+enemyTurn=function(){
+  cd490Sync();
+  const before=player&&Number(player.hp);
+  const r=cd490EnemyTurn.apply(this,arguments);
+  if(Number.isFinite(before))cd490Try(before);
   return r;
 };
 
