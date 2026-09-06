@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7710,6 +7710,44 @@ investigate=function(){
   const first=!cd620State().shown;
   const r=cd620Investigate.apply(this,arguments);
   if(first) try{cd620Resolve();}catch(e){console.warn('cd620',e)}
+  return r;
+};
+
+
+
+/* === V6.3.0 : TRAIT SOUS TENSION ===
+   Test court : après 2 déplacements réussis, le trait personnel produit un effet propre. */
+function cd630State(){
+  if(!player.cd630) player.cd630={moves:0,shown:false};
+  return player.cd630;
+}
+function cd630Resolve(){
+  const s=cd630State(); if(s.shown)return; s.shown=true;
+  const trait=String((player.char&&player.char.trait)||'Inconnu');
+  let head='RÉFLEXE PERSONNEL', desc='Votre tempérament reprend le dessus.', effect='';
+  if(trait==='Sang-froid'){head='CALME GLACIAL';player.san=Math.min(player.maxsan||34,(player.san||0)+1);effect='+1 SAN';desc='Vous forcez votre respiration à ralentir malgré ce que le lieu suggère.';}
+  else if(trait==='Curieux'){head='QUESTION DE TROP';player.xp=(player.xp||0)+2;effect='+2 XP';desc='Là où d’autres détourneraient les yeux, vous cherchez le détail supplémentaire.';}
+  else if(trait==='Méfiant'){head='ARRIÈRE-PENSÉE';player.xp=(player.xp||0)+1;player.san=Math.min(player.maxsan||34,(player.san||0)+1);effect='+1 XP · +1 SAN';desc='Vous supposez que le secteur ment avant même de savoir comment.';}
+  else if(trait==='Insomniaque'){head='VEILLE MALADE';player.xp=(player.xp||0)+2;player.san=Math.max(0,(player.san||0)-1);effect='+2 XP · -1 SAN';desc='La fatigue rend les contours instables, mais certains détails deviennent impossibles à ignorer.';}
+  else if(trait==='Œil exercé'){head='DÉTAIL SAISI';player.xp=(player.xp||0)+2;effect='+2 XP';desc='Une irrégularité minuscule suffit à réorganiser votre lecture du passage.';}
+  else if(trait==='Volonté de fer'){head='ESPRIT VERROUILLÉ';player.san=Math.min(player.maxsan||34,(player.san||0)+1);effect='+1 SAN';desc='Vous refusez au lieu le droit de décider ce que vous devez ressentir.';}
+  else if(trait==='Superstitieux'){head='MAUVAIS SIGNE';player.xp=(player.xp||0)+2;player.myth=Math.min(100,(player.myth||0)+1);effect='+2 XP · +1 MYTHE';desc='Un signe banal rejoint une vieille croyance. Cette fois, elle semble répondre.';}
+  else if(trait==='Cicatrice étrange'){head='LA CICATRICE RÉPOND';player.xp=(player.xp||0)+1;player.myth=Math.min(100,(player.myth||0)+1);effect='+1 XP · +1 MYTHE';desc='Sous vos vêtements, l’ancienne marque brûle exactement au mauvais moment.';}
+  else {player.xp=(player.xp||0)+1;effect='+1 XP';}
+  log('TRAIT SOUS TENSION — '+head+' ['+trait+'] : '+effect+'.');
+  toast(head);
+  if(typeof cdOpenPanel==='function') setTimeout(()=>cdOpenPanel('TRAIT SOUS TENSION','<h2>'+head+'</h2><p><b>'+trait+'</b> — '+desc+' <b>'+effect+'.</b></p>'),220);
+}
+const cd630Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd630Move.apply(this,arguments);
+  try{
+    if(!battle && (px!==bx||py!==by)){
+      const s=cd630State();
+      if(!s.shown && ++s.moves>=2) cd630Resolve();
+    }
+  }catch(e){console.warn('cd630',e)}
   return r;
 };
 
