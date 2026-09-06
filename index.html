@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7416,6 +7416,49 @@ const cd550Attack=attack;
 attack=function(){cd550Arm();cd550Use("attack");return cd550Attack.apply(this,arguments);};
 const cd550NewRun=newRun;
 newRun=function(){const r=cd550NewRun.apply(this,arguments);player.cd550={ready:false,kind:"",used:false};return r;};
+
+
+/* === V5.6.0 : intégration d'aptitude — le premier choix de progression laisse un effet immédiat === */
+function cd560State(){
+  if(!player.cd560)player.cd560={shown:false,last:""};
+  return player.cd560;
+}
+function cd560Integrate(name){
+  const s=cd560State(); if(s.shown||!name)return false;
+  s.shown=true;s.last=name;
+  let title="APTITUDE INTÉGRÉE",text="",tag="";
+  if(name==="Nerfs d'acier"){
+    player.san=Math.min(player.maxSan||player.san||34,(player.san||0)+1);
+    tag="SANG-FROID ANCRÉ";text="Votre nouvelle discipline mentale s'installe immédiatement. +1 SAN.";
+  }else if(name==="Instinct de survie"){
+    player.xp=(player.xp||0)+1;
+    tag="RÉFLEXE AIGUISÉ";text="Votre corps anticipe déjà le prochain danger. +1 XP.";
+  }else if(name==="Peau dure"){
+    player.hp=Math.min(player.maxHp||player.hp||34,(player.hp||0)+2);
+    tag="ENDURANCE ANCRÉE";text="Votre organisme encaisse mieux les séquelles du terrain. +2 PV.";
+  }else{
+    player.xp=(player.xp||0)+1;
+    tag="APTITUDE ASSIMILÉE";text="Votre expérience devient un réflexe concret. +1 XP.";
+  }
+  log("INTÉGRATION D'APTITUDE — "+tag+" — "+text);
+  const body=`<div class=entry><b>${tag}</b><br>${text}</div>`;
+  if(typeof cdOpenPanel==="function")setTimeout(()=>cdOpenPanel(title,body),140); else toast(tag);
+  return true;
+}
+const cd560Choose=cd46Choose;
+cd46Choose=function(i){
+  const x=(typeof cd46Choices!=="undefined"&&cd46Choices)?cd46Choices[i]:null;
+  const name=x&&x.name?x.name:"";
+  const r=cd560Choose.apply(this,arguments);
+  if(name)cd560Integrate(name);
+  return r;
+};
+const cd560NewRun=newRun;
+newRun=function(){
+  const r=cd560NewRun.apply(this,arguments);
+  player.cd560={shown:false,last:""};
+  return r;
+};
 
 </script>
 </body>
