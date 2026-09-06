@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7457,6 +7457,52 @@ const cd560NewRun=newRun;
 newRun=function(){
   const r=cd560NewRun.apply(this,arguments);
   player.cd560={shown:false,last:""};
+  return r;
+};
+
+
+
+/* === V5.7.0 : empreinte sociale — la première méthode employée face à un témoin laisse une conséquence === */
+function cd570State(){
+  if(!player.cd570)player.cd570={shown:false,mode:"",result:""};
+  return player.cd570;
+}
+function cd570AfterTalk(mode,beforeTrust){
+  const s=cd570State(); if(s.shown)return false;
+  const n=player.npc,after=n&&typeof n.trust==="number"?n.trust:beforeTrust;
+  const ok=typeof beforeTrust==="number"&&typeof after==="number"?after>=beforeTrust:true;
+  s.shown=true;s.mode=mode;
+  let tag="CONTACT MARQUÉ",text="Votre manière d'aborder les habitants commence à vous définir.";
+  if(mode==="questionner"){
+    tag=ok?"FIL CONDUCTEUR":"QUESTIONS TROP NETTES";
+    text=ok?"Vous repérez ce qui mérite d'être recoupé. +1 XP.":"Votre insistance laisse une trace dans la conversation.";
+    if(ok)player.xp=(player.xp||0)+1;
+  }else if(mode==="rassurer"){
+    tag=ok?"CONFIANCE FRAGILE":"RÉCONFORT MALADROIT";
+    text=ok?"Le témoin baisse brièvement sa garde. +1 SAN.":"Vos mots n'atteignent pas encore leur cible.";
+    if(ok)player.san=Math.min(player.maxsan||player.maxSan||34,(player.san||0)+1);
+  }else if(mode==="menacer"){
+    tag=ok?"ASCENDANT SOMBRE":"MENACE RETENUE";
+    text=ok?"La peur ouvre une porte, mais quelque chose en vous l'a remarquée. +1 MYTHE.":"Votre violence est désormais mémorisée.";
+    if(ok)player.myth=(player.myth||0)+1;
+  }
+  s.result=tag;
+  log("EMPREINTE SOCIALE — "+tag+" — "+text);
+  const body=`<div class=entry><b>${tag}</b><br>${text}</div>`;
+  if(typeof cdOpenPanel==="function")setTimeout(()=>cdOpenPanel("EMPREINTE SOCIALE",body),160); else toast(tag);
+  return true;
+}
+const cd570Talk=cd18Talk;
+cd18Talk=function(mode){
+  const before=player&&player.npc&&typeof player.npc.trust==="number"?player.npc.trust:null;
+  const r=cd570Talk.apply(this,arguments);
+  try{cd570AfterTalk(mode,before)}catch(e){console.warn("cd570 social",e)}
+  return r;
+};
+const cd570NewRun=newRun;
+newRun=function(){
+  const r=cd570NewRun.apply(this,arguments);
+  player.cd570={shown:false,mode:"",result:""};
   return r;
 };
 
