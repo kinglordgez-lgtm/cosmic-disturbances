@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7748,6 +7748,44 @@ move=function(dx,dy){
       if(!s.shown && ++s.moves>=2) cd630Resolve();
     }
   }catch(e){console.warn('cd630',e)}
+  return r;
+};
+
+
+
+/* === V6.4.0 : CONTRECOUP DU TRAIT ===
+   Le trait n'est plus un bonus gratuit : après 4 déplacements réussis, son revers se manifeste. */
+function cd640State(){
+  if(!player.cd640) player.cd640={moves:0,shown:false};
+  return player.cd640;
+}
+function cd640Resolve(){
+  const s=cd640State(); if(s.shown)return; s.shown=true;
+  const trait=String((player.char&&player.char.trait)||'Inconnu');
+  let head='ANGLE MORT', desc='Votre tempérament vous impose sa propre limite.', effect='';
+  if(trait==='Sang-froid'){head='FROIDEUR DANGEREUSE';player.xp=(player.xp||0)+1;desc='À force de contenir la peur, vous tardez à reconnaître qu’elle avait peut-être raison.';effect='+1 XP · vigilance fragilisée';}
+  else if(trait==='Curieux'){head='CURIOSITÉ MORBIDE';player.san=Math.max(0,(player.san||0)-1);desc='Vous regardez une seconde de trop ce qui aurait dû rester périphérique.';effect='-1 SAN';}
+  else if(trait==='Méfiant'){head='SOUPÇON PARALYSANT';player.san=Math.max(0,(player.san||0)-1);desc='Chaque issue ressemble soudain à un piège préparé spécialement pour vous.';effect='-1 SAN';}
+  else if(trait==='Insomniaque'){head='MICRO-SOMMEIL';player.san=Math.max(0,(player.san||0)-1);desc='Un battement de paupières dure beaucoup trop longtemps. Le passage semble avoir changé.';effect='-1 SAN';}
+  else if(trait==='Œil exercé'){head='SURINTERPRÉTATION';player.xp=(player.xp||0)+1;desc='Vous trouvez un motif dans le bruit. Reste à savoir s’il existe vraiment.';effect='+1 XP · indice incertain';}
+  else if(trait==='Volonté de fer'){head='OBSTINATION';player.san=Math.max(0,(player.san||0)-1);desc='Vous refusez de céder, même lorsque reculer serait la décision la plus saine.';effect='-1 SAN';}
+  else if(trait==='Superstitieux'){head='PRÉSAGE ENVAHISSANT';player.myth=Math.min(100,(player.myth||0)+1);desc='Les coïncidences cessent d’être innocentes. Toutes semblent désormais vous viser.';effect='+1 MYTHE';}
+  else if(trait==='Cicatrice étrange'){head='DOULEUR FANTÔME';player.san=Math.max(0,(player.san||0)-1);player.myth=Math.min(100,(player.myth||0)+1);desc='La marque pulse au rythme d’une présence que vous ne voyez pas.';effect='-1 SAN · +1 MYTHE';}
+  else {player.san=Math.max(0,(player.san||0)-1);effect='-1 SAN';}
+  log('CONTRECOUP DU TRAIT — '+head+' ['+trait+'] : '+effect+'.');
+  toast(head);
+  if(typeof cdOpenPanel==='function') setTimeout(()=>cdOpenPanel('CONTRECOUP DU TRAIT','<h2>'+head+'</h2><p><b>'+trait+'</b> — '+desc+' <b>'+effect+'.</b></p>'),180);
+}
+const cd640Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd640Move.apply(this,arguments);
+  try{
+    if(!battle && (px!==bx||py!==by)){
+      const s=cd640State();
+      if(!s.shown && ++s.moves>=4) cd640Resolve();
+    }
+  }catch(e){console.warn('cd640',e)}
   return r;
 };
 
