@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7552,6 +7552,62 @@ newRun=function(){
   player.cd580={shown:false,item:"",result:""};
   return r;
 };
+
+/* === V5.9.0 : INDICE CROISÉ ===
+   Le premier objet récupéré peut nourrir immédiatement la prochaine enquête.
+   Test court : premier loot -> première enquête suivante. */
+function cd590State(){
+  if(!player.cd590) player.cd590={armed:false,shown:false,item:""};
+  return player.cd590;
+}
+function cd590Arm(itemName){
+  const s=cd590State();
+  if(s.shown||s.armed)return;
+  s.armed=true;
+  s.item=String(itemName||"objet");
+  log("INDICE CROISÉ — Votre trouvaille pourrait éclairer la prochaine enquête.");
+  toast("INDICE CROISÉ ARMÉ");
+}
+function cd590Resolve(){
+  const s=cd590State();
+  if(!s.armed||s.shown)return;
+  s.shown=true;s.armed=false;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=["Investigation","Observation","Érudition"][R(3)];
+  const val=Number(skills[skill]||0),roll=R(100)+1;
+  if(roll<=val){
+    player.xp=(player.xp||0)+2;
+    log("INDICE CROISÉ — CONNEXION ÉTABLIE : "+s.item+" éclaire un détail de l'enquête. "+skill+" "+roll+"/"+val+" ✓ · +2 XP.");
+    toast("CONNEXION ÉTABLIE");
+    if(typeof cdOpenPanel==="function") cdOpenPanel("INDICE CROISÉ","<h2>CONNEXION ÉTABLIE</h2><p>Votre trouvaille fait écho à un détail du lieu. <b>+2 XP.</b></p>");
+  }else{
+    player.san=Math.max(0,(player.san||0)-1);
+    log("INDICE CROISÉ — MAUVAISE ASSOCIATION : vous forcez un lien qui n'existe peut-être pas. "+skill+" "+roll+"/"+val+" ✕ · -1 SAN.");
+    toast("MAUVAISE ASSOCIATION");
+    if(typeof cdOpenPanel==="function") cdOpenPanel("INDICE CROISÉ","<h2>MAUVAISE ASSOCIATION</h2><p>Vous forcez un lien incertain entre l'objet et le lieu. <b>-1 SAN.</b></p>");
+  }
+}
+const cd590Loot=loot;
+loot=function(){
+  const before=(player.inv||[]).length;
+  const r=cd590Loot.apply(this,arguments);
+  try{
+    const inv=player.inv||[];
+    if(inv.length>before){
+      const it=inv[inv.length-1];
+      cd590Arm(typeof it==="string"?it:(it&&it.name)||"objet");
+    }
+  }catch(e){}
+  return r;
+};
+const cd590Investigate=investigate;
+investigate=function(){
+  const had=cd590State().armed;
+  const r=cd590Investigate.apply(this,arguments);
+  if(had) cd590Resolve();
+  return r;
+};
+
 </script>
 </body>
 </html>
