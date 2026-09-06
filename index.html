@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7104,6 +7104,45 @@ enemyTurn=function(){
   return r;
 };
 
+
+
+/* === V5.0.0 : contrecoup — l'état du personnage façonne l'après-combat === */
+function cd500State(){
+  if(!player.cd500) player.cd500={shown:false};
+  return player.cd500;
+}
+function cd500AfterCombat(){
+  if(!player)return;
+  const s=cd500State();
+  if(s.shown)return;
+  s.shown=true;
+  const maxhp=Math.max(1,Number(player.maxhp||player.hp||1));
+  const maxsan=Math.max(1,Number(player.maxsan||player.msan||34));
+  let title,detail;
+  if((player.hp||0)<=Math.floor(maxhp*.5)){
+    player.hp=Math.min(maxhp,(player.hp||0)+2);
+    title="LE CORPS TIENT ENCORE";
+    detail="L'adrénaline retarde l'effondrement. +2 PV.";
+  }else if((player.san||0)<=Math.floor(maxsan*.6)){
+    player.san=Math.min(maxsan,(player.san||0)+1);
+    title="RETOUR AU RÉEL";
+    detail="Le silence après la lutte vous rend un fragment de lucidité. +1 SAN.";
+  }else{
+    player.xp=(player.xp||0)+2;
+    title="LEÇON DE SURVIE";
+    detail="Vous reconstruisez mentalement les secondes qui viennent de vous sauver. +2 XP.";
+  }
+  log("CONTRECOUP — "+title+" : "+detail);
+  toast(title);
+  if(typeof cdOpenPanel==="function")cdOpenPanel("APRÈS LE COMBAT","<h2>"+title+"</h2><p>"+detail+"</p>");
+}
+const cd500Win=win;
+win=function(){
+  const wasBattle=!!battle;
+  const r=cd500Win.apply(this,arguments);
+  if(wasBattle&&!battle)cd500AfterCombat();
+  return r;
+};
 </script>
 </body>
 </html>
