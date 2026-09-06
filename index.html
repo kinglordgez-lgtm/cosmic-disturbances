@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7787,6 +7787,60 @@ move=function(dx,dy){
     }
   }catch(e){console.warn('cd640',e)}
   return r;
+};
+
+
+
+/* === V6.5.0 : PROFIL PSYCHOLOGIQUE ===
+   Les traits deviennent des modificateurs RPG permanents : +5 sur une aptitude naturelle, -5 sur un angle mort.
+   Visible immédiatement dans la fiche personnage et appliqué à tous les tests de compétence. */
+function cd650Profile(){
+  const trait=String((player.char&&player.char.trait)||'');
+  const profiles={
+    'Sang-froid':{plus:'Psychologie',minus:'Occultisme',label:'Maîtrise émotionnelle'},
+    'Curieux':{plus:'Investigation',minus:'Endurance',label:'Besoin de comprendre'},
+    'Méfiant':{plus:'Observation',minus:'Psychologie',label:'Hypervigilance'},
+    'Insomniaque':{plus:'Occultisme',minus:'Endurance',label:'Veille anormale'},
+    'Œil exercé':{plus:'Observation',minus:'Psychologie',label:'Attention sélective'},
+    'Volonté de fer':{plus:'Endurance',minus:'Psychologie',label:'Rigidité mentale'},
+    'Superstitieux':{plus:'Occultisme',minus:'Érudition',label:'Pensée symbolique'},
+    'Cicatrice étrange':{plus:'Occultisme',minus:'Médecine',label:'Sensibilité au Mythe'}
+  };
+  return profiles[trait]||{plus:'Investigation',minus:'Psychologie',label:'Tempérament indéfini'};
+}
+function cd650State(){if(!player.cd650)player.cd650={shown:false};return player.cd650}
+const cd650SkillCheck=skillCheck;
+skillCheck=function(skill,difficulty){
+  const p=cd650Profile(), skills=player.char&&player.char.skills;
+  if(!skills)return cd650SkillCheck.apply(this,arguments);
+  let mod=0;
+  if(skill===p.plus)mod=5; else if(skill===p.minus)mod=-5;
+  if(!mod)return cd650SkillCheck.apply(this,arguments);
+  const old=Number(skills[skill]||0);
+  skills[skill]=Math.max(0,Math.min(100,old+mod));
+  let r;
+  try{r=cd650SkillCheck.call(this,skill,difficulty)}finally{skills[skill]=old}
+  log('PROFIL PSYCHOLOGIQUE — '+p.label+' : '+skill+' '+(mod>0?'+':'')+mod+' au test.');
+  const st=cd650State();
+  if(!st.shown){
+    st.shown=true; toast('TRAIT APPLIQUÉ');
+    if(typeof cdOpenPanel==='function') setTimeout(()=>cdOpenPanel('PROFIL PSYCHOLOGIQUE','<h2>TRAIT APPLIQUÉ</h2><p><b>'+String(player.char.trait)+'</b> — '+p.label+'.</p><p><b>'+p.plus+' +5</b> · <b>'+p.minus+' -5</b></p>'),160);
+  }
+  return r;
+};
+const cd650OpenCharacter=openCharacter;
+openCharacter=function(){
+  cd650OpenCharacter.apply(this,arguments);
+  try{
+    const p=cd650Profile();
+    const box=document.querySelector('#modal .modalContent')||document.getElementById('sheetContent')||document.querySelector('#modal');
+    if(box && !box.querySelector('.cd650Profile')){
+      const d=document.createElement('div'); d.className='cd650Profile';
+      d.style.cssText='margin-top:14px;padding:12px;border:1px solid #667085;border-radius:10px';
+      d.innerHTML='<b>PROFIL PSYCHOLOGIQUE — '+p.label+'</b><br><span>'+String(player.char.trait)+' : <b>'+p.plus+' +5</b> · <b>'+p.minus+' -5</b></span>';
+      box.appendChild(d);
+    }
+  }catch(e){console.warn('cd650 sheet',e)}
 };
 
 </script>
