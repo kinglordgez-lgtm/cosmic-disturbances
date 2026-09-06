@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7190,6 +7190,76 @@ newRun=function(){
   player.cd510={x:px,y:py,moves:0,shown:false,mark:""};
   return r;
 };
+
+/* === V5.2.0 : suivre la trace — un vrai choix d'exploration === */
+function cd520State(){
+  if(!player.cd520)player.cd520={resolved:false,pending:false};
+  return player.cd520;
+}
+function cd520TraceSkill(){
+  const mark=((player.cd510||{}).mark)||"";
+  if(mark==="PORTE MURÉE")return "Observation";
+  if(mark==="ODEUR DE MARÉE")return "Investigation";
+  if(mark==="ANGLE IMPOSSIBLE")return "Occultisme";
+  if(mark==="MARQUES À LA CRAIE")return "Érudition";
+  return "Investigation";
+}
+function cd520Resolve(mode){
+  const s=cd520State(); if(s.resolved)return;
+  s.resolved=true;s.pending=false;
+  const mark=((player.cd510||{}).mark)||"TRACE INCONNUE";
+  if(mode==="suivre"){
+    const skill=cd520TraceSkill(),skills=((player.char||{}).skills||{}),score=Number(skills[skill]||0),roll=R(100)+1;
+    log("SUIVRE LA TRACE — "+mark+" · "+skill+" "+roll+"/"+score+".");
+    if(roll<=score){
+      player.xp=(player.xp||0)+3;
+      player.cd520.edge=1;
+      log("PISTE CONFIRMÉE — Le repère mène à quelque chose de réel. +3 XP. Votre prochaine enquête sera mieux préparée.");
+      toast("PISTE CONFIRMÉE — +3 XP");
+    }else{
+      player.san=Math.max(0,(player.san||0)-2);
+      log("FAUSSE PISTE — Le secteur vous ramène sur vos propres pas. -2 SAN.");
+      toast("FAUSSE PISTE — -2 SAN");
+    }
+  }else if(mode==="memoriser"){
+    player.xp=(player.xp||0)+1;
+    player.cd520.edge=1;
+    log("REPÈRE CONSERVÉ — Vous refusez le risque immédiat, mais gardez l'information. +1 XP.");
+    toast("REPÈRE CONSERVÉ — +1 XP");
+  }else{
+    log("TRACE ABANDONNÉE — Vous choisissez de ne pas laisser Blackwater dicter votre route.");
+    toast("TRACE ABANDONNÉE");
+  }
+  closeOverlays();render();
+}
+function cd520Panel(){
+  const s=cd520State(),mark=((player.cd510||{}).mark)||"";
+  if(s.resolved||s.pending||!mark)return false;
+  s.pending=true;
+  const body=`<div class=entry><b>${mark}</b><br>Ce détail découvert dans le secteur peut être suivi, conservé pour plus tard, ou volontairement ignoré.</div>
+  <div class=grid2><button onclick="cd520Resolve('suivre')">SUIVRE<br><small>risque / récompense</small></button><button onclick="cd520Resolve('memoriser')">MÉMORISER<br><small>gain sûr</small></button><button onclick="cd520Resolve('ignorer')">IGNORER</button></div>`;
+  if(typeof cdOpenPanel==="function"){cdOpenPanel("TRACE DU SECTEUR",body);return true}
+  s.pending=false;return false;
+}
+const cd520Investigate=investigate;
+investigate=function(){
+  const s=cd520State(),mark=((player.cd510||{}).mark)||"";
+  if(mark&&!s.resolved&&cd520Panel())return;
+  if(s.edge){
+    s.edge=0;
+    player.xp=(player.xp||0)+1;
+    log("REPÈRE EXPLOITÉ — Votre lecture du secteur éclaire cette enquête. +1 XP.");
+    toast("REPÈRE EXPLOITÉ");
+  }
+  return cd520Investigate.apply(this,arguments);
+};
+const cd520NewRun=newRun;
+newRun=function(){
+  const r=cd520NewRun.apply(this,arguments);
+  player.cd520={resolved:false,pending:false,edge:0};
+  return r;
+};
+
 </script>
 </body>
 </html>
