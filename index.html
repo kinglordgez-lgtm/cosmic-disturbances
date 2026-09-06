@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7675,6 +7675,41 @@ enemyTurn=function(){
   const hb=player.hp||0, sb=player.san||0;
   const r=cd610EnemyTurn.apply(this,arguments);
   try{ cd610Resolve(hb,sb); }catch(e){}
+  return r;
+};
+
+
+
+/* === V6.2.0 : INSTINCT PROFESSIONNEL ===
+   Test court : après la première enquête de la partie, la profession colore la lecture du lieu. */
+function cd620State(){
+  if(!player.cd620) player.cd620={shown:false};
+  return player.cd620;
+}
+function cd620Resolve(){
+  const s=cd620State(); if(s.shown)return; s.shown=true;
+  const job=String((player.char&&player.char.job)||player.job||'Investigateur');
+  const skills=(player.char&&player.char.skills)||{};
+  let skill='Investigation', title='RÉFLEXE D’ENQUÊTEUR', text='Vous revenez instinctivement aux faits, aux traces et aux contradictions.';
+  if(/Médec|Infirm/i.test(job)){skill='Médecine';title='REGARD CLINIQUE';text='Votre formation transforme les détails physiques en symptômes et en indices.';}
+  else if(/Professeur|Professeure|Antiquaire/i.test(job)){skill='Érudition';title='MÉMOIRE SAVANTE';text='Un détail du lieu réveille une connaissance que vous croyiez oubliée.';}
+  else if(/Photographe/i.test(job)){skill='Observation';title='CADRAGE INSTINCTIF';text='Votre œil isole immédiatement ce qui ne devrait pas être dans le cadre.';}
+  else if(/Marin|Marine/i.test(job)){skill='Endurance';title='SENS DU DANGER';text='Des années à lire les signes faibles vous rendent attentif à ce qui précède le danger.';}
+  else if(/Journaliste/i.test(job)){skill='Psychologie';title='ANGLE HUMAIN';text='Vous cherchez moins ce que le lieu montre que ce que quelqu’un voudrait en cacher.';}
+  else if(/Détective/i.test(job)){skill='Investigation';title='RÉFLEXE DÉTECTIVE';text='Votre méthode reprend le dessus : chronologie, traces, contradictions.';}
+  const val=Number(skills[skill]||0), roll=R(100)+1, ok=roll<=val;
+  if(ok){player.xp=(player.xp||0)+2; log('INSTINCT PROFESSIONNEL — '+title+' : '+skill+' '+roll+'/'+val+' ✓ · +2 XP.');}
+  else {player.san=Math.max(0,(player.san||0)-1); log('INSTINCT PROFESSIONNEL — FAUSSE PISTE PROFESSIONNELLE : '+skill+' '+roll+'/'+val+' ✕ · -1 SAN.');}
+  const head=ok?title:'FAUSSE PISTE PROFESSIONNELLE';
+  const desc=ok?text+' <b>+2 XP.</b>':'Vos automatismes vous imposent une lecture trop familière de quelque chose qui ne l’est pas. <b>-1 SAN.</b>';
+  toast(head);
+  if(typeof cdOpenPanel==='function') setTimeout(()=>cdOpenPanel('INSTINCT PROFESSIONNEL','<h2>'+head+'</h2><p>'+job+' — '+desc+'</p>'),180);
+}
+const cd620Investigate=investigate;
+investigate=function(){
+  const first=!cd620State().shown;
+  const r=cd620Investigate.apply(this,arguments);
+  if(first) try{cd620Resolve();}catch(e){console.warn('cd620',e)}
   return r;
 };
 
