@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7141,6 +7141,53 @@ win=function(){
   const wasBattle=!!battle;
   const r=cd500Win.apply(this,arguments);
   if(wasBattle&&!battle)cd500AfterCombat();
+  return r;
+};
+
+
+/* === V5.1.0 : trace du secteur — l'exploration laisse une conséquence === */
+function cd510State(){
+  if(!player.cd510) player.cd510={x:px,y:py,moves:0,shown:false,mark:""};
+  return player.cd510;
+}
+const CD510_TRACES=[
+  ["PORTE MURÉE","Des briques plus récentes condamnent un passage qui ne figure sur aucun plan.","Observation"],
+  ["ODEUR DE MARÉE","Une senteur de varech persiste loin de toute eau visible.","Investigation"],
+  ["ANGLE IMPOSSIBLE","Deux façades semblent se rejoindre selon une géométrie qui devrait être impossible.","Occultisme"],
+  ["MARQUES À LA CRAIE","Quelqu'un a balisé ce secteur avant vous, puis a brusquement cessé.","Érudition"]
+];
+function cd510Try(){
+  const s=cd510State(); if(s.shown)return;
+  s.shown=true;
+  const e=CD510_TRACES[R(CD510_TRACES.length)];
+  const skills=((player.char||{}).skills||{}), score=Number(skills[e[2]]||0), roll=R(100)+1;
+  s.mark=e[0];
+  log("TRACE DU SECTEUR — "+e[0]+" : "+e[1]);
+  log("Test de "+e[2]+" : "+roll+"/"+score+".");
+  if(roll<=score){
+    player.xp=(player.xp||0)+2;
+    log("REPÈRE MÉMORISÉ — Ce détail devient un point d'ancrage dans Blackwater. +2 XP.");
+    toast("REPÈRE MÉMORISÉ — "+e[0]);
+  }else{
+    player.san=Math.max(0,(player.san||0)-1);
+    log("LIEU DÉRANGEANT — Vous retenez le repère sans parvenir à l'expliquer. -1 SAN.");
+    toast("LIEU DÉRANGEANT — "+e[0]);
+  }
+}
+const cd510Move=move;
+move=function(){
+  const bx=px,by=py;
+  const r=cd510Move.apply(this,arguments);
+  if(!battle&&(px!==bx||py!==by)){
+    const s=cd510State(); s.x=px;s.y=py;s.moves++;
+    if(s.moves===3)cd510Try();
+  }
+  return r;
+};
+const cd510NewRun=newRun;
+newRun=function(){
+  const r=cd510NewRun.apply(this,arguments);
+  player.cd510={x:px,y:py,moves:0,shown:false,mark:""};
   return r;
 };
 </script>
