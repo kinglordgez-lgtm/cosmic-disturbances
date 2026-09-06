@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.7.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7006,6 +7006,54 @@ enemyTurn=function(){
   cd471Sync();
   cd471React();
   return cd471EnemyTurn.apply(this,arguments);
+};
+
+
+/* === V4.8.0 : dernier sursaut — une créature acculée change ses priorités === */
+function cd480State(){
+  if(!player.cd480) player.cd480={ref:null,max:0,shown:false};
+  return player.cd480;
+}
+function cd480Sync(){
+  const s=cd480State();
+  if(!battle||!enemy){s.ref=null;s.max=0;s.shown=false;return s}
+  if(s.ref!==enemy){
+    s.ref=enemy;
+    s.max=Math.max(1,Number(enemy.maxHp||enemy.hpMax||enemy.hp||1));
+    s.shown=false;
+  }
+  return s;
+}
+function cd480Try(){
+  if(!battle||!enemy||typeof enemy.hp!=="number")return;
+  const s=cd480Sync();
+  if(s.shown||enemy.hp<=0||enemy.hp>Math.max(1,Math.floor(s.max*.25)))return;
+  s.shown=true;
+  const n=String(enemy.name||"La créature");
+  const type=R(3);
+  if(type===0){
+    enemy.atk=(enemy.atk||1)+1;
+    log("DERNIER SURSAUT — FUREUR DÉSESPÉRÉE : "+n+" refuse de tomber. +1 ATQ ennemi.");
+    toast("FUREUR DÉSESPÉRÉE");
+    if(typeof cdOpenPanel==="function") cdOpenPanel("DERNIER SURSAUT","<h2>FUREUR DÉSESPÉRÉE</h2><p>Acculée, la créature abandonne toute retenue. <b>+1 ATQ ennemi.</b></p>");
+  }else if(type===1){
+    enemy.def=(enemy.def||0)+1;
+    log("DERNIER SURSAUT — CARAPACE DE SURVIE : "+n+" protège instinctivement ses blessures. +1 DEF ennemi.");
+    toast("CARAPACE DE SURVIE");
+    if(typeof cdOpenPanel==="function") cdOpenPanel("DERNIER SURSAUT","<h2>CARAPACE DE SURVIE</h2><p>La douleur force la créature à protéger ses points vitaux. <b>+1 DEF ennemi.</b></p>");
+  }else{
+    player.san=Math.max(0,(player.san||0)-1);
+    log("DERNIER SURSAUT — CRI DE L'ABÎME : "+n+" libère une terreur primitive. -1 SAN.");
+    toast("CRI DE L'ABÎME");
+    if(typeof cdOpenPanel==="function") cdOpenPanel("DERNIER SURSAUT","<h2>CRI DE L'ABÎME</h2><p>À l'approche de la mort, quelque chose hurle à travers la créature. <b>-1 SAN.</b></p>");
+  }
+}
+const cd480Attack=attack;
+attack=function(){
+  cd480Sync();
+  const r=cd480Attack.apply(this,arguments);
+  cd480Try();
+  return r;
 };
 
 </script>
