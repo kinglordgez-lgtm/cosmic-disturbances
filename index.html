@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.5.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6834,6 +6834,54 @@ function cd450Try(){
 }
 const cd450EnemyTurn=enemyTurn;
 enemyTurn=function(){cd450Try();return cd450EnemyTurn.apply(this,arguments)};
+
+
+/* === V4.5.1 : correctif fiable du seuil de phase ===
+   On mémorise les PV initiaux du combat puis on vérifie APRES chaque attaque. */
+function cd451State(){if(!player.cd451)player.cd451={ref:null,max:0,fired:false};return player.cd451}
+function cd451Sync(){
+ const s=cd451State();
+ if(!battle||!enemy){s.ref=null;s.max=0;s.fired=false;return s}
+ if(s.ref!==enemy){
+   s.ref=enemy;
+   s.max=Math.max(1,Number(enemy.maxHp||enemy.hpMax||enemy.hp||1));
+   s.fired=false;
+   /* Neutralise l'ancien déclencheur V4.5 pour éviter un doublon. */
+   const o=cd450State();o.enemyKey=(enemy.name||"?")+"|"+s.max;o.phase=true;
+ }
+ return s
+}
+function cd451Phase(){
+ if(!battle||!enemy||typeof enemy.hp!=="number")return;
+ const s=cd451Sync();
+ if(s.fired||enemy.hp<=0||enemy.hp>Math.ceil(s.max*.5))return;
+ s.fired=true;
+ const n=(enemy.name||"").toLowerCase();
+ if(/cultiste/.test(n)){
+   enemy.atk=(enemy.atk||1)+1;
+   log("CHANGEMENT DE PHASE — FANATISME : +1 ATQ ennemi.");
+   toast("FANATISME");cd450Banner("FANATISME","Acculé, le cultiste abandonne toute prudence. +1 ATQ ennemi.");
+ }else if(/profond|dagon|noyé/.test(n)){
+   player.san=Math.max(0,(player.san||0)-1);
+   log("CHANGEMENT DE PHASE — FUREUR ABYSSALE : -1 SAN.");
+   toast("FUREUR ABYSSALE");cd450Banner("FUREUR ABYSSALE","Blessée, l'horreur révèle davantage sa nature. -1 SAN.");
+ }else if(/mi-go|fongique/.test(n)){
+   enemy.def=(enemy.def||0)+1;
+   log("CHANGEMENT DE PHASE — RECONFIGURATION : +1 DEF ennemi.");
+   toast("RECONFIGURATION");cd450Banner("RECONFIGURATION","Les tissus étrangers se réorganisent autour des blessures. +1 DEF ennemi.");
+ }else{
+   enemy.atk=(enemy.atk||1)+1;
+   log("CHANGEMENT DE PHASE — INSTINCT DE SURVIE : +1 ATQ ennemi.");
+   toast("INSTINCT DE SURVIE");cd450Banner("INSTINCT DE SURVIE","La blessure change immédiatement son comportement. +1 ATQ ennemi.");
+ }
+}
+const cd451Attack=attack;
+attack=function(){
+ cd451Sync();
+ const r=cd451Attack.apply(this,arguments);
+ cd451Phase();
+ return r;
+};
 
 </script>
 
