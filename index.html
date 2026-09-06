@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.5.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6882,6 +6882,23 @@ attack=function(){
  cd451Phase();
  return r;
 };
+
+
+/* V4.6.0 — comportements de phase */
+function cd460State(){if(!player.cd460)player.cd460={ref:null,turns:0,last:-99};return player.cd460}
+function cd460Sync(){const s=cd460State();if(!battle||!enemy){s.ref=null;s.turns=0;s.last=-99;return s}if(s.ref!==enemy){s.ref=enemy;s.turns=0;s.last=-99}return s}
+function cd460Act(){
+ if(!battle||!enemy||enemy.hp<=0)return;
+ const ps=cd451State(),s=cd460Sync();if(ps.ref!==enemy||!ps.fired)return;
+ s.turns++;if(s.turns!==1&&s.turns-s.last<2)return;s.last=s.turns;
+ const n=(enemy.name||"").toLowerCase();
+ if(/cultiste/.test(n)){const d=Math.max(1,Math.floor((enemy.atk||2)/2));player.hp=Math.max(1,(player.hp||1)-d);enemy.def=Math.max(0,(enemy.def||0)-1);log("COMPORTEMENT — ASSAUT FANATIQUE : -"+d+" PV, mais -1 DEF ennemi.");toast("ASSAUT FANATIQUE")}
+ else if(/profond|dagon|noyé/.test(n)){player.san=Math.max(0,(player.san||0)-1);enemy.hp=Math.min(ps.max||enemy.hp,enemy.hp+1);log("COMPORTEMENT — CHANT DES PROFONDEURS : -1 SAN, ennemi +1 PV.");toast("CHANT DES PROFONDEURS")}
+ else if(/mi-go|fongique/.test(n)){enemy.def=(enemy.def||0)+1;log("COMPORTEMENT — MUE FONGIQUE : +1 DEF ennemi.");toast("MUE FONGIQUE")}
+ else{player.hp=Math.max(1,(player.hp||1)-2);log("COMPORTEMENT — RUÉE DÉSESPÉRÉE : -2 PV.");toast("RUÉE DÉSESPÉRÉE")}
+}
+const cd460EnemyTurn=enemyTurn;
+enemyTurn=function(){cd460Sync();const r=cd460EnemyTurn.apply(this,arguments);if(battle&&enemy)cd460Act();return r};
 
 </script>
 
