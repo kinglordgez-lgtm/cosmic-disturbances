@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.7.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6946,6 +6946,68 @@ enemyTurn=function(){cd460Sync();const r=cd460EnemyTurn.apply(this,arguments);if
  const oldNR=newRun;
  newRun=function(){s.armed=false;s.shown=false;s.turns=0;return oldNR.apply(this,arguments)};
 })();
+
+/* === V4.7.1 : Mémoire de la douleur — déclenchement fiable ===
+   On observe directement la perte de PV après chaque attaque et on mémorise
+   les PV max réels du monstre. La réaction se produit au tour ennemi suivant. */
+function cd471State(){
+  if(!player.cd471) player.cd471={ref:null,max:0,armed:false,shown:false};
+  return player.cd471;
+}
+function cd471Sync(){
+  const s=cd471State();
+  if(!battle||!enemy){s.ref=null;s.max=0;s.armed=false;s.shown=false;return s}
+  if(s.ref!==enemy){
+    s.ref=enemy;
+    s.max=Math.max(1,Number(enemy.maxHp||enemy.hpMax||enemy.hp||1));
+    s.armed=false;
+    s.shown=false;
+  }
+  return s;
+}
+function cd471Arm(){
+  if(!battle||!enemy||typeof enemy.hp!=="number")return;
+  const s=cd471Sync();
+  if(!s.armed && enemy.hp>0 && enemy.hp<=Math.floor(s.max/2)){
+    s.armed=true;
+    log("MÉMOIRE DE LA DOULEUR — La créature associe votre rythme à sa blessure.");
+    toast("MÉMOIRE DE LA DOULEUR");
+  }
+}
+function cd471React(){
+  if(!battle||!enemy)return;
+  const s=cd471Sync();
+  if(!s.armed||s.shown)return;
+  s.shown=true;
+  const n=String(enemy.name||"La créature"),r=R(3);
+  if(r===0){
+    enemy.atk=(enemy.atk||1)+1;
+    log("RANCUNE INSTINCTIVE — "+n+" transforme la douleur en agressivité : +1 ATQ ennemi.");
+    toast("RANCUNE INSTINCTIVE");
+  }else if(r===1){
+    player.san=Math.max(0,(player.san||0)-1);
+    log("GESTE RECONNU — "+n+" anticipe votre rythme : -1 SAN.");
+    toast("GESTE RECONNU");
+  }else{
+    enemy.def=(enemy.def||0)+1;
+    log("CHAIR QUI APPREND — "+n+" adapte sa structure à vos attaques : +1 DEF ennemi.");
+    toast("CHAIR QUI APPREND");
+  }
+}
+const cd471Attack=attack;
+attack=function(){
+  cd471Sync();
+  const r=cd471Attack.apply(this,arguments);
+  cd471Arm();
+  return r;
+};
+const cd471EnemyTurn=enemyTurn;
+enemyTurn=function(){
+  cd471Sync();
+  cd471React();
+  return cd471EnemyTurn.apply(this,arguments);
+};
+
 </script>
 </body>
 </html>
