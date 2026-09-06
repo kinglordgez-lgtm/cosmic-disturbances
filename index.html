@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7605,6 +7605,41 @@ investigate=function(){
   const had=cd590State().armed;
   const r=cd590Investigate.apply(this,arguments);
   if(had) cd590Resolve();
+  return r;
+};
+
+
+/* === V6.0.0 : SENS DU TERRAIN ===
+   Déclenchement court : après 3 déplacements réellement réussis. */
+function cd600State(){
+  if(!player.cd600) player.cd600={moves:0,shown:false};
+  return player.cd600;
+}
+function cd600Resolve(){
+  const s=cd600State(); if(s.shown||s.moves<3)return;
+  s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(R(2)===0?'Observation':'Investigation');
+  const val=Number(skills[skill]||0), roll=R(100)+1;
+  if(roll<=val){
+    player.xp=(player.xp||0)+2;
+    log('SENS DU TERRAIN — REPÈRE TROUVÉ : vous comprenez instinctivement la circulation du secteur. '+skill+' '+roll+'/'+val+' ✓ · +2 XP.');
+    toast('REPÈRE TROUVÉ');
+    if(typeof cdOpenPanel==='function') cdOpenPanel('SENS DU TERRAIN','<h2>REPÈRE TROUVÉ</h2><p>Après quelques pas, la logique du secteur se dessine. <b>+2 XP.</b></p>');
+  }else{
+    player.san=Math.max(0,(player.san||0)-1);
+    log('SENS DU TERRAIN — ORIENTATION TROUBLÉE : les angles du secteur refusent de rester cohérents. '+skill+' '+roll+'/'+val+' ✕ · -1 SAN.');
+    toast('ORIENTATION TROUBLÉE');
+    if(typeof cdOpenPanel==='function') cdOpenPanel('SENS DU TERRAIN','<h2>ORIENTATION TROUBLÉE</h2><p>Les distances semblent changer lorsque vous détournez les yeux. <b>-1 SAN.</b></p>');
+  }
+}
+const cd600Move=move;
+move=function(dx,dy){
+  const bx=px, by=py;
+  const r=cd600Move.apply(this,arguments);
+  try{
+    if(px!==bx||py!==by){ const s=cd600State(); if(!s.shown){s.moves++; cd600Resolve();} }
+  }catch(e){}
   return r;
 };
 
