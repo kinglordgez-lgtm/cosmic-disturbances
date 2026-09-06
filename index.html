@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7506,6 +7506,52 @@ newRun=function(){
   return r;
 };
 
+
+
+/* === V5.8.0 : résonance d'objet — le premier objet trouvé peut révéler une empreinte === */
+function cd580State(){
+  if(!player.cd580)player.cd580={shown:false,item:"",result:""};
+  return player.cd580;
+}
+function cd580Resonate(n){
+  const s=cd580State(); if(s.shown||!n)return false;
+  s.shown=true;s.item=n;
+  const db=(typeof itemDB!=="undefined"&&itemDB[n])?itemDB[n]:null;
+  const tags=((db&&db.tags)||"").toLowerCase();
+  let tag="TRACE MATÉRIELLE",text="L'objet porte une histoire difficile à dater. +1 XP.";
+  if(tags.includes("occul")||tags.includes("mythe")||tags.includes("rituel")||n==="Fragment noir"||n==="Idole d'obsidienne"){
+    tag="RÉSONANCE INTERDITE";text="Un contact trop long suffit à troubler votre perception. +1 MYTHE.";
+    player.myth=(player.myth||0)+1;
+  }else if(tags.includes("soin")||tags.includes("méd")||n==="Bandage militaire"||n==="Laudanum trouble"){
+    tag="USAGE ÉVIDENT";text="Vous identifiez immédiatement comment tirer parti de cette trouvaille. +1 SAN.";
+    player.san=Math.min(player.maxsan||player.maxSan||34,(player.san||0)+1);
+  }else{
+    player.xp=(player.xp||0)+1;
+  }
+  s.result=tag;
+  log("RÉSONANCE D'OBJET — "+tag+" — "+n+" — "+text);
+  const body=`<div class=entry><b>${n}</b><br><br><b>${tag}</b><br>${text}</div>`;
+  if(typeof cdOpenPanel==="function")setTimeout(()=>cdOpenPanel("RÉSONANCE D'OBJET",body),150); else toast(tag);
+  return true;
+}
+const cd580Loot=loot;
+loot=function(){
+  const before=(player&&player.inv)?player.inv.length:0;
+  const r=cd580Loot.apply(this,arguments);
+  try{
+    if(player&&player.inv&&player.inv.length>before){
+      const got=player.inv[player.inv.length-1];
+      cd580Resonate(got&&(got.n||got.name));
+    }
+  }catch(e){console.warn("cd580 loot",e)}
+  return r;
+};
+const cd580NewRun=newRun;
+newRun=function(){
+  const r=cd580NewRun.apply(this,arguments);
+  player.cd580={shown:false,item:"",result:""};
+  return r;
+};
 </script>
 </body>
 </html>
