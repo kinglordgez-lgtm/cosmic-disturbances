@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7257,6 +7257,73 @@ const cd520NewRun=newRun;
 newRun=function(){
   const r=cd520NewRun.apply(this,arguments);
   player.cd520={resolved:false,pending:false,edge:0};
+  return r;
+};
+
+
+/* === V5.3.0 : choix d'itinéraire — décision rapide, effet différé === */
+function cd530State(){
+  if(!player.cd530)player.cd530={moves:0,shown:false,route:"",armed:false};
+  return player.cd530;
+}
+function cd530Choose(mode){
+  const s=cd530State(); if(s.shown)return;
+  s.shown=true;s.route=mode;s.armed=true;
+  if(mode==="prudent"){
+    player.san=Math.min(player.maxSan||player.san||34,(player.san||0)+1);
+    log("ITINÉRAIRE PRUDENT — Vous contournez les passages les plus inquiétants. +1 SAN. Votre prochaine enquête sera plus méthodique.");
+    toast("ROUTE PRUDENTE — +1 SAN");
+  }else if(mode==="direct"){
+    player.xp=(player.xp||0)+1;
+    log("ITINÉRAIRE DIRECT — Vous gagnez du temps au prix d'une exposition accrue. +1 XP. Votre prochain combat commencera sous pression.");
+    toast("ROUTE DIRECTE — +1 XP");
+  }else{
+    player.myth=(player.myth||0)+1;
+    log("ITINÉRAIRE ÉTRANGE — Vous suivez une géométrie qui ne devrait mener nulle part. +1 MYTHE. La prochaine enquête pourrait en tirer parti.");
+    toast("ROUTE ÉTRANGE — +1 MYTHE");
+  }
+  closeOverlays();render();
+}
+function cd530Panel(){
+  const body=`<div class=entry><b>BLACKWATER SE DIVISE DEVANT VOUS</b><br>Trois passages semblent possibles. Le choix modifiera légèrement votre prochaine confrontation avec le secteur.</div>
+  <div class=grid2><button onclick="cd530Choose('prudent')">PRUDENT<br><small>+1 SAN · enquête</small></button><button onclick="cd530Choose('direct')">DIRECT<br><small>+1 XP · combat</small></button><button onclick="cd530Choose('etrange')">ÉTRANGE<br><small>+1 MYTHE · enquête</small></button></div>`;
+  if(typeof cdOpenPanel==="function"){cdOpenPanel("CHOIX D'ITINÉRAIRE",body);return true}return false;
+}
+const cd530Move=move;
+move=function(){
+  const bx=px,by=py,r=cd530Move.apply(this,arguments);
+  if(!battle&&(px!==bx||py!==by)){
+    const s=cd530State();s.moves++;
+    if(s.moves===2&&!s.shown)cd530Panel();
+  }
+  return r;
+};
+const cd530Investigate=investigate;
+investigate=function(){
+  const s=cd530State();
+  if(s.armed&&(s.route==="prudent"||s.route==="etrange")){
+    s.armed=false;
+    player.xp=(player.xp||0)+1;
+    log("ITINÉRAIRE EXPLOITÉ — Votre choix de route éclaire l'enquête. +1 XP.");
+    toast("ITINÉRAIRE EXPLOITÉ");
+  }
+  return cd530Investigate.apply(this,arguments);
+};
+const cd530Attack=attack;
+attack=function(){
+  const s=cd530State();
+  if(s.armed&&s.route==="direct"&&battle){
+    s.armed=false;
+    player.xp=(player.xp||0)+1;
+    log("ARRIVÉE BRUTALE — Votre route directe vous donne l'initiative mentale. +1 XP.");
+    toast("ARRIVÉE BRUTALE");
+  }
+  return cd530Attack.apply(this,arguments);
+};
+const cd530NewRun=newRun;
+newRun=function(){
+  const r=cd530NewRun.apply(this,arguments);
+  player.cd530={moves:0,shown:false,route:"",armed:false};
   return r;
 };
 
