@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7841,6 +7841,72 @@ openCharacter=function(){
       box.appendChild(d);
     }
   }catch(e){console.warn('cd650 sheet',e)}
+};
+
+
+
+/* === V6.6.0 : ANCRAGE PSYCHOLOGIQUE ===
+   Le profil n'est plus seulement statique : au premier déplacement, le personnage tente de s'ancrer
+   dans son aptitude naturelle. Une réussite prépare 1 charge qui réduit le premier malus d'angle mort
+   de -5 à -2. Test immédiat et mécanique durable sans modifier le déplacement. */
+function cd660State(){
+  if(!player.cd660) player.cd660={shown:false,anchor:0,used:false};
+  return player.cd660;
+}
+function cd660Resolve(){
+  const s=cd660State(); if(s.shown)return; s.shown=true;
+  const p=cd650Profile(), skills=(player.char&&player.char.skills)||{};
+  const val=Number(skills[p.plus]||0), roll=R(100)+1, ok=roll<=val;
+  if(ok){
+    s.anchor=1;
+    log('ANCRAGE PSYCHOLOGIQUE — POINT D’APPUI : '+p.plus+' '+roll+'/'+val+' ✓ · votre angle mort sera atténué une fois (-5 → -2).');
+    toast('POINT D’APPUI');
+    if(typeof cdOpenPanel==='function') setTimeout(()=>cdOpenPanel('ANCRAGE PSYCHOLOGIQUE','<h2>POINT D’APPUI</h2><p><b>'+p.label+'</b> — Vous vous raccrochez à votre aptitude naturelle : <b>'+p.plus+'</b>.</p><p>Votre prochain test lié à <b>'+p.minus+'</b> ne subira que <b>-2</b> au lieu de <b>-5</b>.</p>'),120);
+  }else{
+    log('ANCRAGE PSYCHOLOGIQUE — FAILLE ACTIVE : '+p.plus+' '+roll+'/'+val+' ✕ · aucun ancrage préparé.');
+    toast('FAILLE ACTIVE');
+    if(typeof cdOpenPanel==='function') setTimeout(()=>cdOpenPanel('ANCRAGE PSYCHOLOGIQUE','<h2>FAILLE ACTIVE</h2><p><b>'+p.label+'</b> — Votre réflexe naturel ne suffit pas à stabiliser votre perception.</p><p>L’angle mort <b>'+p.minus+' -5</b> reste pleinement actif.</p>'),120);
+  }
+}
+const cd660Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd660Move.apply(this,arguments);
+  try{ if(!battle && (px!==bx||py!==by) && !cd660State().shown) cd660Resolve(); }catch(e){console.warn('cd660 move',e)}
+  return r;
+};
+
+/* Intercepte uniquement le prochain test d'angle mort lorsque l'ancrage existe.
+   cd650 appliquera normalement -5 ; on pré-compense de +3 pendant cet appel => malus net -2. */
+const cd660SkillCheck=skillCheck;
+skillCheck=function(skill,difficulty){
+  const s=cd660State(), p=cd650Profile(), skills=player.char&&player.char.skills;
+  if(!(s.anchor>0 && !s.used && skill===p.minus && skills)) return cd660SkillCheck.apply(this,arguments);
+  const old=Number(skills[skill]||0);
+  skills[skill]=Math.min(100,old+3);
+  let r;
+  try{ r=cd660SkillCheck.call(this,skill,difficulty); }
+  finally{ skills[skill]=old; }
+  s.anchor=0; s.used=true;
+  log('ANCRAGE CONSOMMÉ — '+p.minus+' : angle mort atténué, malus réduit de -5 à -2 pour ce test.');
+  toast('ANGLE MORT ATTÉNUÉ');
+  return r;
+};
+
+const cd660OpenCharacter=openCharacter;
+openCharacter=function(){
+  cd660OpenCharacter.apply(this,arguments);
+  try{
+    const s=cd660State(), p=cd650Profile();
+    const box=document.querySelector('#modal .modalContent')||document.getElementById('sheetContent')||document.querySelector('#modal');
+    if(box && !box.querySelector('.cd660Anchor')){
+      const d=document.createElement('div'); d.className='cd660Anchor';
+      d.style.cssText='margin-top:10px;padding:12px;border:1px solid #667085;border-radius:10px';
+      const status=s.anchor>0?'PRÊT — prochain '+p.minus+' : -2 au lieu de -5':(s.used?'CONSOMMÉ':'NON PRÉPARÉ');
+      d.innerHTML='<b>ANCRAGE PSYCHOLOGIQUE</b><br><span>'+status+'</span>';
+      box.appendChild(d);
+    }
+  }catch(e){console.warn('cd660 sheet',e)}
 };
 
 </script>
