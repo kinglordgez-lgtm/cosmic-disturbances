@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7640,6 +7640,41 @@ move=function(dx,dy){
   try{
     if(px!==bx||py!==by){ const s=cd600State(); if(!s.shown){s.moves++; cd600Resolve();} }
   }catch(e){}
+  return r;
+};
+
+
+
+/* === V6.1.0 : RÉACTION SOUS PRESSION ===
+   Test court : se déclenche après la première attaque ennemie réellement subie. */
+function cd610State(){
+  if(!player.cd610) player.cd610={shown:false};
+  return player.cd610;
+}
+function cd610Resolve(hpBefore,sanBefore){
+  const s=cd610State(); if(s.shown)return;
+  if((player.hp||0)>=hpBefore && (player.san||0)>=sanBefore)return;
+  s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(R(2)===0?'Endurance':'Observation');
+  const val=Number(skills[skill]||0), roll=R(100)+1;
+  if(roll<=val){
+    player.xp=(player.xp||0)+2;
+    log('RÉACTION SOUS PRESSION — SANG-FROID : le choc aiguise vos réflexes. '+skill+' '+roll+'/'+val+' ✓ · +2 XP.');
+    toast('SANG-FROID');
+    if(typeof cdOpenPanel==='function') cdOpenPanel('RÉACTION SOUS PRESSION','<h2>SANG-FROID</h2><p>Le premier choc vous ramène brutalement au présent. Vos réflexes prennent le relais. <b>+2 XP.</b></p>');
+  }else{
+    player.san=Math.max(0,(player.san||0)-1);
+    log('RÉACTION SOUS PRESSION — CHOC NERVEUX : la violence de la rencontre fissure votre concentration. '+skill+' '+roll+'/'+val+' ✕ · -1 SAN.');
+    toast('CHOC NERVEUX');
+    if(typeof cdOpenPanel==='function') cdOpenPanel('RÉACTION SOUS PRESSION','<h2>CHOC NERVEUX</h2><p>La première blessure ouvre une seconde plaie, invisible celle-là. <b>-1 SAN.</b></p>');
+  }
+}
+const cd610EnemyTurn=enemyTurn;
+enemyTurn=function(){
+  const hb=player.hp||0, sb=player.san||0;
+  const r=cd610EnemyTurn.apply(this,arguments);
+  try{ cd610Resolve(hb,sb); }catch(e){}
   return r;
 };
 
