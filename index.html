@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7374,6 +7374,48 @@ newRun=function(){
   player.cd540={triggered:false};
   return r;
 };
+
+
+
+/* === V5.5.0 : retombée du chemin — l'écho devient une ressource à dépenser === */
+function cd550State(){
+  if(!player.cd550)player.cd550={ready:false,kind:"",used:false};
+  return player.cd550;
+}
+function cd550Arm(){
+  const s=cd550State(); if(s.ready||s.used)return;
+  const route=(player.cd530||{}).route||"";
+  if(!route||!(player.cd540||{}).triggered)return;
+  s.ready=true;s.kind=route;
+  log("RETOMBÉE DU CHEMIN — Quelque chose de votre itinéraire reste exploitable.");
+}
+function cd550Use(context){
+  const s=cd550State(); if(!s.ready||s.used)return false;
+  if(s.kind==="prudent"&&context==="investigate"){
+    s.ready=false;s.used=true;player.xp=(player.xp||0)+2;
+    log("CALME CONSERVÉ — Votre détour vous aide à examiner les lieux sans précipitation. +2 XP.");toast("CALME CONSERVÉ — +2 XP");return true;
+  }
+  if(s.kind==="direct"&&context==="attack"){
+    s.ready=false;s.used=true;
+    if(battle&&enemy)enemy.hp=Math.max(1,(enemy.hp||1)-1);
+    log("ÉLAN CONSERVÉ — La route directe nourrit votre première offensive. Ennemi -1 PV.");toast("ÉLAN CONSERVÉ — -1 PV ennemi");return true;
+  }
+  if(s.kind==="etrange"&&context==="investigate"){
+    s.ready=false;s.used=true;player.xp=(player.xp||0)+2;
+    log("GÉOMÉTRIE MÉMORISÉE — L'angle impossible révèle un rapport caché entre les indices. +2 XP.");toast("GÉOMÉTRIE MÉMORISÉE — +2 XP");return true;
+  }
+  return false;
+}
+const cd550Move=move;
+move=function(){
+  const r=cd550Move.apply(this,arguments);cd550Arm();return r;
+};
+const cd550Investigate=investigate;
+investigate=function(){cd550Arm();cd550Use("investigate");return cd550Investigate.apply(this,arguments);};
+const cd550Attack=attack;
+attack=function(){cd550Arm();cd550Use("attack");return cd550Attack.apply(this,arguments);};
+const cd550NewRun=newRun;
+newRun=function(){const r=cd550NewRun.apply(this,arguments);player.cd550={ready:false,kind:"",used:false};return r;};
 
 </script>
 </body>
