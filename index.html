@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 4.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 4.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6902,5 +6902,50 @@ enemyTurn=function(){cd460Sync();const r=cd460EnemyTurn.apply(this,arguments);if
 
 </script>
 
+<script>
+/* V4.7.0 — MÉMOIRE DE LA DOULEUR */
+(function(){
+ const s={armed:false,shown:false,turns:0};
+ function alive(){return typeof battle!=="undefined"&&battle&&typeof enemy!=="undefined"&&enemy&&enemy.hp>0}
+ function low(){return alive()&&enemy.maxHp&&enemy.hp<=Math.floor(enemy.maxHp/2)}
+ function announce(t,b){
+   try{
+     if(typeof cdPopup==="function"){cdPopup("MÉMOIRE DE LA DOULEUR",t,b);return}
+     if(typeof toast==="function")toast(t);
+     if(typeof log==="function")log("MÉMOIRE DE LA DOULEUR — "+t+" — "+b)
+   }catch(e){}
+ }
+ function arm(){
+   if(!s.armed&&low()){
+     s.armed=true;s.turns=0;
+     try{if(typeof log==="function")log("MÉMOIRE DE LA DOULEUR — La créature commence à reconnaître votre rythme.")}catch(e){}
+   }
+ }
+ function react(){
+   if(!s.armed||s.shown||!alive())return;
+   s.turns++; if(s.turns<2)return;
+   s.shown=true;
+   const n=String(enemy.name||"La créature"),r=Math.random();
+   if(r<.34){
+     enemy.atk=(enemy.atk||1)+1;
+     announce("RANCUNE INSTINCTIVE",n+" associe votre présence à la douleur. +1 ATQ ennemi.");
+     try{if(typeof log==="function")log("RANCUNE INSTINCTIVE — "+n+" gagne +1 ATQ.")}catch(e){}
+   }else if(r<.67){
+     if(typeof player!=="undefined"&&player)player.san=Math.max(0,(player.san||0)-1);
+     announce("GESTE RECONNU",n+" anticipe votre rythme. Être compris par l'inhumain vous coûte 1 SAN.");
+     try{if(typeof log==="function")log("GESTE RECONNU — -1 SAN.")}catch(e){}
+   }else{
+     enemy.def=(enemy.def||0)+1;
+     announce("CHAIR QUI APPREND","La blessure devient une leçon biologique. "+n+" gagne +1 DEF.");
+     try{if(typeof log==="function")log("CHAIR QUI APPREND — "+n+" gagne +1 DEF.")}catch(e){}
+   }
+   try{if(typeof render==="function")render()}catch(e){}
+ }
+ const oldET=enemyTurn;
+ enemyTurn=function(){arm();const r=oldET.apply(this,arguments);arm();react();return r};
+ const oldNR=newRun;
+ newRun=function(){s.armed=false;s.shown=false;s.turns=0;return oldNR.apply(this,arguments)};
+})();
+</script>
 </body>
 </html>
