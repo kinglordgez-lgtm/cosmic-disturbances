@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 5.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 5.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7324,6 +7324,54 @@ const cd530NewRun=newRun;
 newRun=function(){
   const r=cd530NewRun.apply(this,arguments);
   player.cd530={moves:0,shown:false,route:"",armed:false};
+  return r;
+};
+
+
+
+/* === V5.4.0 : écho d'itinéraire — le chemin choisi laisse une conséquence === */
+function cd540State(){
+  if(!player.cd540)player.cd540={triggered:false};
+  return player.cd540;
+}
+function cd540Echo(){
+  const s=cd540State(),r=(player.cd530||{}).route||"";
+  if(s.triggered||!r)return false;
+  s.triggered=true;
+  let title="ÉCHO DU CHEMIN",text="",tag="";
+  if(r==="prudent"){
+    player.san=Math.min(player.maxSan||player.san||34,(player.san||0)+1);
+    text="DÉTOUR SALUTAIRE — Le passage évité résonne derrière vous, mais la distance protège votre esprit. +1 SAN.";
+    tag="DÉTOUR SALUTAIRE";
+  }else if(r==="direct"){
+    player.xp=(player.xp||0)+2;
+    text="TRACE FRAÎCHE — Votre progression brutale révèle un détail que personne n'aurait eu le temps d'effacer. +2 XP.";
+    tag="TRACE FRAÎCHE";
+  }else{
+    player.myth=(player.myth||0)+1;
+    player.san=Math.max(0,(player.san||0)-1);
+    text="ANGLE IMPOSSIBLE — Le chemin étrange continue d'exister dans votre mémoire. +1 MYTHE, -1 SAN.";
+    tag="ANGLE IMPOSSIBLE";
+  }
+  log("ÉCHO D'ITINÉRAIRE — "+text);
+  const body=`<div class=entry><b>${tag}</b><br>${text}</div>`;
+  if(typeof cdOpenPanel==="function")cdOpenPanel(title,body); else toast(tag);
+  render();return true;
+}
+const cd540Move=move;
+move=function(){
+  const bx=px,by=py,r=cd540Move.apply(this,arguments);
+  if(!battle&&(px!==bx||py!==by)){
+    const route=(player.cd530||{}).route||"";
+    const m=(player.cd530||{}).moves||0;
+    if(route&&m>=3&&!cd540State().triggered)cd540Echo();
+  }
+  return r;
+};
+const cd540NewRun=newRun;
+newRun=function(){
+  const r=cd540NewRun.apply(this,arguments);
+  player.cd540={triggered:false};
   return r;
 };
 
