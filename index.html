@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8186,6 +8186,50 @@ move=function(dx,dy){
       const s=cd720State(); if(!s.shown){s.moves++; if(s.moves>=3)setTimeout(cd720Offer,120)}
     }
   }catch(e){console.warn('cd720 move',e)}
+  return r;
+};
+
+
+/* === V7.3.0 : CONSÉQUENCE D'ITINÉRAIRE ===
+   Deux déplacements après le choix V7.2 suffisent pour matérialiser
+   une conséquence concrète. Aucun déplacement supplémentaire n'est créé. */
+function cd730State(){
+  if(!player.cd730) player.cd730={moves:0,shown:false};
+  return player.cd730;
+}
+function cd730Consequence(){
+  if(!player)return;
+  const s=cd730State(),route=player.cd720&&player.cd720.choice;
+  if(s.shown||!route)return;s.shown=true;
+  let title='',body='';
+  if(route==='observer'){
+    title='RÉSERVE REPÉRÉE';
+    const inv=Array.isArray(player.inv)?player.inv:[];
+    const lamp=inv.find(x=>x&&x.n==='Lampe à pétrole');
+    if(lamp){lamp.uses=(Number(lamp.uses)||0)+1;body='Le repère observé mène à une réserve abandonnée. <b>Lampe +1 charge.</b>'}
+    else{player.xp=(player.xp||0)+2;body='Le repère observé mène à une cache vide, mais confirme votre lecture du secteur. <b>+2 XP.</b>'}
+  }else if(route==='ecouter'){
+    title='EMBUSCADE ÉVITÉE';
+    player.san=Math.min(player.maxsan||player.san,(player.san||0)+1);
+    body='Le bruit suivi plus tôt vous avertit à temps : vous contournez une présence hostile. <b>+1 SAN.</b>';
+  }else{
+    title='RACCOURCI TROUVÉ';
+    player.xp=(player.xp||0)+3;
+    body='Votre allure vous fait découvrir un passage direct entre deux rues condamnées. <b>+3 XP.</b>';
+  }
+  log('CONSÉQUENCE D’ITINÉRAIRE — '+title+'.');toast(title);render();
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('CONSÉQUENCE D’ITINÉRAIRE','<h2>'+title+'</h2><p>'+body+'</p>')},80);
+}
+const cd730Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd730Move.apply(this,arguments);
+  try{
+    const route=player&&player.cd720&&player.cd720.choice;
+    if(route&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
+      const s=cd730State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd730Consequence,140)}
+    }
+  }catch(e){console.warn('cd730 move',e)}
   return r;
 };
 </script>
