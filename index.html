@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8057,6 +8057,41 @@ enemyTurn=function(){
   const before=(player&&Number(player.hp))||0;
   const r=cd690EnemyTurn.apply(this,arguments);
   try{const lost=Math.max(0,before-((player&&Number(player.hp))||0));if(lost>0)cd690React(lost)}catch(e){console.warn('cd690 reaction',e)}
+  return r;
+};
+
+
+/* === V7.0.0 : MÉMOIRE DE CONFRONTATION ===
+   La première victoire grave une leçon liée à l'adversaire vaincu.
+   Cette mémoire pourra aider lors d'une future rencontre du même type. */
+function cd700State(){
+  if(!player.cd700) player.cd700={learned:false,name:'',weak:'',charge:0};
+  return player.cd700;
+}
+function cd700Learn(defeated){
+  if(!player||!defeated)return;
+  const s=cd700State(); if(s.learned)return;
+  s.learned=true;s.name=defeated.base||defeated.name||'créature';s.weak=defeated.weak||'';s.charge=1;
+  player.xp=(player.xp||0)+2;
+  const detail='Vous mémorisez les réactions de '+s.name+'. Lors d’une prochaine rencontre apparentée, cette lecture pourra vous donner un avantage. <b>+2 XP.</b>';
+  log('MÉMOIRE DE CONFRONTATION — LEÇON GRAVÉE : '+s.name+'.');toast('LEÇON GRAVÉE');
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('MÉMOIRE DE CONFRONTATION','<h2>LEÇON GRAVÉE</h2><p>'+detail+'</p><p><b>Souvenir : '+s.name+'</b></p>')},140);
+}
+function cd700Apply(){
+  const s=cd700State();if(!s.learned||s.charge<=0||!battle||!enemy)return;
+  const n=enemy.base||enemy.name||'';
+  if(n!==s.name)return;
+  s.charge=0;
+  enemy.hp=Math.max(1,enemy.hp-1);player.xp=(player.xp||0)+1;
+  log('MÉMOIRE EXPLOITÉE — vous reconnaissez '+s.name+' : -1 PV ennemi, +1 XP.');toast('MÉMOIRE EXPLOITÉE');
+}
+const cd700SpawnEnemy=spawnEnemy;
+spawnEnemy=function(){const r=cd700SpawnEnemy.apply(this,arguments);try{cd700Apply()}catch(e){console.warn('cd700 apply',e)}return r};
+const cd700Win=win;
+win=function(){
+  const defeated=(battle&&enemy)?{name:enemy.name,base:enemy.base,weak:enemy.weak}:null;
+  const r=cd700Win.apply(this,arguments);
+  try{if(defeated)cd700Learn(defeated)}catch(e){console.warn('cd700 learn',e)}
   return r;
 };
 </script>
