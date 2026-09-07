@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8092,6 +8092,51 @@ win=function(){
   const defeated=(battle&&enemy)?{name:enemy.name,base:enemy.base,weak:enemy.weak}:null;
   const r=cd700Win.apply(this,arguments);
   try{if(defeated)cd700Learn(defeated)}catch(e){console.warn('cd700 learn',e)}
+  return r;
+};
+
+
+/* === V7.1.0 : APRÈS-COUP DE CONFRONTATION ===
+   La première victoire laisse une conséquence concrète, déterminée par le
+   profil de l'enquêteur. Déclenchement immédiat après le premier combat gagné. */
+function cd710State(){
+  if(!player.cd710) player.cd710={resolved:false};
+  return player.cd710;
+}
+function cd710Aftermath(defeated){
+  if(!player||!defeated)return;
+  const s=cd710State(); if(s.resolved)return; s.resolved=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const opts=['Investigation','Médecine','Occultisme'];
+  let skill=opts[0]; for(const k of opts)if(Number(skills[k]||0)>Number(skills[skill]||0))skill=k;
+  const val=Number(skills[skill]||0), roll=Math.floor(rng()*100)+1;
+  const ok=roll<=Math.max(25,Math.min(85,val+10));
+  let title,body;
+  if(ok){
+    if(skill==='Investigation'){
+      title='TRACE EXPLOITABLE'; player.xp=(player.xp||0)+2;
+      body='Vous reconstituez les derniers gestes de la créature et isolez un indice utile. <b>+2 XP.</b>';
+    }else if(skill==='Médecine'){
+      title='SOUFFLE REPRIS'; player.hp=Math.min(player.maxhp||player.hp,player.hp+2);
+      body='Vous profitez du silence revenu pour traiter immédiatement vos blessures. <b>+2 PV.</b>';
+    }else{
+      title='RÉSIDU OCCULTE'; player.myth=Math.min(100,(player.myth||0)+1); player.xp=(player.xp||0)+1;
+      body='Quelque chose subsiste dans la mort de cette chose. Vous osez l’observer. <b>+1 MYTHE, +1 XP.</b>';
+    }
+  }else{
+    title='SILENCE MAUVAIS';
+    body='Le combat est terminé, mais ce qu’il laisse derrière lui refuse encore de livrer son sens.';
+  }
+  const name=defeated.base||defeated.name||'la créature';
+  log('APRÈS-COUP — '+title+' après '+name+' ('+skill+' '+val+', jet '+roll+').'); toast(title);
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('APRÈS-COUP DE CONFRONTATION','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+skill+' '+val+' · jet '+roll+'</b></p><p>Adversaire : '+name+'</p>')},650);
+  render();
+}
+const cd710Win=win;
+win=function(){
+  const defeated=(battle&&enemy)?{name:enemy.name,base:enemy.base,weak:enemy.weak}:null;
+  const r=cd710Win.apply(this,arguments);
+  try{if(defeated)cd710Aftermath(defeated)}catch(e){console.warn('cd710 aftermath',e)}
   return r;
 };
 </script>
