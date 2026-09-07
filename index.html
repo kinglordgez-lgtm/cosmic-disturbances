@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8277,6 +8277,53 @@ move=function(dx,dy){
       const s=cd740State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd740Offer,120)}
     }
   }catch(e){console.warn('cd740 move',e)}
+  return r;
+};
+
+
+/* === V7.5.0 : OBJETS TACTIQUES HORS COMBAT ===
+   Test rapide : après 2 déplacements réussis, une situation permet
+   d'employer la Lampe à pétrole de départ sans ouvrir l'inventaire. */
+function cd750State(){
+  if(!player.cd750)player.cd750={moves:0,shown:false,resolved:false};
+  return player.cd750;
+}
+function cd750Lamp(){
+  return Array.isArray(player.inv)?player.inv.find(o=>o&&o.n==='Lampe à pétrole'):null;
+}
+function cd750Offer(){
+  if(!player||battle)return;
+  const s=cd750State();if(s.shown)return;s.shown=true;
+  const lamp=cd750Lamp(),uses=lamp?(lamp.uses??2):0;
+  const use=uses>0?'<button onclick="cd750Choose(\'lamp\')">UTILISER LA LAMPE<br><small>'+uses+' charge'+(uses>1?'s':'')+'</small></button>':'';
+  cdOpenPanel('USAGE CONTEXTUEL D’OBJET','<h2>PASSAGE SANS LUMIÈRE</h2><p>Une pièce latérale disparaît dans une obscurité trop dense. Votre équipement peut changer la manière de l’aborder.</p><div class="grid2">'+use+'<button onclick="cd750Choose(\'careful\')">AVANCER À TÂTONS<br><small>Observation</small></button></div>');
+}
+function cd750Choose(mode){
+  const s=cd750State();if(s.resolved)return;s.resolved=true;
+  let title='',body='';
+  if(mode==='lamp'){
+    const lamp=cd750Lamp();
+    if(lamp&&(lamp.uses??2)>0){
+      lamp.uses=(lamp.uses??2)-1; player.xp=(player.xp||0)+2;
+      title='OBJET MIS À PROFIT';
+      body='La lumière révèle un passage sûr et des marques récentes. <b>+2 XP.</b> Lampe : <b>'+lamp.uses+' charge'+(lamp.uses>1?'s':'')+'</b>.';
+      log('OBJET CONTEXTUEL — Lampe à pétrole utilisée : passage éclairé, +2 XP. Charge restante : '+lamp.uses+'.');
+    }else{title='LAMPE ÉPUISÉE';body='La lampe ne répond plus.';log('OBJET CONTEXTUEL — Lampe épuisée.');}
+  }else{
+    const v=((player.char||{}).skills||{}).Observation||0,roll=R(100)+1,ok=roll<=Math.max(5,Math.min(95,v));
+    if(ok){player.xp=(player.xp||0)+2;title='PASSAGE LU';body='Sans consommer d’objet, vous trouvez vos appuis. <b>+2 XP.</b>';}
+    else{player.san=Math.max(0,(player.san||0)-1);title='OBSCURITÉ OPPRESSANTE';body='Vous progressez, mais quelque chose bouge hors de votre champ de vision. <b>-1 SAN.</b>';}
+    log('OBJET CONTEXTUEL — '+title+' (Observation '+v+', jet '+roll+').');
+  }
+  toast(title);closeOverlays();render();
+  setTimeout(()=>cdOpenPanel('OBJET TACTIQUE — HORS COMBAT','<h2>'+title+'</h2><p>'+body+'</p>'),80);
+}
+const cd750Move=move;
+move=function(dx,dy){
+  const bx=px,by=py,r=cd750Move.apply(this,arguments);
+  try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
+    const s=cd750State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd750Offer,260)}
+  }}catch(e){console.warn('cd750 move',e)}
   return r;
 };
 </script>
