@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8137,6 +8137,55 @@ win=function(){
   const defeated=(battle&&enemy)?{name:enemy.name,base:enemy.base,weak:enemy.weak}:null;
   const r=cd710Win.apply(this,arguments);
   try{if(defeated)cd710Aftermath(defeated)}catch(e){console.warn('cd710 aftermath',e)}
+  return r;
+};
+
+
+/* === V7.2.0 : CHOIX D'ITINÉRAIRE ===
+   Après 3 déplacements réussis, l'enquêteur choisit une manière d'aborder
+   le secteur. Effet immédiat, indépendant des combats et des enquêtes. */
+function cd720State(){
+  if(!player.cd720) player.cd720={moves:0,shown:false,choice:''};
+  return player.cd720;
+}
+function cd720Choose(mode){
+  if(!player)return;
+  const s=cd720State(); if(s.choice)return; s.choice=mode;
+  const sk=(player.char&&player.char.skills)||{};
+  let title='',body='';
+  if(mode==='observer'){
+    const v=Number(sk.Observation||0),roll=Math.floor(rng()*100)+1,ok=roll<=Math.max(30,Math.min(85,v+10));
+    if(ok){title='REPÈRE TROUVÉ';player.xp=(player.xp||0)+2;body='Vous fixez un détail stable dans le décor. <b>+2 XP.</b>'}
+    else{title='REPÈRES TROMPEURS';body='Les rues semblent se répondre sans vous offrir de direction sûre.'}
+    log('ITINÉRAIRE — '+title+' (Observation '+v+', jet '+roll+').');
+  }else if(mode==='ecouter'){
+    const v=Number(sk.Investigation||0),roll=Math.floor(rng()*100)+1,ok=roll<=Math.max(30,Math.min(85,v+10));
+    if(ok){title='BRUIT UTILE';player.xp=(player.xp||0)+2;body='Un bruit régulier vous révèle où l’activité se concentre. <b>+2 XP.</b>'}
+    else{title='ÉCHO SANS SOURCE';body='Vous suivez un son qui se dérobe entre les bâtiments.'}
+    log('ITINÉRAIRE — '+title+' (Investigation '+v+', jet '+roll+').');
+  }else{
+    const v=Number(sk.Endurance||0),roll=Math.floor(rng()*100)+1,ok=roll<=Math.max(30,Math.min(85,v+10));
+    if(ok){title='ALLURE ASSURÉE';player.hp=Math.min(player.maxhp||player.hp,(player.hp||0)+1);body='Vous imposez votre rythme malgré l’atmosphère oppressante. <b>+1 PV.</b>'}
+    else{title='DÉTOUR ÉPUISANT';body='Vous forcez l’allure, mais Blackwater vous fait perdre du temps.'}
+    log('ITINÉRAIRE — '+title+' (Endurance '+v+', jet '+roll+').');
+  }
+  toast(title); closeOverlays();
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('CHOIX D’ITINÉRAIRE','<h2>'+title+'</h2><p>'+body+'</p>')},80);
+  render();
+}
+function cd720Offer(){
+  const s=cd720State();if(s.shown||s.moves<3||battle)return;s.shown=true;
+  cdOpenPanel('CHOIX D’ITINÉRAIRE','<h2>BLACKWATER VOUS FORCE À CHOISIR</h2><p>Après quelques rues, trois approches s’offrent à vous.</p><div class="grid2"><button onclick="cd720Choose(\'observer\')">OBSERVER<br><small>Observation</small></button><button onclick="cd720Choose(\'ecouter\')">ÉCOUTER<br><small>Investigation</small></button><button onclick="cd720Choose(\'forcer\')">FORCER L’ALLURE<br><small>Endurance</small></button></div>');
+}
+const cd720Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd720Move.apply(this,arguments);
+  try{
+    if(player&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
+      const s=cd720State(); if(!s.shown){s.moves++; if(s.moves>=3)setTimeout(cd720Offer,120)}
+    }
+  }catch(e){console.warn('cd720 move',e)}
   return r;
 };
 </script>
