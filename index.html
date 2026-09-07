@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8434,6 +8434,41 @@ attack=function(){
   const first=!!(player&&battle&&enemy&&!cd780State().shown);
   const r=cd780Attack.apply(this,arguments);
   if(first)cd780Resolve();
+  return r;
+};
+
+
+
+/* === V7.9.0 : RÉACTION DE CRÉATURE AUX SYNERGIES TACTIQUES ===
+   Test rapide : au premier ATTAQUER, après la synergie tactique, la créature
+   réagit selon sa nature. Aucun objet supplémentaire n'est consommé. */
+function cd790State(){if(!player.cd790)player.cd790={shown:false};return player.cd790}
+function cd790BaseEnemy(){return enemy&&((enemy.base)||enemy.name)||''}
+function cd790Reaction(){
+  const n=cd790BaseEnemy(), combo=(typeof cd780Combo==='function'?cd780Combo():{name:'RÉFLEXE DE TERRAIN'}), cn=combo&&combo.name||'';
+  if(n==='Profond'||n==='Cultiste de Dagon')return {title:'RECUL MARIN',text:'La créature détourne instinctivement le regard et rompt son rythme.',effect:'-1 ATQ ennemi',apply:()=>{if(enemy)enemy.atk=Math.max(1,(enemy.atk||1)-1)}};
+  if(n==='Goule')return {title:'RECUL DES TÉNÈBRES',text:'La goule hésite devant votre éclat improvisé.',effect:'-2 PV ennemi',apply:()=>{if(enemy)enemy.hp=Math.max(1,(enemy.hp||1)-2)}};
+  if(n==='Mi-Go')return {title:'ANALYSE FONGIQUE',text:'Le Mi-Go analyse immédiatement votre combinaison et modifie sa posture.',effect:'+1 DEF ennemi',apply:()=>{if(enemy)enemy.def=(enemy.def||0)+1}};
+  if(n==='Chien de Tindalos')return {title:'ANGLE BRISÉ',text:'L’espace autour du prédateur se contracte sous l’effet de votre dispositif.',effect:'-1 ATQ ennemi',apply:()=>{if(enemy)enemy.atk=Math.max(1,(enemy.atk||1)-1)}};
+  if(n==='Byakhee')return {title:'CRI DÉSACCORDÉ',text:'Le Byakhee répond par un cri qui vacille lorsque votre équipement entre en résonance.',effect:'-2 PV ennemi',apply:()=>{if(enemy)enemy.hp=Math.max(1,(enemy.hp||1)-2)}};
+  if(n==='Veilleur sans visage')return {title:'MIMÉTISME HOSTILE',text:'Le Veilleur semble apprendre de votre geste et durcit sa présence.',effect:'+1 DEF ennemi',apply:()=>{if(enemy)enemy.def=(enemy.def||0)+1}};
+  if(n==='Polype rampant')return {title:'VENT CONTRAIRE',text:'Une poussée d’air impossible répond à votre combinaison matérielle.',effect:'-1 SAN',apply:()=>{player.san=Math.max(0,(player.san||0)-1)}};
+  if(n==='Noyé de Blackwater')return {title:'SOUVENIR DE NOYADE',text:'Le cadavre hésite comme si un fragment de mémoire venait de refaire surface.',effect:'-1 ATQ ennemi',apply:()=>{if(enemy)enemy.atk=Math.max(1,(enemy.atk||1)-1)}};
+  if(n==='Rejeton fongique')return {title:'SPORES AGITÉES',text:'Les spores se contractent brutalement face à votre dispositif.',effect:'-2 PV ennemi',apply:()=>{if(enemy)enemy.hp=Math.max(1,(enemy.hp||1)-2)}};
+  if(n==='Cultiste')return {title:'HÉSITATION HUMAINE',text:'Le cultiste comprend que vous exploitez votre environnement et perd son assurance.',effect:'-1 ATQ ennemi',apply:()=>{if(enemy)enemy.atk=Math.max(1,(enemy.atk||1)-1)}};
+  return {title:'RÉACTION INCONNUE',text:'La créature réagit d’une manière que vous ne savez pas encore interpréter.',effect:'+1 XP',apply:()=>{player.xp=(player.xp||0)+1}};
+}
+function cd790Resolve(){
+  if(!player||!battle||!enemy)return;const st=cd790State();if(st.shown)return;st.shown=true;
+  const r=cd790Reaction();r.apply();
+  log('RÉACTION DE CRÉATURE — '+r.title+' : '+r.effect+'.');toast(r.title);render();
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('RÉACTION DE LA CRÉATURE','<h2>'+r.title+'</h2><p>'+r.text+'</p><p><b>'+r.effect+'.</b></p><p>La même synergie peut provoquer une autre réaction face à une autre espèce.</p>')},260);
+}
+const cd790Attack=attack;
+attack=function(){
+  const trigger=!!(player&&battle&&enemy&&!cd780State().shown&&!cd790State().shown);
+  const r=cd790Attack.apply(this,arguments);
+  if(trigger&&battle&&enemy)setTimeout(cd790Resolve,520);
   return r;
 };
 
