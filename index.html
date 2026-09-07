@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8324,6 +8324,63 @@ move=function(dx,dy){
   try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
     const s=cd750State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd750Offer,260)}
   }}catch(e){console.warn('cd750 move',e)}
+  return r;
+};
+
+
+/* === V7.6.0 : SYNERGIES CONTEXTUELLES PAR TAGS ===
+   Test rapide : après 3 déplacements réussis, le jeu analyse les tags des objets
+   possédés et propose une solution adaptée (métal/bruit ou feu/lumière). */
+function cd760State(){
+  if(!player.cd760)player.cd760={moves:0,shown:false,resolved:false};
+  return player.cd760;
+}
+function cd760ItemsWithTag(tag){
+  if(!player||!Array.isArray(player.inv))return [];
+  return player.inv.filter(o=>{
+    const db=itemDB[o&&o.n];
+    return db&&String(db.tags||'').toLowerCase().split(',').map(x=>x.trim()).includes(tag);
+  });
+}
+function cd760Offer(){
+  if(!player||battle)return;
+  const s=cd760State();if(s.shown)return;s.shown=true;
+  const metal=cd760ItemsWithTag('métal'),noise=cd760ItemsWithTag('bruit'),light=cd760ItemsWithTag('lumière'),fire=cd760ItemsWithTag('feu');
+  const hasMetal=metal.length||noise.length,hasLight=light.length||fire.length;
+  let buttons='';
+  if(hasMetal){const o=(metal[0]||noise[0]);buttons+='<button onclick="cd760Choose(\'metal\')">IMPROVISER AVEC '+o.n.toUpperCase()+'<br><small>tags métal / bruit</small></button>';}
+  if(hasLight){const o=(light[0]||fire[0]);buttons+='<button onclick="cd760Choose(\'light\')">EXPLOITER '+o.n.toUpperCase()+'<br><small>tags lumière / feu</small></button>';}
+  buttons+='<button onclick="cd760Choose(\'skill\')">SE DÉBROUILLER SANS OBJET<br><small>Investigation</small></button>';
+  cdOpenPanel('SYNERGIE D’ÉQUIPEMENT','<h2>PORTE CONDAMNÉE</h2><p>Une porte de service bloque un raccourci. Cette fois, le jeu ne cherche pas un objet précis : il examine les <b>tags</b> de votre équipement.</p><div class="grid2">'+buttons+'</div>');
+}
+function cd760Choose(mode){
+  const s=cd760State();if(s.resolved)return;s.resolved=true;
+  let title='',body='';
+  if(mode==='metal'){
+    const a=cd760ItemsWithTag('métal'),b=cd760ItemsWithTag('bruit'),o=a[0]||b[0];
+    title='TAG MÉTAL EXPLOITÉ';player.xp=(player.xp||0)+2;
+    body='<b>'+((o&&o.n)||'Objet métallique')+'</b> sert de levier improvisé. Le passage cède sans consommer l’objet. <b>+2 XP.</b>';
+    log('SYNERGIE DE TAG — MÉTAL/BRUIT : '+((o&&o.n)||'objet')+' ouvre un passage. +2 XP.');
+  }else if(mode==='light'){
+    const a=cd760ItemsWithTag('lumière'),b=cd760ItemsWithTag('feu'),o=a[0]||b[0];
+    title='TAG LUMIÈRE EXPLOITÉ';player.xp=(player.xp||0)+2;
+    body='<b>'+((o&&o.n)||'Source de lumière')+'</b> révèle le mécanisme caché dans l’encadrement. Aucun usage n’est consommé. <b>+2 XP.</b>';
+    log('SYNERGIE DE TAG — LUMIÈRE/FEU : '+((o&&o.n)||'objet')+' révèle le mécanisme. +2 XP.');
+  }else{
+    const v=(((player.char||{}).skills||{}).Investigation)||0,roll=R(100)+1,ok=roll<=Math.max(5,Math.min(95,v));
+    if(ok){title='PASSAGE FORCÉ';player.xp=(player.xp||0)+1;body='Vous comprenez le verrou sans aide matérielle. <b>+1 XP.</b>';}
+    else{title='FAUSSE MANŒUVRE';player.san=Math.max(0,(player.san||0)-1);body='Le mécanisme grince dans le silence et vous met les nerfs à vif. <b>-1 SAN.</b>';}
+    log('SYNERGIE DE TAG — '+title+' (Investigation '+v+', jet '+roll+').');
+  }
+  toast(title);closeOverlays();render();
+  setTimeout(()=>cdOpenPanel('SYNERGIE D’ÉQUIPEMENT','<h2>'+title+'</h2><p>'+body+'</p>'),80);
+}
+const cd760Move=move;
+move=function(dx,dy){
+  const bx=px,by=py,r=cd760Move.apply(this,arguments);
+  try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
+    const s=cd760State();if(!s.shown){s.moves++;if(s.moves>=3)setTimeout(cd760Offer,420)}
+  }}catch(e){console.warn('cd760 move',e)}
   return r;
 };
 </script>
