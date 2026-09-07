@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8230,6 +8230,53 @@ move=function(dx,dy){
       const s=cd730State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd730Consequence,140)}
     }
   }catch(e){console.warn('cd730 move',e)}
+  return r;
+};
+
+
+/* === V7.4.0 : INTERACTION AVEC LE DÉCOR ===
+   Test rapide : après 2 déplacements réussis, un élément du décor offre
+   un choix contextuel. Aucun déplacement supplémentaire n'est créé. */
+function cd740State(){
+  if(!player.cd740) player.cd740={moves:0,shown:false,resolved:false,scene:null};
+  return player.cd740;
+}
+const CD740_SCENES=[
+ {name:'PORTE CONDAMNÉE',text:'Une porte murée laisse passer un courant d’air chargé de sel.',choices:[['examiner','EXAMINER','Observation'],['ecouter','ÉCOUTER','Investigation'],['forcer','FORCER','Endurance']]},
+ {name:'VITRINE BRISÉE',text:'Derrière le verre noirci, quelque chose a été déplacé récemment.',choices:[['observer','OBSERVER','Observation'],['fouiller','FOUILLER','Investigation'],['resister','NE PAS CÉDER','Psychologie']]},
+ {name:'AUTEL DE RUELLE',text:'Sous une gouttière, des signes frais entourent une coupelle de cendre.',choices:[['lire','LIRE LES SIGNES','Occultisme'],['relever','RELEVER LES TRACES','Investigation'],['eloigner','S’ÉLOIGNER','Endurance']]}
+];
+function cd740Offer(){
+  if(!player||battle)return;
+  const s=cd740State();if(s.shown)return;s.shown=true;
+  const sc=CD740_SCENES[R(CD740_SCENES.length)];s.scene=sc.name;
+  const buttons=sc.choices.map(c=>'<button onclick="cd740Choose(\''+c[0]+'\',\''+c[2]+'\')">'+c[1]+'<br><small>'+c[2]+'</small></button>').join('');
+  cdOpenPanel('INTERACTION AVEC LE DÉCOR','<h2>'+sc.name+'</h2><p>'+sc.text+'</p><div class="grid2">'+buttons+'</div>');
+}
+function cd740Choose(mode,skill){
+  const s=cd740State();if(s.resolved)return;s.resolved=true;
+  const v=(player.char&&player.char.skills&&player.char.skills[skill])||0;
+  const roll=Math.floor(Math.random()*100)+1,ok=roll<=Math.max(5,Math.min(95,v));
+  let title,body;
+  if(ok){
+    title='DÉCOR EXPLOITÉ';player.xp=(player.xp||0)+2;
+    body='Votre décision transforme un détail du lieu en avantage concret. <b>+2 XP.</b>';
+  }else{
+    title='MAUVAIS PRESSENTIMENT';player.san=Math.max(0,(player.san||0)-1);
+    body='Le lieu résiste à votre lecture. Quelque chose vous échappe. <b>-1 SAN.</b>';
+  }
+  log('DÉCOR — '+title+' ['+s.scene+'] ('+skill+' '+v+', jet '+roll+').');toast(title);closeOverlays();render();
+  setTimeout(()=>cdOpenPanel('INTERACTION AVEC LE DÉCOR','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+skill+' '+v+' · jet '+roll+'</b></p>'),80);
+}
+const cd740Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd740Move.apply(this,arguments);
+  try{
+    if(player&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
+      const s=cd740State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd740Offer,120)}
+    }
+  }catch(e){console.warn('cd740 move',e)}
   return r;
 };
 </script>
