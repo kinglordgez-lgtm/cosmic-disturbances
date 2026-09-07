@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7909,6 +7909,64 @@ openCharacter=function(){
   }catch(e){console.warn('cd660 sheet',e)}
 };
 
+
+
+/* === V6.7.0 : PRÉPARATION DE TERRAIN ===
+   Pivot vers l'équipement : la première ouverture d'inventaire permet une préparation concrète.
+   Choix immédiat, effet mécanique simple et durable, sans modifier le cœur du déplacement. */
+function cd670State(){
+  if(!player.cd670) player.cd670={shown:false,choice:null,weapon:0,loot:0};
+  return player.cd670;
+}
+function cd670Prompt(){
+  const s=cd670State(); if(s.shown)return; s.shown=true;
+  setTimeout(()=>{
+    if(typeof cdOpenPanel!=='function')return;
+    cdOpenPanel('PRÉPARATION DE TERRAIN',
+      '<h2>AVANT DE VOUS ENFONCER DANS BLACKWATER</h2><p>Quelques secondes suffisent pour préparer une seule chose correctement.</p>'+ 
+      '<div class="itemActions">'+
+      '<button onclick="cd670Choose(\'revolver\')">RÉGLER LE REVOLVER<br><small>+1 ATQ à la prochaine attaque</small></button>'+ 
+      '<button onclick="cd670Choose(\'lampe\')">VÉRIFIER LA LAMPE<br><small>+1 charge</small></button>'+ 
+      '<button onclick="cd670Choose(\'sac\')">ORGANISER LE SAC<br><small>+2 XP au prochain butin</small></button>'+ 
+      '</div>');
+  },80);
+}
+function cd670Choose(choice){
+  const s=cd670State(); if(s.choice)return; s.choice=choice;
+  let title='',body='';
+  if(choice==='revolver'){
+    s.weapon=1; title='ARME PRÊTE'; body='Le mécanisme répond proprement. <b>+1 ATQ à votre prochaine attaque.</b>';
+  }else if(choice==='lampe'){
+    const lamp=player.inv&&player.inv.find(i=>i.n==='Lampe à pétrole');
+    if(lamp) lamp.uses=(lamp.uses??2)+1;
+    title='LUMIÈRE PRÉSERVÉE'; body='La mèche et le réservoir sont vérifiés. <b>Lampe +1 charge.</b>';
+  }else{
+    s.loot=1; title='SAC ORGANISÉ'; body='Chaque poche a désormais une fonction. <b>Le prochain butin rapporte +2 XP.</b>';
+  }
+  log('PRÉPARATION DE TERRAIN — '+title+'.'); toast(title);
+  if(typeof cdOpenPanel==='function') cdOpenPanel('PRÉPARATION DE TERRAIN','<h2>'+title+'</h2><p>'+body+'</p>');
+  render();
+}
+const cd670OpenInventory=openInventory;
+openInventory=function(){
+  const r=cd670OpenInventory.apply(this,arguments);
+  try{if(!cd670State().shown)cd670Prompt()}catch(e){console.warn('cd670 inventory',e)}
+  return r;
+};
+const cd670Attack=attack;
+attack=function(){
+  const s=cd670State();
+  if(!(battle&&enemy&&s.weapon>0))return cd670Attack.apply(this,arguments);
+  player.atk+=1;
+  try{return cd670Attack.apply(this,arguments)}
+  finally{player.atk-=1;s.weapon=0;log('PRÉPARATION CONSOMMÉE — réglage du revolver utilisé.');toast('ARME PRÊTE UTILISÉE')}
+};
+const cd670Loot=loot;
+loot=function(){
+  const r=cd670Loot.apply(this,arguments),s=cd670State();
+  if(s.loot>0){s.loot=0;player.xp+=2;log('SAC ORGANISÉ — butin classé efficacement : +2 XP.');toast('BUTIN OPTIMISÉ +2 XP');render()}
+  return r;
+};
 </script>
 </body>
 </html>
