@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8014,6 +8014,50 @@ const cd680Loot=loot;
 loot=function(){
   const relevant=!!(player.cd670&&player.cd670.choice==='sac'&&!cd680State().resolved);
   const r=cd680Loot.apply(this,arguments); if(relevant)cd680Resolve('sac'); return r;
+};
+
+
+/* === V6.9.0 : RÉFLEXE DE SURVIE ===
+   Première blessure réelle de la partie : réaction immédiate selon le meilleur
+   réflexe du personnage. Aucun changement au cœur du combat. */
+function cd690State(){
+  if(!player.cd690) player.cd690={resolved:false};
+  return player.cd690;
+}
+function cd690React(damage){
+  const s=cd690State(); if(s.resolved||damage<=0||player.hp<=0)return;
+  s.resolved=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const opts=['Endurance','Observation','Psychologie'];
+  let skill=opts[0]; for(const k of opts)if(Number(skills[k]||0)>Number(skills[skill]||0))skill=k;
+  const val=Number(skills[skill]||0);
+  const roll=Math.floor(rng()*100)+1, ok=roll<=Math.max(25,Math.min(85,val+10));
+  let title,body;
+  if(ok){
+    title='RÉFLEXE SALVATEUR';
+    if(skill==='Endurance'){
+      player.hp=Math.min(player.maxhp||player.hp,player.hp+1);
+      body='Votre corps absorbe une partie du choc. <b>1 PV récupéré.</b>';
+    }else if(skill==='Observation'){
+      player.xp+=2; body='La douleur révèle le rythme de votre adversaire. <b>+2 XP.</b>';
+    }else{
+      player.san=Math.min(player.maxsan||player.san,player.san+1);
+      body='Vous empêchez la peur de suivre la blessure. <b>+1 SAN.</b>';
+    }
+  }else{
+    title='CHOC BRUTAL';
+    body='La première blessure vous prend de court. Vous tenez debout, mais aucun avantage ne se dégage.';
+  }
+  log('RÉFLEXE DE SURVIE — '+title+' ('+skill+' '+val+', jet '+roll+').'); toast(title);
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('RÉFLEXE DE SURVIE','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+skill+' '+val+' · jet '+roll+'</b></p>')},100);
+  render();
+}
+const cd690EnemyTurn=enemyTurn;
+enemyTurn=function(){
+  const before=(player&&Number(player.hp))||0;
+  const r=cd690EnemyTurn.apply(this,arguments);
+  try{const lost=Math.max(0,before-((player&&Number(player.hp))||0));if(lost>0)cd690React(lost)}catch(e){console.warn('cd690 reaction',e)}
+  return r;
 };
 </script>
 </body>
