@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 6.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 6.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -7966,6 +7966,54 @@ loot=function(){
   const r=cd670Loot.apply(this,arguments),s=cd670State();
   if(s.loot>0){s.loot=0;player.xp+=2;log('SAC ORGANISÉ — butin classé efficacement : +2 XP.');toast('BUTIN OPTIMISÉ +2 XP');render()}
   return r;
+};
+
+
+/* === V6.8.0 : USURE ET FIABILITÉ DU MATÉRIEL ===
+   La préparation choisie acquiert une fiabilité. Au premier usage pertinent,
+   le matériel peut tenir parfaitement ou montrer une faiblesse. */
+function cd680State(){
+  if(!player.cd680) player.cd680={resolved:false};
+  return player.cd680;
+}
+function cd680Resolve(kind){
+  const s=cd680State(); if(s.resolved)return;
+  const prep=(player.cd670&&player.cd670.choice)||null;
+  if(!prep||prep!==kind)return;
+  s.resolved=true;
+  const skill=kind==='revolver'?'Armes':kind==='lampe'?'Observation':'Investigation';
+  const val=player.char&&player.char.skills?Number(player.char.skills[skill]||0):0;
+  const ok=(Math.floor(rng()*100)+1)<=Math.max(25,Math.min(85,val+15));
+  let title,body;
+  if(ok){
+    title='MATÉRIEL FIABLE';
+    if(kind==='revolver'){player.xp+=2;body='Le réglage tient sous la contrainte. <b>+2 XP.</b>'}
+    else if(kind==='lampe'){player.san=Math.min(player.maxsan||player.san,player.san+1);body='La lumière reste stable au moment critique. <b>+1 SAN.</b>'}
+    else{player.xp+=2;body='Votre rangement vous fait gagner de précieuses secondes. <b>+2 XP.</b>'}
+  }else{
+    title='FAIBLESSE DU MATÉRIEL';
+    if(kind==='revolver')body='Le mécanisme accroche brièvement. Le bonus préparé reste consommé, mais vous savez désormais quoi surveiller.';
+    else if(kind==='lampe')body='La flamme vacille au pire moment. Aucun dégât, mais votre confiance dans le matériel diminue.';
+    else body='Une poche mal fermée ralentit votre fouille. Rien n’est perdu, mais l’organisation était imparfaite.';
+  }
+  log('FIABILITÉ DU MATÉRIEL — '+title+' ('+skill+').'); toast(title);
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('FIABILITÉ DU MATÉRIEL','<h2>'+title+'</h2><p>'+body+'</p><p><b>Test : '+skill+' '+val+'</b></p>')},90);
+  render();
+}
+const cd680Attack=attack;
+attack=function(){
+  const relevant=!!(player.cd670&&player.cd670.choice==='revolver'&&!cd680State().resolved&&battle&&enemy);
+  const r=cd680Attack.apply(this,arguments); if(relevant)cd680Resolve('revolver'); return r;
+};
+const cd680Investigate=investigate;
+investigate=function(){
+  const relevant=!!(player.cd670&&player.cd670.choice==='lampe'&&!cd680State().resolved&&!battle);
+  const r=cd680Investigate.apply(this,arguments); if(relevant)cd680Resolve('lampe'); return r;
+};
+const cd680Loot=loot;
+loot=function(){
+  const relevant=!!(player.cd670&&player.cd670.choice==='sac'&&!cd680State().resolved);
+  const r=cd680Loot.apply(this,arguments); if(relevant)cd680Resolve('sac'); return r;
 };
 </script>
 </body>
