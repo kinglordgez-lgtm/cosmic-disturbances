@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8406,6 +8406,36 @@ function cd770Choose(mode){
 }
 const cd770Move=move;
 move=function(dx,dy){const bx=px,by=py,r=cd770Move.apply(this,arguments);try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){const s=cd770State();if(!s.shown){s.moves++;if(s.moves>=4)setTimeout(cd770Offer,520)}}}catch(e){console.warn('cd770 move',e)}return r};
+
+
+
+/* === V7.8.0 : SYNERGIE TACTIQUE EN COMBAT ===
+   Validation rapide : le premier ATTAQUER de la partie exploite automatiquement
+   une combinaison de tags réellement possédée, sans consommer d'objet. */
+function cd780State(){if(!player.cd780)player.cd780={shown:false};return player.cd780}
+function cd780Combo(){
+  if(typeof cd770Has!=='function')return null;
+  if(cd770Has('métal')&&cd770Has('lumière'))return {name:'ÉCLAT MÉTALLIQUE',desc:'Le reflet de votre équipement trouble brièvement la créature.',xp:2};
+  if(cd770Has('feu')&&cd770Has('occulte'))return {name:'SIGNE INCANDESCENT',desc:'La flamme souligne un motif que la créature semble reconnaître.',xp:2};
+  if(cd770Has('soin')&&cd770Has('protection'))return {name:'GARDE DE FORTUNE',desc:'Votre matériel forme un point d’appui rassurant sous la pression.',xp:2};
+  if(cd770Has('métal')||cd770Has('bruit'))return {name:'FRACAS IMPROVISÉ',desc:'Le métal et le bruit cassent un instant le rythme adverse.',xp:1};
+  if(cd770Has('lumière')||cd770Has('feu'))return {name:'LUEUR DÉFENSIVE',desc:'La lumière vous donne une fraction de seconde d’avance.',xp:1};
+  return {name:'RÉFLEXE DE TERRAIN',desc:'Faute de combinaison matérielle, vous improvisez avec ce que vous avez.',xp:1};
+}
+function cd780Resolve(){
+  if(!player)return;const st=cd780State();if(st.shown)return;st.shown=true;
+  const c=cd780Combo();player.xp=(player.xp||0)+c.xp;
+  log('SYNERGIE TACTIQUE — '+c.name+' : +'+c.xp+' XP.');toast(c.name);
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('SYNERGIE TACTIQUE','<h2>'+c.name+'</h2><p>'+c.desc+' <b>+'+c.xp+' XP.</b></p><p>Cette réaction dépend des <b>tags de votre équipement</b> et ne consomme aucun objet.</p>')},140);
+  render();
+}
+const cd780Attack=attack;
+attack=function(){
+  const first=!!(player&&battle&&enemy&&!cd780State().shown);
+  const r=cd780Attack.apply(this,arguments);
+  if(first)cd780Resolve();
+  return r;
+};
 
 </script>
 </body>
