@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 7.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8383,6 +8383,30 @@ move=function(dx,dy){
   }}catch(e){console.warn('cd760 move',e)}
   return r;
 };
+
+/* === V7.7.0 : COMBINAISONS DE TAGS === */
+function cd770State(){if(!player.cd770)player.cd770={moves:0,shown:false,resolved:false};return player.cd770}
+function cd770Has(tag){return cd760ItemsWithTag(tag).length>0}
+function cd770Offer(){
+ if(!player||battle)return;const s=cd770State();if(s.shown)return;s.shown=true;
+ let b='';
+ if(cd770Has('feu')&&cd770Has('occulte'))b+='<button onclick="cd770Choose(\'ritual\')">BRÛLER LES SIGNES<br><small>feu + occulte</small></button>';
+ if(cd770Has('métal')&&cd770Has('lumière'))b+='<button onclick="cd770Choose(\'reflect\')">RÉFLÉCHIR LA LUMIÈRE<br><small>métal + lumière</small></button>';
+ if(cd770Has('soin')&&cd770Has('protection'))b+='<button onclick="cd770Choose(\'ward\')">PRÉPARER UN ABRI<br><small>soin + protection</small></button>';
+ b+='<button onclick="cd770Choose(\'skill\')">TRAVERSER PRUDEMMENT<br><small>Observation</small></button>';
+ cdOpenPanel('SYNERGIE MULTIPLE','<h2>COULOIR AUX SIGNES MOUVANTS</h2><p>Deux propriétés de votre équipement peuvent maintenant être <b>combinées</b>. Les solutions disponibles dépendent réellement des tags que vous possédez.</p><div class="grid2">'+b+'</div>');
+}
+function cd770Choose(mode){
+ const s=cd770State();if(s.resolved)return;s.resolved=true;let title='',body='';
+ if(mode==='ritual'){title='FEU + OCCULTE';player.xp=(player.xp||0)+3;body='La flamme révèle la logique des signes occultes avant de les effacer. <b>Synergie double : +3 XP.</b>';log('SYNERGIE MULTIPLE — FEU + OCCULTE. +3 XP.');}
+ else if(mode==='reflect'){title='MÉTAL + LUMIÈRE';player.xp=(player.xp||0)+3;body='Le métal renvoie la lumière selon un angle impossible et dévoile le chemin stable. <b>Synergie double : +3 XP.</b>';log('SYNERGIE MULTIPLE — MÉTAL + LUMIÈRE. +3 XP.');}
+ else if(mode==='ward'){title='SOIN + PROTECTION';player.hp=Math.min(player.mhp||player.hp,(player.hp||0)+2);player.xp=(player.xp||0)+2;body='Vous transformez vos ressources en point de repli sûr. <b>+2 PV, +2 XP.</b>';log('SYNERGIE MULTIPLE — SOIN + PROTECTION. +2 PV, +2 XP.');}
+ else{const v=(((player.char||{}).skills||{}).Observation)||0,roll=R(100)+1,ok=roll<=Math.max(5,Math.min(95,v));if(ok){title='PASSAGE DÉCHIFFRÉ';player.xp=(player.xp||0)+1;body='Vous traversez sans matériel spécialisé. <b>+1 XP.</b>'}else{title='SIGNE TROMPEUR';player.san=Math.max(0,(player.san||0)-1);body='Le couloir se replie sur lui-même un instant. <b>-1 SAN.</b>'}log('SYNERGIE MULTIPLE — '+title+' (Observation '+v+', jet '+roll+').')}
+ toast(title);closeOverlays();render();setTimeout(()=>cdOpenPanel('SYNERGIE MULTIPLE','<h2>'+title+'</h2><p>'+body+'</p>'),80);
+}
+const cd770Move=move;
+move=function(dx,dy){const bx=px,by=py,r=cd770Move.apply(this,arguments);try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){const s=cd770State();if(!s.shown){s.moves++;if(s.moves>=4)setTimeout(cd770Offer,520)}}}catch(e){console.warn('cd770 move',e)}return r};
+
 </script>
 </body>
 </html>
