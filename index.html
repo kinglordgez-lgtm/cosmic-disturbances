@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8560,6 +8560,43 @@ move=function(dx,dy){
     const s=cd810State();
     if(!s.shown){s.moves++;if(s.moves>=3)setTimeout(cd810Resolve,80)}
   }
+  return r;
+};
+
+
+
+/* === V8.2.0 : LECTURE DES ISSUES ===
+   Première enquête : l'investigateur lit les voies de fuite et points d'appui du secteur.
+   Déclenchement immédiat, sans modifier le déplacement ni le combat. */
+function cd820State(){
+  if(!player.cd820)player.cd820={shown:false};
+  return player.cd820;
+}
+function cd820Resolve(){
+  if(!player||battle)return;
+  const s=cd820State();if(s.shown)return;s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(rng()<.5?'Observation':'Investigation');
+  const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
+  let title,text,effect;
+  if(ok){
+    title='ISSUE REPÉRÉE';
+    text='Vous repérez une cour traversante, un porche et deux angles morts. Le quartier cesse un instant d’être un piège sans forme.';
+    effect='+2 XP';player.xp=(player.xp||0)+2;
+  }else{
+    title='PLAN INCERTAIN';
+    text='Les passages semblent praticables, puis se contredisent dès que vous les comparez. Vous retenez seulement ce qu’il faudra éviter.';
+    effect='aucune perte';
+  }
+  log('LECTURE DES ISSUES — '+title+' ('+skill+' '+val+', jet '+roll+') : '+effect+'.');
+  toast(title);render();
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('LECTURE DES ISSUES','<h2>'+title+'</h2><p>'+text+'</p><p><b>'+skill+' '+val+' · jet '+roll+'</b></p><p><b>'+effect+'.</b></p>')},140);
+}
+const cd820Investigate=investigate;
+investigate=function(){
+  const eligible=!!(player&&!battle&&!cd820State().shown);
+  const r=cd820Investigate.apply(this,arguments);
+  if(eligible&&!battle)setTimeout(cd820Resolve,90);
   return r;
 };
 
