@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8717,6 +8717,45 @@ attack=function(){
   if(bonus)player.atk+=bonus;
   try{return cd850Attack.apply(this,arguments)}
   finally{if(bonus)player.atk-=bonus}
+};
+
+
+/* === V8.6.0 : MÉMOIRE DE LA DOULEUR ===
+   Première blessure reçue : l'enquêteur tente de transformer le choc en information utile.
+   Déclenchement au premier dégât ennemi, sans modifier l'attaque ennemie ni le tour de combat. */
+function cd860State(){
+  if(!player.cd860)player.cd860={shown:false,result:'',skill:'',roll:0};
+  return player.cd860;
+}
+function cd860Resolve(damage){
+  const s=cd860State(); if(s.shown)return; s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(rng()<.5?'Endurance':'Psychologie');
+  const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
+  s.skill=skill;s.roll=roll;
+  let detail='';
+  if(ok){
+    s.result='DOULEUR CANALISÉE';
+    player.xp=(player.xp||0)+1;
+    detail='Le choc vous renseigne sur le rythme de l’adversaire. Vous restez lucide malgré la blessure. +1 XP.';
+  }else{
+    s.result='CHOC ENCAISSÉ';
+    detail='La douleur brouille votre lecture pendant un instant, mais vous reprenez votre garde. aucune perte supplémentaire.';
+  }
+  log('MÉMOIRE DE LA DOULEUR — '+s.result+' ('+skill+' '+val+', jet '+roll+', '+damage+' PV perdus).');
+  toast(s.result);
+  setTimeout(()=>{
+    if(typeof cdOpenPanel==='function')cdOpenPanel('MÉMOIRE DE LA DOULEUR',`<h2>${s.result}</h2><p>${detail}</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b></p><p>Blessure reçue : <b>${damage} PV</b></p>`);
+  },180);
+}
+const cd860EnemyTurn=enemyTurn;
+enemyTurn=function(){
+  if(!battle||!enemy)return cd860EnemyTurn.apply(this,arguments);
+  const before=Number(player.hp||0);
+  const r=cd860EnemyTurn.apply(this,arguments);
+  const after=Number(player.hp||0),damage=Math.max(0,before-after);
+  if(damage>0&&!cd860State().shown)cd860Resolve(damage);
+  return r;
 };
 
 </script>
