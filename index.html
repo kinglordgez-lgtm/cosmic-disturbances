@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 7.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8469,6 +8469,57 @@ attack=function(){
   const trigger=!!(player&&battle&&enemy&&!cd780State().shown&&!cd790State().shown);
   const r=cd790Attack.apply(this,arguments);
   if(trigger&&battle&&enemy)setTimeout(cd790Resolve,520);
+  return r;
+};
+
+
+
+/* === V8.0.0 : MÉMOIRE ACTIVE DU BESTIAIRE ===
+   Étudier une espèce inscrit son comportement dans une mémoire tactique de la réalité.
+   Lors des attaques suivantes contre cette même espèce, ce savoir modifie concrètement
+   la réaction de la créature. Test rapide : ÉTUDIER puis ATTAQUER le premier adversaire. */
+function cd800State(){
+  if(!player.cd800)player.cd800={studied:{},total:0};
+  return player.cd800;
+}
+function cd800BaseName(e){return e&&((e.base)||e.name)||''}
+function cd800Banner(title,detail){
+  const b=document.createElement('div');
+  b.style.cssText='position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:100020;min-width:390px;max-width:78vw;padding:14px 18px;border:2px solid #76917c;background:#0b0e14;color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 8px 30px #000';
+  b.innerHTML="<div style='color:#a8c7ae;font-size:17px;font-weight:700'>MÉMOIRE ACTIVE DU BESTIAIRE</div><div style='font-size:20px;font-weight:700;margin-top:5px'>"+title+"</div><div style='font-size:14px;margin-top:6px;color:#aeb4c0'>"+detail+"</div>";
+  document.body.appendChild(b);setTimeout(()=>{if(b.parentNode)b.remove()},4200);
+}
+const cd800Study=cd15StudyEnemy;
+cd15StudyEnemy=function(){
+  const n=cd800BaseName(enemy),r=cd800Study.apply(this,arguments);
+  if(player&&n){
+    const s=cd800State();
+    if(!s.studied[n]){s.studied[n]=1;s.total++;log('BESTIAIRE ACTIF — comportement mémorisé : '+n+'.');toast('ESPÈCE MÉMORISÉE')}
+    else s.studied[n]++;
+  }
+  return r;
+};
+function cd800KnowledgeReaction(n){
+  if(/Profond|Dagon|Noyé/.test(n))return {title:'RYTHME ABYSSAL ANTICIPÉ',text:'Votre étude vous fait reconnaître l’instant où la créature retombe dans un automatisme ancien.',effect:'-1 ATQ ennemi, +2 XP',apply:()=>{enemy.atk=Math.max(1,(enemy.atk||1)-1);player.xp=(player.xp||0)+2}};
+  if(/Goule|Byakhee|Chien de Tindalos/.test(n))return {title:'ÉLAN PRÉDATEUR LU',text:'Vous reconnaissez le départ de son mouvement avant qu’il ne soit pleinement engagé.',effect:'-2 PV ennemi, +2 XP',apply:()=>{enemy.hp=Math.max(1,(enemy.hp||1)-2);player.xp=(player.xp||0)+2}};
+  if(/Mi-Go|fongique|Polype/.test(n))return {title:'ANATOMIE IMPOSSIBLE DÉCHIFFRÉE',text:'Ce qui semblait incohérent lors de la première rencontre devient un schéma exploitable.',effect:'-1 DEF ennemi, +2 XP',apply:()=>{enemy.def=Math.max(0,(enemy.def||0)-1);player.xp=(player.xp||0)+2}};
+  if(/Cultiste|Veilleur/.test(n))return {title:'HABITUDE HOSTILE RECONNUE',text:'Un détail déjà observé trahit sa prochaine réaction et vous donne l’initiative.',effect:'-1 ATQ ennemi, +2 XP',apply:()=>{enemy.atk=Math.max(1,(enemy.atk||1)-1);player.xp=(player.xp||0)+2}};
+  return {title:'LEÇON DU BESTIAIRE',text:'Votre observation antérieure transforme une intuition en avantage concret.',effect:'-1 PV ennemi, +2 XP',apply:()=>{enemy.hp=Math.max(1,(enemy.hp||1)-1);player.xp=(player.xp||0)+2}};
+}
+function cd800Resolve(){
+  if(!player||!battle||!enemy||enemy._cd800Applied)return;
+  const n=cd800BaseName(enemy),s=cd800State();
+  if(!n||!s.studied[n])return;
+  enemy._cd800Applied=true;
+  const r=cd800KnowledgeReaction(n);r.apply();
+  log('BESTIAIRE ACTIF — '+r.title+' contre '+n+' : '+r.effect+'.');toast('SAVOIR EXPLOITÉ');render();
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('SAVOIR DU BESTIAIRE','<h2>'+r.title+'</h2><p>'+r.text+'</p><p><b>'+r.effect+'.</b></p><p>Espèce mémorisée : <b>'+n+'</b>.</p><p>Cette connaissance restera exploitable lors des prochaines rencontres avec cette espèce pendant cette réalité.</p>')},180);
+}
+const cd800Attack=attack;
+attack=function(){
+  const known=!!(player&&battle&&enemy&&cd800State().studied[cd800BaseName(enemy)]&&!enemy._cd800Applied);
+  const r=cd800Attack.apply(this,arguments);
+  if(known&&battle&&enemy)setTimeout(cd800Resolve,760);
   return r;
 };
 
