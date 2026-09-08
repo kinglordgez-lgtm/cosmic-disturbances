@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8755,6 +8755,48 @@ enemyTurn=function(){
   const r=cd860EnemyTurn.apply(this,arguments);
   const after=Number(player.hp||0),damage=Math.max(0,before-after);
   if(damage>0&&!cd860State().shown)cd860Resolve(damage);
+  return r;
+};
+
+
+
+/* === V8.7.0 : ÉCOUTE DU SILENCE ===
+   Après deux déplacements réussis, l'enquêteur écoute les ruptures sonores du secteur.
+   Test très rapide et indépendant : ne modifie jamais le déplacement. */
+function cd870State(){
+  if(!player.cd870)player.cd870={moves:0,shown:false,result:'',skill:'',roll:0};
+  return player.cd870;
+}
+function cd870Resolve(){
+  if(!player||battle)return;
+  const s=cd870State(); if(s.shown||s.moves<2)return; s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(rng()<.5?'Observation':'Psychologie');
+  const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
+  s.skill=skill;s.roll=roll;
+  let detail='';
+  if(ok){
+    s.result='SILENCE DÉCHIFFRÉ';
+    player.xp=(player.xp||0)+1;
+    detail="Un bruit manque là où il devrait exister. Cette absence vous indique qu'une présence ou un danger influence le secteur. +1 XP.";
+  }else{
+    s.result='ÉCHO TROMPEUR';
+    detail="Les sons de Blackwater se superposent jusqu'à rendre leur origine impossible à fixer. Vous poursuivez sans vous exposer davantage. aucune perte.";
+  }
+  log('ÉCOUTE DU SILENCE — '+s.result+' ('+skill+' '+val+', jet '+roll+').');
+  toast(s.result);
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('ÉCOUTE DU SILENCE',`<h2>${s.result}</h2><p>${detail}</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b></p>`)},120);
+}
+const cd870Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd870Move.apply(this,arguments);
+  try{
+    if(player&&!battle&&(px!==bx||py!==by)){
+      const s=cd870State();
+      if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd870Resolve,90)}
+    }
+  }catch(e){console.warn('cd870 move',e)}
   return r;
 };
 
