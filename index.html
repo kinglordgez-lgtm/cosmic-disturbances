@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8520,6 +8520,46 @@ attack=function(){
   const known=!!(player&&battle&&enemy&&cd800State().studied[cd800BaseName(enemy)]&&!enemy._cd800Applied);
   const r=cd800Attack.apply(this,arguments);
   if(known&&battle&&enemy)setTimeout(cd800Resolve,760);
+  return r;
+};
+
+
+
+/* === V8.1.0 : CARTOGRAPHIE INSTINCTIVE ===
+   Après trois déplacements réussis, l'investigateur interprète un détail du secteur.
+   Mécanique d'exploration indépendante du combat et testable immédiatement. */
+function cd810State(){
+  if(!player.cd810)player.cd810={moves:0,shown:false};
+  return player.cd810;
+}
+function cd810Resolve(){
+  if(!player||battle)return;
+  const s=cd810State();if(s.shown||s.moves<3)return;s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(rng()<.5?'Observation':'Investigation');
+  const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
+  let title,text,effect;
+  if(ok){
+    title='REPÈRE TROUVÉ';
+    text='Un alignement de façades, de traces et de lumière vous révèle la logique cachée du secteur. Vous savez désormais où porter votre attention.';
+    effect='+2 XP';player.xp=(player.xp||0)+2;
+  }else{
+    title='ORIENTATION TROUBLÉE';
+    text='Pendant un instant, les rues semblent avoir changé d’angle derrière vous. Vous conservez votre route, mais Blackwater refuse de devenir familière.';
+    effect='aucune perte';
+  }
+  log('CARTOGRAPHIE INSTINCTIVE — '+title+' ('+skill+' '+val+', jet '+roll+') : '+effect+'.');
+  toast(title);render();
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('CARTOGRAPHIE INSTINCTIVE','<h2>'+title+'</h2><p>'+text+'</p><p><b>'+skill+' '+val+' · jet '+roll+'</b></p><p><b>'+effect+'.</b></p>')},120);
+}
+const cd810Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd810Move.apply(this,arguments);
+  if(player&&!battle&&(px!==bx||py!==by)){
+    const s=cd810State();
+    if(!s.shown){s.moves++;if(s.moves>=3)setTimeout(cd810Resolve,80)}
+  }
   return r;
 };
 
