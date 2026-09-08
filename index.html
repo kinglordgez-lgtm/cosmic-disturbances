@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8678,6 +8678,47 @@ loot=function(){
   }
   return r;
 };
+
+
+/* === V8.5.0 : INSTINCT D'ENGAGEMENT ===
+   Premier combat : le premier coup révèle si l'enquêteur sait immédiatement imposer son rythme.
+   Test instantané sur la première attaque, sans modifier le déplacement ni le déroulement du combat. */
+function cd850State(){
+  if(!player.cd850)player.cd850={shown:false,result:'',skill:'',roll:0};
+  return player.cd850;
+}
+function cd850Resolve(){
+  const s=cd850State(); if(s.shown)return {bonus:0,state:s}; s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(rng()<.5?'Armes':'Observation');
+  const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
+  s.skill=skill;s.roll=roll;
+  let bonus=0,detail='';
+  if(ok){
+    s.result='RYTHME IMPOSÉ'; bonus=2;
+    detail='Vous lisez l’ouverture avant que l’adversaire ne puisse la refermer. +2 dégâts sur cette attaque, +1 XP.';
+    player.xp=(player.xp||0)+1;
+  }else{
+    s.result='ENGAGEMENT HÉSITANT';
+    detail='Votre premier mouvement manque de netteté. Vous corrigez votre garde avant de vous exposer davantage. aucune perte.';
+  }
+  log("INSTINCT D'ENGAGEMENT — "+s.result+' ('+skill+' '+val+', jet '+roll+').');
+  toast(s.result);
+  setTimeout(()=>{
+    if(typeof cdOpenPanel==='function')cdOpenPanel("INSTINCT D'ENGAGEMENT",`<h2>${s.result}</h2><p>${detail}</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b></p>`);
+  },120);
+  return {bonus,state:s};
+}
+const cd850Attack=attack;
+attack=function(){
+  if(!battle||!enemy)return cd850Attack.apply(this,arguments);
+  const r=cd850Resolve();
+  const bonus=(r&&r.bonus)||0;
+  if(bonus)player.atk+=bonus;
+  try{return cd850Attack.apply(this,arguments)}
+  finally{if(bonus)player.atk-=bonus}
+};
+
 </script>
 </body>
 </html>
