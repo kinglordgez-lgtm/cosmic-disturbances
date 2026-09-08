@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8600,6 +8600,45 @@ investigate=function(){
   return r;
 };
 
+
+
+/* === V8.3.0 : LECTURE DE L'INTERLOCUTEUR ===
+   Premier contact PNJ : une lecture sociale immédiate complète la première impression.
+   Le résultat reste visible dans la fenêtre de dialogue et n'altère pas les choix sociaux. */
+function cd830State(){
+  if(!player.cd830)player.cd830={shown:false,result:'',detail:''};
+  return player.cd830;
+}
+function cd830Resolve(){
+  if(!player)return null;
+  const s=cd830State();if(s.shown)return s;s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(rng()<.5?'Psychologie':'Observation');
+  const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
+  if(ok){
+    s.result='ATTITUDE DÉCHIFFRÉE';
+    s.detail='Un tic, une hésitation et la façon de garder ses distances vous donnent un angle d’approche. +2 XP.';
+    player.xp=(player.xp||0)+2;
+  }else{
+    s.result='SIGNAL CONTRADICTOIRE';
+    s.detail='Les gestes et le ton ne racontent pas la même histoire. Vous évitez de tirer une conclusion hâtive. aucune perte.';
+  }
+  log("LECTURE DE L'INTERLOCUTEUR — "+s.result+' ('+skill+' '+val+', jet '+roll+').');
+  toast(s.result);
+  return s;
+}
+const cd830OpenPanel=cdOpenPanel;
+cdOpenPanel=function(title,body){
+  const isNpc=typeof body==='string'&&body.includes("cd18Talk('questionner')")&&body.includes('RASSURER')&&body.includes('MENACER');
+  if(isNpc&&player){
+    const s=cd830Resolve();
+    const banner=`<div class=entry style="border-left:3px solid #86a8bf;padding-left:10px;margin:8px 0">
+      <b>LECTURE DE L'INTERLOCUTEUR — ${s.result}</b><br>${s.detail}
+    </div>`;
+    body=banner+body;
+  }
+  return cd830OpenPanel.call(this,title,body);
+};
 </script>
 </body>
 </html>
