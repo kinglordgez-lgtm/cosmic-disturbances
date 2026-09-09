@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 9.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8910,6 +8910,46 @@ spawnEnemy=function(){
   if(pending)player.cd880.applied=false;
   const r=cd890SpawnEnemy.apply(this,arguments);
   try{if(pending)cd890Ambush()}catch(e){console.warn('cd890 ambush',e)}
+  return r;
+};
+
+
+/* === V9.0.0 : NOTE DE BESTIAIRE ===
+   La première étude d'une créature produit une observation de terrain
+   immédiatement consignée. Testable dès le premier combat via ÉTUDIER. */
+const CD900_NOTES={
+  'Cultiste':['RITUEL INACHEVÉ','Ses gestes suivent une séquence apprise plutôt qu’un instinct.'],
+  'Profond':['RESPIRATION AMPHIBIE','Les branchies se contractent avant chaque poussée agressive.'],
+  'Goule':['APPUI BAS','La créature reporte son poids vers l’avant avant de bondir.'],
+  'Mi-Go':['VIBRATION AILAIRE','Une variation aiguë précède ses mouvements les plus brusques.'],
+  'Byakhee':['TENSION DES AILES','Les membranes se raidissent juste avant une attaque plongeante.'],
+  'Chien de Tindalos':['ANGLE FAVORABLE','Sa silhouette semble plus stable près des angles fermés.'],
+  'Polype rampant':['PRESSION D’AIR','L’air se comprime avant que la masse invisible ne frappe.'],
+  'Veilleur sans visage':['IMMOBILITÉ FEINTE','Son absence de mouvement masque une réaction extrêmement rapide.'],
+  'Rejeton fongique':['SPORES RÉACTIVES','Les amas fongiques frémissent lorsque la créature est menacée.'],
+  'Cultiste de Dagon':['PSALMODIE RYTHMÉE','Sa respiration se cale sur une cadence rituelle avant l’invocation.'],
+  'Noyé de Blackwater':['EAU RÉSIDUELLE','L’eau qui ruisselle de son corps réagit avant ses mouvements.']
+};
+function cd900State(){
+  if(!player.cd900)player.cd900={shown:false,notes:{}};
+  return player.cd900;
+}
+function cd900Record(name){
+  if(!player)return;
+  const s=cd900State(); if(s.shown)return; s.shown=true;
+  const base=(enemy&&(enemy.base||enemy.baseName||enemy.name))||name||'Créature inconnue';
+  const note=CD900_NOTES[base]||['ANOMALIE COMPORTEMENTALE','Un détail de comportement ne correspond à aucune observation connue.'];
+  s.notes[base]={title:note[0],text:note[1]};
+  player.xp=(player.xp||0)+1;
+  log('NOTE DE BESTIAIRE — '+base+' : '+note[0]+'. +1 XP.');toast('OBSERVATION CONSIGNÉE');
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('NOTE DE BESTIAIRE',`<h2>OBSERVATION CONSIGNÉE</h2><p><b>${base}</b></p><p><b>${note[0]}</b> — ${note[1]}</p><p>Cette observation de terrain enrichit votre connaissance de l’espèce. <b>+1 XP.</b></p>`)},120);
+}
+const cd900StudyEnemy=cd15StudyEnemy;
+cd15StudyEnemy=function(){
+  if(!battle||!enemy)return cd900StudyEnemy.apply(this,arguments);
+  const studied=enemy.base||enemy.baseName||enemy.name;
+  const r=cd900StudyEnemy.apply(this,arguments);
+  try{if(player&&!cd900State().shown)cd900Record(studied)}catch(e){console.warn('cd900 bestiary note',e)}
   return r;
 };
 </script>
