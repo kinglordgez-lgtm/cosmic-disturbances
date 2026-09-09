@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 9.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 9.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8993,6 +8993,46 @@ enemyTurn=function(){
 };
 const cd910NewRun=newRun;
 newRun=function(){const r=cd910NewRun.apply(this,arguments);player.cd910={armed:false,used:false,target:null};return r};
+
+
+/* === V9.2.0 : POINT FAIBLE EXPLOITÉ ===
+   Une observation fraîchement consignée peut aussi guider la première
+   attaque du joueur contre l'espèce étudiée. Bonus ponctuel : +2 ATQ. */
+function cd920State(){
+  if(!player.cd920)player.cd920={armed:false,used:false,target:null};
+  return player.cd920;
+}
+const cd920StudyEnemy=cd15StudyEnemy;
+cd15StudyEnemy=function(){
+  const before=(player&&player.cd900&&player.cd900.shown)||false;
+  const target=(battle&&enemy)?(enemy.base||enemy.baseName||enemy.name):null;
+  const r=cd920StudyEnemy.apply(this,arguments);
+  try{
+    if(target&&!before&&player&&player.cd900&&player.cd900.notes&&player.cd900.notes[target]){
+      const s=cd920State();s.armed=true;s.used=false;s.target=target;
+      log('POINT FAIBLE PRÊT — votre note sur '+target+' peut guider votre prochaine attaque.');
+      toast('POINT FAIBLE REPÉRÉ');
+    }
+  }catch(e){console.warn('cd920 arm',e)}
+  return r;
+};
+const cd920Attack=attack;
+attack=function(){
+  if(!battle||!enemy)return cd920Attack.apply(this,arguments);
+  const s=cd920State(),base=enemy.base||enemy.baseName||enemy.name;
+  if(!s.armed||s.used||s.target!==base)return cd920Attack.apply(this,arguments);
+  s.used=true;s.armed=false;
+  const atk0=player.atk||0;
+  player.atk=atk0+2;
+  const r=cd920Attack.apply(this,arguments);
+  player.atk=atk0;
+  log('CONNAISSANCE OFFENSIVE — '+base+' : point faible exploité, +2 ATQ sur cette attaque.');
+  toast('POINT FAIBLE EXPLOITÉ');
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('CONNAISSANCE OFFENSIVE',`<h2>POINT FAIBLE EXPLOITÉ</h2><p>Votre observation de <b>${base}</b> révèle le moment où frapper.</p><p><b>+2 ATQ</b> sur cette attaque.</p><p>Le bestiaire influence désormais aussi votre offensive.</p>`)},120);
+  return r;
+};
+const cd920NewRun=newRun;
+newRun=function(){const r=cd920NewRun.apply(this,arguments);player.cd920={armed:false,used:false,target:null};return r};
 </script>
 </body>
 </html>
