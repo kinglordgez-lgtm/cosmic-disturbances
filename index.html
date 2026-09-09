@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 9.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 9.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9033,6 +9033,38 @@ attack=function(){
 };
 const cd920NewRun=newRun;
 newRun=function(){const r=cd920NewRun.apply(this,arguments);player.cd920={armed:false,used:false,target:null};return r};
+
+
+/* === V9.3.0 : SENS DU TERRAIN ===
+   Après trois déplacements réellement réussis, l'investigateur prend
+   ses premiers repères. Aucun changement du mouvement : observation seule. */
+function cd930State(){
+  if(!player.cd930)player.cd930={moves:0,shown:false};
+  return player.cd930;
+}
+function cd930TerrainSense(){
+  const s=cd930State(); if(s.shown||s.moves<3)return;
+  s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(skills.Observation||0)>=(skills.Investigation||0)?'Observation':'Investigation';
+  const val=skills[skill]||0, roll=1+Math.floor(rng()*100), ok=roll<=val;
+  if(ok){player.xp+=2;log('SENS DU TERRAIN — REPÈRE TROUVÉ ('+skill+' '+val+', jet '+roll+'). +2 XP.');toast('REPÈRE TROUVÉ')}
+  else{log('SENS DU TERRAIN — ORIENTATION TROUBLÉE ('+skill+' '+val+', jet '+roll+').');toast('ORIENTATION TROUBLÉE')}
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('SENS DU TERRAIN',ok?`<h2>REPÈRE TROUVÉ</h2><p>Après quelques pas, vous reliez les lignes du lieu : sorties, angles morts, traces de passage.</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b> ✓</p><p><b>+2 XP.</b></p>`:`<h2>ORIENTATION TROUBLÉE</h2><p>Le secteur refuse de se laisser lire. Les distances semblent légèrement fausses.</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b></p><p>Aucune pénalité : vous poursuivez votre exploration.</p>`)},80);
+}
+const cd930Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd930Move.apply(this,arguments);
+  try{
+    if(!battle&&(px!==bx||py!==by)){
+      const s=cd930State(); if(!s.shown){s.moves++;cd930TerrainSense()}
+    }
+  }catch(e){console.warn('cd930 move',e)}
+  return r;
+};
+const cd930NewRun=newRun;
+newRun=function(){const r=cd930NewRun.apply(this,arguments);player.cd930={moves:0,shown:false};return r};
 </script>
 </body>
 </html>
