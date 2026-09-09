@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 8.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 8.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8797,6 +8797,82 @@ move=function(dx,dy){
       if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd870Resolve,90)}
     }
   }catch(e){console.warn('cd870 move',e)}
+  return r;
+};
+
+
+
+/* === V8.8.0 : TRACES DE CRÉATURE ===
+   L'exploration révèle rapidement une trace liée à une espèce réelle du bestiaire.
+   L'examiner prépare un petit avantage tactique pour la prochaine rencontre de cette espèce.
+   Validation courte : la trace apparaît après le 1er déplacement réussi, puis une fenêtre permet de l'examiner. */
+function cd880State(){
+  if(!player.cd880)player.cd880={moves:0,shown:false,resolved:false,species:'',trace:'',prepared:'',applied:false};
+  return player.cd880;
+}
+const CD880_TRACES={
+  'Cultiste':['CIRE ET PAS HUMAINS','Des gouttes de cire et des semelles nerveuses dessinent un trajet trop régulier.'],
+  'Profond':['MUCUS SALIN','Une pellicule humide sent l’iode et porte de petites stries palmées.'],
+  'Goule':['GRIFFURES BASSES','Des entailles parallèles courent au ras du sol, comme faites en progressant à quatre pattes.'],
+  'Mi-Go':['POUSSIÈRE FONGIQUE','Une poudre pâle accroche la lumière sans se comporter comme de la poussière ordinaire.'],
+  'Noyé de Blackwater':['EAU NOIRE','Des empreintes détrempées apparaissent sans source d’eau visible.'],
+  'Byakhee':['FILAMENTS JAUNÂTRES','Des fibres rêches restent prises dans la pierre à une hauteur anormale.'],
+  'Rejeton fongique':['SPORES CHAUDES','De minuscules spores frémissent encore au contact de l’air.'],
+  'Veilleur sans visage':['TRACE INTERROMPUE','Une série de pas cesse net au milieu d’un passage sans issue.'],
+  'Chien de Tindalos':['ANGLE MARQUÉ','La poussière fuit l’angle d’un mur comme si quelque chose y était passé.'],
+  'Polype rampant':['SILLON DE VENT','La poussière forme un couloir sinueux malgré l’air parfaitement immobile.'],
+  'Cultiste de Dagon':['SEL RITUEL','Des grains de sel humide entourent un symbole marin à moitié effacé.']
+};
+function cd880PickSpecies(){
+  const names=Object.keys(CD880_TRACES).filter(n=>creatures[n]);
+  return names.length?names[R(names.length)]:'Cultiste';
+}
+function cd880Offer(){
+  if(!player||battle)return;
+  const s=cd880State();if(s.shown||s.moves<1)return;s.shown=true;
+  s.species=cd880PickSpecies();
+  const t=CD880_TRACES[s.species]||['TRACE INDÉCISE','Quelque chose est passé par ici.'];
+  s.trace=t[0];
+  log('TRACE DE CRÉATURE — '+s.trace+' repérée.');toast('TRACE REPÉRÉE');
+  if(typeof cdOpenPanel==='function')cdOpenPanel('TRACE DE CRÉATURE',`<h2>${s.trace}</h2><p>${t[1]}</p><p>Cette marque peut être comparée au <b>bestiaire</b> avant une rencontre.</p><div class="grid2"><button onclick="cd880Examine()">EXAMINER LA TRACE<br><small>Observation / Investigation</small></button><button onclick="cd880Ignore()">LAISSER LA TRACE</button></div>`);
+}
+function cd880Examine(){
+  const s=cd880State();if(s.resolved)return;s.resolved=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=Number(skills.Observation||0)>=Number(skills.Investigation||0)?'Observation':'Investigation';
+  const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(15,Math.min(90,val+10));
+  let title,body;
+  if(ok){
+    title='PISTE IDENTIFIÉE';s.prepared=s.species;player.xp=(player.xp||0)+1;codex[s.species]=true;
+    body=`Vous rattachez la trace à <b>${s.species}</b>. La prochaine rencontre avec cette espèce commencera avec <b>-2 PV ennemi</b>. <b>+1 XP.</b>`;
+  }else{
+    title='PISTE INCERTAINE';
+    body='La trace résiste à votre lecture. Vous retenez sa forme sans risquer une fausse certitude. aucune perte.';
+  }
+  log('LECTURE DE TRACE — '+title+' ('+skill+' '+val+', jet '+roll+')'+(ok?' : '+s.species+'.':'.'));
+  toast(title);closeOverlays();render();
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('LECTURE DE TRACE',`<h2>${title}</h2><p>${body}</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b></p>`)},90);
+}
+function cd880Ignore(){
+  const s=cd880State();if(s.resolved)return;s.resolved=true;
+  log('TRACE DE CRÉATURE — laissée sans interprétation.');toast('TRACE LAISSÉE');closeOverlays();render();
+}
+function cd880Apply(){
+  if(!player||!battle||!enemy)return;
+  const s=cd880State();if(s.applied||!s.prepared)return;
+  const base=enemy.base||enemy.baseName||enemy.name||'';
+  if(base!==s.prepared)return;
+  s.applied=true;
+  enemy.hp=Math.max(1,(enemy.hp||1)-2);
+  log('PISTE EXPLOITÉE — '+s.prepared+' reconnu avant l’assaut : -2 PV ennemi.');toast('PISTE EXPLOITÉE');
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('PISTE EXPLOITÉE',`<h2>AVANTAGE DE TERRAIN</h2><p>Les traces observées vous permettent d’anticiper <b>${s.prepared}</b>. <b>-2 PV ennemi.</b></p>`)},160);
+}
+const cd880SpawnEnemy=spawnEnemy;
+spawnEnemy=function(){const r=cd880SpawnEnemy.apply(this,arguments);try{cd880Apply()}catch(e){console.warn('cd880 apply',e)}return r};
+const cd880Move=move;
+move=function(dx,dy){
+  const bx=px,by=py,r=cd880Move.apply(this,arguments);
+  try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){const s=cd880State();if(!s.shown){s.moves++;if(s.moves>=1)setTimeout(cd880Offer,650)}}}catch(e){console.warn('cd880 move',e)}
   return r;
 };
 
