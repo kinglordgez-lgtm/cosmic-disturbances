@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 9.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 9.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8952,6 +8952,47 @@ cd15StudyEnemy=function(){
   try{if(player&&!cd900State().shown)cd900Record(studied)}catch(e){console.warn('cd900 bestiary note',e)}
   return r;
 };
+
+
+/* === V9.1.0 : CONNAISSANCE APPLIQUÉE ===
+   Une note de bestiaire fraîchement consignée peut être exploitée dès
+   le même combat : le premier assaut adverse est mieux anticipé. */
+function cd910State(){
+  if(!player.cd910)player.cd910={armed:false,used:false,target:null};
+  return player.cd910;
+}
+const cd910StudyEnemy=cd15StudyEnemy;
+cd15StudyEnemy=function(){
+  const before=(player&&player.cd900&&player.cd900.shown)||false;
+  const target=(battle&&enemy)?(enemy.base||enemy.baseName||enemy.name):null;
+  const r=cd910StudyEnemy.apply(this,arguments);
+  try{
+    if(target&&!before&&player&&player.cd900&&player.cd900.notes&&player.cd900.notes[target]){
+      const s=cd910State();s.armed=true;s.used=false;s.target=target;
+      log('CONNAISSANCE PRÊTE — votre observation de '+target+' peut être exploitée dès son prochain assaut.');
+      toast('CONNAISSANCE PRÊTE');
+    }
+  }catch(e){console.warn('cd910 arm',e)}
+  return r;
+};
+const cd910EnemyTurn=enemyTurn;
+enemyTurn=function(){
+  if(!battle||!enemy)return cd910EnemyTurn.apply(this,arguments);
+  const s=cd910State(),base=enemy.base||enemy.baseName||enemy.name;
+  if(!s.armed||s.used||s.target!==base)return cd910EnemyTurn.apply(this,arguments);
+  s.used=true;s.armed=false;
+  const hp0=player.hp,def0=player.def||0;
+  player.def=def0+2;
+  const r=cd910EnemyTurn.apply(this,arguments);
+  player.def=def0;
+  const saved=Math.max(0,(hp0-player.hp)>=0?2:0);
+  log('CONNAISSANCE APPLIQUÉE — '+base+' anticipé : garde renforcée sur son premier assaut.');
+  toast('CONNAISSANCE APPLIQUÉE');
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('CONNAISSANCE APPLIQUÉE',`<h2>ASSAUT ANTICIPÉ</h2><p>Votre note sur <b>${base}</b> vous permet de lire son mouvement avant l'impact.</p><p><b>+2 DEF</b> contre cet assaut.</p><p>La connaissance du bestiaire devient ainsi un avantage tactique concret.</p>`)},120);
+  return r;
+};
+const cd910NewRun=newRun;
+newRun=function(){const r=cd910NewRun.apply(this,arguments);player.cd910={armed:false,used:false,target:null};return r};
 </script>
 </body>
 </html>
