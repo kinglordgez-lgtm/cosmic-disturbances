@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 9.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 9.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9065,6 +9065,44 @@ move=function(dx,dy){
 };
 const cd930NewRun=newRun;
 newRun=function(){const r=cd930NewRun.apply(this,arguments);player.cd930={moves:0,shown:false};return r};
+
+
+/* === V9.4.0 : ÉCHO DES PAS ===
+   Une lecture sonore très précoce de l'environnement. Déclenchée au
+   cinquième déplacement réussi, après SENS DU TERRAIN, sans modifier move(). */
+function cd940State(){
+  if(!player.cd940)player.cd940={moves:0,shown:false};
+  return player.cd940;
+}
+function cd940FootstepEcho(){
+  const s=cd940State(); if(s.shown||s.moves<5||battle)return;
+  s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(skills.Observation||0)>=(skills.Psychologie||0)?'Observation':'Psychologie';
+  const val=skills[skill]||0, roll=1+Math.floor(rng()*100), ok=roll<=val;
+  if(ok){
+    player.xp+=2;
+    log('ÉCHO DES PAS — PRÉSENCE ANTICIPÉE ('+skill+' '+val+', jet '+roll+'). +2 XP.');
+    toast('PRÉSENCE ANTICIPÉE');
+  }else{
+    log('ÉCHO DES PAS — RÉSONANCE TROMPEUSE ('+skill+' '+val+', jet '+roll+'). Aucune perte.');
+    toast('RÉSONANCE TROMPEUSE');
+  }
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('ÉCHO DES PAS',ok?`<h2>PRÉSENCE ANTICIPÉE</h2><p>Un second rythme se mêle un instant à vos pas. Vous distinguez l'écho du mouvement réel.</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b> ✓</p><p><b>+2 XP.</b></p>`:`<h2>RÉSONANCE TROMPEUSE</h2><p>Un pas semble répondre au vôtre, puis le corridor retombe dans un silence impossible.</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b></p><p>Aucune pénalité.</p>`)},100);
+}
+const cd940Move=move;
+move=function(dx,dy){
+  const bx=px,by=py;
+  const r=cd940Move.apply(this,arguments);
+  try{
+    if(!battle&&(px!==bx||py!==by)){
+      const s=cd940State(); if(!s.shown){s.moves++;cd940FootstepEcho()}
+    }
+  }catch(e){console.warn('cd940 move',e)}
+  return r;
+};
+const cd940NewRun=newRun;
+newRun=function(){const r=cd940NewRun.apply(this,arguments);player.cd940={moves:0,shown:false};return r};
 </script>
 </body>
 </html>
