@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 9.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 9.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9205,5 +9205,38 @@ const cd970NewRun=newRun;
 newRun=function(){const r=cd970NewRun.apply(this,arguments);player.cd970={shown:false};return r};
 </script>
 
+
+<script id="cd-v980">
+/* === V9.8.0 : CARNET DE TERRAIN ===
+   Première enquête de la nouvelle réalité : l'investigateur consigne immédiatement
+   un détail exploitable. Observation uniquement après l'action, sans modifier investigate(). */
+function cd980State(){
+  if(!player.cd980)player.cd980={shown:false};
+  return player.cd980;
+}
+function cd980FieldNote(){
+  const s=cd980State(); if(s.shown||battle)return; s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill=(skills.Investigation||0)>=(skills.Observation||0)?'Investigation':'Observation';
+  const val=skills[skill]||0, roll=1+Math.floor(rng()*100), ok=roll<=val;
+  if(ok){
+    player.xp=(player.xp||0)+2;
+    log('CARNET DE TERRAIN — DÉTAIL CONSIGNÉ ('+skill+' '+val+', jet '+roll+'). +2 XP.');
+    toast('DÉTAIL CONSIGNÉ');
+  }else{
+    log('CARNET DE TERRAIN — NOTE INCERTAINE ('+skill+' '+val+', jet '+roll+'). Aucune perte.');
+    toast('NOTE INCERTAINE');
+  }
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('CARNET DE TERRAIN',ok?`<h2>DÉTAIL CONSIGNÉ</h2><p>À peine l'enquête commencée, vous isolez un détail que d'autres auraient ignoré et le fixez dans votre carnet.</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b> ✓</p><p><b>+2 XP.</b></p>`:`<h2>NOTE INCERTAINE</h2><p>Vous consignez une anomalie, mais son sens vous échappe encore. Elle pourra prendre forme plus tard.</p><p><b>${skill} ${val}</b> · jet <b>${roll}</b></p><p>Aucune pénalité.</p>`)},420);
+}
+const cd980Investigate=investigate;
+investigate=function(){
+  const r=cd980Investigate.apply(this,arguments);
+  try{cd980FieldNote()}catch(e){console.warn('cd980 field note',e)}
+  return r;
+};
+const cd980NewRun=newRun;
+newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:false};return r};
+</script>
 </body>
 </html>
