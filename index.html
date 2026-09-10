@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 9.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.0.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9301,6 +9301,43 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
       return oldNewRun990.apply(this,arguments);
     };
   }
+})();
+
+
+
+/* === V10.0.0 — SIXIÈME SENS === */
+(function(){
+ const s={moves:0,done:false};
+ function skills(){return (window.player&&player.char&&player.char.skills)||{}}
+ function panel(result,body){
+   if(typeof cdOpenPanel==="function") cdOpenPanel("SIXIÈME SENS",
+     '<h2 style="margin-top:0">'+result+'</h2><p>'+body+'</p>');
+   else { if(typeof log==="function")log("SIXIÈME SENS — "+result); if(typeof toast==="function")toast(result); }
+ }
+ function trigger(){
+   if(s.done||!window.player)return; s.done=true;
+   const k=skills(), o=Number(k.Observation||0), oc=Number(k.Occultisme||0);
+   const skill=o>=oc?"Observation":"Occultisme", val=Math.max(o,oc), roll=1+Math.floor(Math.random()*100);
+   if(roll<=val){
+     if(typeof player.xp==="number")player.xp+=2;
+     if(typeof log==="function")log("SIXIÈME SENS — PRÉSENCE DÉTECTÉE ("+skill+" "+val+", jet "+roll+"). +2 XP.");
+     panel("PRÉSENCE DÉTECTÉE","Quelque chose dérange le silence avant même de se montrer. <b>"+skill+" "+val+" · jet "+roll+" ✓</b><br><br><b>+2 XP.</b>");
+   }else{
+     if(typeof log==="function")log("SIXIÈME SENS — FRISSON SANS SOURCE ("+skill+" "+val+", jet "+roll+").");
+     panel("FRISSON SANS SOURCE","Une sensation vous arrête un instant, mais rien ne permet encore de l'expliquer. <b>"+skill+" "+val+" · jet "+roll+"</b><br><br>Aucune pénalité.");
+   }
+   if(typeof render==="function")render();
+ }
+ const oldMove1000=move;
+ move=function(dx,dy){
+   const bx=(typeof px!=="undefined"?px:null), by=(typeof py!=="undefined"?py:null);
+   const out=oldMove1000.apply(this,arguments);
+   const moved=(bx!==null&&by!==null&&(px!==bx||py!==by));
+   if(moved&&!s.done){s.moves++;if(s.moves===3)setTimeout(trigger,30)}
+   return out;
+ };
+ const oldNew1000=(typeof newRun==="function")?newRun:null;
+ if(oldNew1000)newRun=function(){s.moves=0;s.done=false;return oldNew1000.apply(this,arguments)};
 })();
 
 </script>
