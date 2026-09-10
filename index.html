@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 9.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 9.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9171,6 +9171,38 @@ win=function(){
 };
 const cd960NewRun=newRun;
 newRun=function(){const r=cd960NewRun.apply(this,arguments);player.cd960={shown:false};return r};
+</script>
+
+<script id="cd-v970">
+/* === V9.7.0 : PREMIERS SECOURS DE TERRAIN ===
+   Après le premier combat gagné, une blessure éventuelle peut être stabilisée.
+   Indépendant de l'analyse V9.6 et sans modifier les règles du combat. */
+function cd970State(){
+  if(!player.cd970)player.cd970={shown:false};
+  return player.cd970;
+}
+function cd970FieldCare(name){
+  const s=cd970State(); if(s.shown)return; s.shown=true;
+  const skills=(player.char&&player.char.skills)||{};
+  const skill='Médecine', val=skills[skill]||0, roll=1+Math.floor(rng()*100), ok=roll<=val;
+  const max=(typeof player.maxhp==='number'?player.maxhp:(typeof player.maxHp==='number'?player.maxHp:player.hp));
+  const wounded=typeof player.hp==='number'&&typeof max==='number'&&player.hp<max;
+  if(ok&&wounded){player.hp=Math.min(max,player.hp+2);log('PREMIERS SECOURS — PLAIE STABILISÉE après '+name+' (Médecine '+val+', jet '+roll+'). +2 PV.');toast('PLAIE STABILISÉE')}
+  else if(ok){player.xp+=1;log('PREMIERS SECOURS — CONTRÔLE RAPIDE après '+name+' (Médecine '+val+', jet '+roll+'). +1 XP.');toast('CONTRÔLE RAPIDE')}
+  else{log('PREMIERS SECOURS — SOINS IMPROVISÉS après '+name+' (Médecine '+val+', jet '+roll+'). Aucune perte.');toast('SOINS IMPROVISÉS')}
+  const title=ok&&wounded?'PLAIE STABILISÉE':(ok?'CONTRÔLE RAPIDE':'SOINS IMPROVISÉS');
+  const effect=ok&&wounded?'<b>+2 PV.</b>':(ok?'<b>+1 XP.</b>':'Aucune pénalité.');
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('PREMIERS SECOURS DE TERRAIN',`<h2>${title}</h2><p>Le calme revenu, vous vérifiez immédiatement votre état avant de reprendre l’exploration.</p><p><b>Médecine ${val}</b> · jet <b>${roll}</b>${ok?' ✓':''}</p><p>Après : <b>${name}</b></p><p>${effect}</p>`)},260);
+}
+const cd970Win=win;
+win=function(){
+  const defeated=(enemy&&enemy.name)||'créature inconnue';
+  const r=cd970Win.apply(this,arguments);
+  try{cd970FieldCare(defeated)}catch(e){console.warn('cd970 field care',e)}
+  return r;
+};
+const cd970NewRun=newRun;
+newRun=function(){const r=cd970NewRun.apply(this,arguments);player.cd970={shown:false};return r};
 </script>
 
 </body>
