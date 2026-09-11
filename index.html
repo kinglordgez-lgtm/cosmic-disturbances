@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9420,6 +9420,56 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNew1020=(typeof newRun==='function')?newRun:null;
  if(oldNew1020)newRun=function(){st.moves=0;st.shown=false;st.resolved=false;return oldNew1020.apply(this,arguments)};
+})();
+
+
+/* === V10.3.0 — PRÉPARATION DE TERRAIN ===
+   Test rapide : après 3 déplacements réussis, le joueur prépare son équipement.
+   Le choix crée un effet concret consommé par la prochaine enquête ou rencontre. */
+(function(){
+ const st={moves:0,shown:false,resolved:false,token:null};
+ function lamp(){return window.player&&Array.isArray(player.inv)?player.inv.find(o=>o&&o.n==='Lampe à pétrole'&&(o.uses??0)>0):null}
+ function offer(){
+   if(st.shown||!window.player||battle)return;st.shown=true;
+   const l=lamp(), lampBtn=l?'<button onclick="cd1030Choose(\'lamp\')">BALISER À LA LAMPE<br><small>'+l.uses+' charge'+(l.uses>1?'s':'')+' · prochaine enquête</small></button>':'';
+   const gun=player.equip&&player.equip.arme==='Vieux revolver';
+   const gunBtn=gun?'<button onclick="cd1030Choose(\'gun\')">GARDER LE REVOLVER PRÊT<br><small>prochaine rencontre</small></button>':'';
+   cdOpenPanel('PRÉPARATION DE TERRAIN','<h2 style="margin-top:0">AVANT D’ALLER PLUS LOIN</h2><p>La disposition des rues vous laisse quelques secondes pour préparer une réponse au prochain danger.</p><div class="grid2">'+lampBtn+gunBtn+'<button onclick="cd1030Choose(\'watch\')">OBSERVER LES ABORDS<br><small>Observation · effet immédiat</small></button></div>');
+ }
+ window.cd1030Choose=function(mode){
+   if(st.resolved||!window.player)return;st.resolved=true;
+   let title='',body='';
+   if(mode==='lamp'&&lamp()){
+     const l=lamp();l.uses=Math.max(0,(l.uses??0)-1);st.token='light';
+     title='LUMIÈRE PRÉPARÉE';body='Vous marquez les angles morts avant d’avancer. <b>La prochaine enquête rapporte +2 XP.</b> Une charge de lampe est consommée.';
+     log('PRÉPARATION — LUMIÈRE PRÉPARÉE : prochaine enquête +2 XP.');
+   }else if(mode==='gun'&&player.equip&&player.equip.arme==='Vieux revolver'){
+     st.token='cover';title='ARME EN GARDE';body='Le revolver reste bas, mais prêt. <b>La prochaine créature commence avec -2 PV.</b>';
+     log('PRÉPARATION — ARME EN GARDE : prochaine créature -2 PV initiaux.');
+   }else{
+     const val=Number((player.char&&player.char.skills&&player.char.skills.Observation)||0),roll=1+Math.floor(Math.random()*100),ok=roll<=Math.max(5,Math.min(95,val));
+     if(ok){player.xp=(player.xp||0)+2;title='ABORDS SÉCURISÉS';body='Vous repérez les lignes de fuite et les zones aveugles. <b>+2 XP.</b><br><b>Observation '+val+' · jet '+roll+' ✓</b>'}
+     else{title='RIEN DE CERTAIN';body='Blackwater refuse de livrer un schéma fiable. <b>Aucune pénalité.</b><br><b>Observation '+val+' · jet '+roll+'</b>'}
+     log('PRÉPARATION — '+title+' (Observation '+val+', jet '+roll+').'+(ok?' +2 XP.':''));
+   }
+   if(typeof toast==='function')toast(title);if(typeof closeOverlays==='function')closeOverlays();if(typeof render==='function')render();
+   setTimeout(()=>cdOpenPanel('PRÉPARATION DE TERRAIN','<h2>'+title+'</h2><p>'+body+'</p>'),80);
+ };
+ const oldInvestigate1030=investigate;
+ investigate=function(){
+   if(st.token==='light'&&!battle){st.token=null;player.xp=(player.xp||0)+2;log('PRÉPARATION CONSOMMÉE — lumière préparée : +2 XP sur cette enquête.');toast('LUMIÈRE EXPLOITÉE');}
+   return oldInvestigate1030.apply(this,arguments);
+ };
+ const oldSpawn1030=spawnEnemy;
+ spawnEnemy=function(){
+   const out=oldSpawn1030.apply(this,arguments);
+   try{if(st.token==='cover'&&battle&&enemy){st.token=null;enemy.hp=Math.max(1,enemy.hp-2);log('PRÉPARATION CONSOMMÉE — arme en garde : '+enemy.name+' commence avec -2 PV.');toast('AVANTAGE DE TIR')}}catch(e){console.warn('cd1030 spawn',e)}
+   return out;
+ };
+ const oldMove1030=move;
+ move=function(dx,dy){const bx=px,by=py,out=oldMove1030.apply(this,arguments);try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===3)setTimeout(offer,220)}}catch(e){console.warn('cd1030 move',e)}return out};
+ const oldNew1030=(typeof newRun==='function')?newRun:null;
+ if(oldNew1030)newRun=function(){st.moves=0;st.shown=false;st.resolved=false;st.token=null;return oldNew1030.apply(this,arguments)};
 })();
 
 </script>
