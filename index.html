@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9577,5 +9577,69 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  if(oldNew1050)newRun=function(){st.shown=false;st.resolved=false;return oldNew1050.apply(this,arguments)};
 })();
 </script>
+
+<script id="cd-v1060">
+/* === V10.6.0 — ANOMALIE DE SECTEUR / LES LIEUX RESPIRENT ===
+   Test rapide : 3 déplacements réussis = anomalie, 5 = évolution, 7 = retombée.
+   Patch non destructif : le moteur de déplacement reste inchangé. */
+(function(){
+ const st={moves:0,shown:false,evolved:false,ended:false,anom:null};
+ const anomalies=[
+  {name:'BRUME IMMOBILE',desc:'La brume cesse de dériver. Elle paraît attendre votre prochain mouvement.',skill:'Investigation',evo:'EMPREINTES SANS PROPRIÉTAIRE'},
+  {name:'SILENCE ABSOLU',desc:'Le quartier devient muet. Même vos pas semblent absorbés.',skill:'Psychologie',evo:'ÉCHO INEXPLIQUÉ'},
+  {name:'MURS HUMIDES',desc:'Une humidité froide suinte des murs et rend chaque appui incertain.',skill:'Endurance',evo:'TRACE SALINE'},
+  {name:'ANGLES IMPOSSIBLES',desc:'Deux murs que vous croyiez parallèles refusent soudain de le rester.',skill:'Observation',evo:'GÉOMÉTRIE DÉVIANTE'},
+  {name:'OMBRES AUTONOMES',desc:'Votre ombre accuse un léger retard, puis prend de l’avance.',skill:'Psychologie',evo:'OMBRE SANS CORPS'},
+  {name:'POUSSIÈRE MÉMORIELLE',desc:'La poussière dessine des passages que personne n’a empruntés devant vous.',skill:'Observation',evo:'TRACE FRAÎCHE'},
+  {name:'RÉSONANCE MÉTALLIQUE',desc:'Le métal de votre équipement répond à une vibration venue des murs.',skill:'Investigation',evo:'VIBRATION CONCORDANTE'},
+  {name:'FISSURE COSMIQUE',desc:'Une ligne trop noire fend brièvement l’espace entre deux pierres.',skill:'Occultisme',evo:'RÉALITÉ AMINCIE'}
+ ];
+ function pick(){
+   // La fissure cosmique reste rare, les sept autres anomalies sont communes.
+   if(Math.random()<.02)return anomalies[7];
+   return anomalies[Math.floor(Math.random()*7)];
+ }
+ function stat(n){return Number(player&&player.char&&player.char.skills&&player.char.skills[n]||0)}
+ function check(n){const v=stat(n),r=1+Math.floor(Math.random()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
+ function detect(){
+   if(st.shown)return;st.shown=true;st.anom=pick();const a=st.anom;
+   log('ANOMALIE DE SECTEUR — '+a.name+'.');toast('ANOMALIE DÉTECTÉE');
+   cdOpenPanel('ANOMALIE DE SECTEUR','<h2 style="margin-top:0">'+a.name+'</h2><p>'+a.desc+'</p><p><b>Le secteur vient de changer.</b> Continuez à avancer pour voir comment le phénomène évolue.</p>');
+ }
+ function evolve(){
+   if(!st.shown||st.evolved||!st.anom)return;st.evolved=true;const a=st.anom,q=check(a.skill);
+   let body,title=a.evo;
+   if(q.ok){player.xp=(player.xp||0)+2;body='Vous comprenez assez vite la logique locale du phénomène. <b>+2 XP.</b>'}
+   else{body='Le phénomène refuse encore de se laisser interpréter. <b>Aucune pénalité.</b>'}
+   if(a.name==='FISSURE COSMIQUE'){player.myth=(player.myth||0)+1;body+=' <b>Mythe +1%.</b>'}
+   body+='<br><b>'+a.skill+' '+q.v+' · jet '+q.r+(q.ok?' ✓':' ✗')+'</b>';
+   log('ANOMALIE ÉVOLUTIVE — '+title+' ('+a.skill+' '+q.v+', jet '+q.r+').');toast(title);
+   cdOpenPanel('ANOMALIE ÉVOLUTIVE','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p>');
+   if(typeof render==='function')render();
+ }
+ function end(){
+   if(!st.evolved||st.ended||!st.anom)return;st.ended=true;player.xp=(player.xp||0)+1;
+   log('RETOMBÉE DU PHÉNOMÈNE — '+st.anom.name+' se dissipe. +1 XP.');toast('PHÉNOMÈNE RETOMBÉ');
+   cdOpenPanel('RETOMBÉE DU PHÉNOMÈNE','<h2 style="margin-top:0">LE SECTEUR SE STABILISE</h2><p>'+st.anom.name+' perd progressivement son emprise. Les repères redeviennent cohérents. <b>+1 XP.</b></p>');
+   if(typeof render==='function')render();
+ }
+ const oldMove1060=move;
+ move=function(dx,dy){
+   const bx=px,by=py,out=oldMove1060.apply(this,arguments);
+   try{
+     if(!battle&&(px!==bx||py!==by)){
+       st.moves++;
+       if(st.moves===3)setTimeout(detect,180);
+       else if(st.moves===5)setTimeout(evolve,180);
+       else if(st.moves===7)setTimeout(end,180);
+     }
+   }catch(e){console.warn('cd1060 move',e)}
+   return out;
+ };
+ const oldNew1060=(typeof newRun==='function')?newRun:null;
+ if(oldNew1060)newRun=function(){st.moves=0;st.shown=false;st.evolved=false;st.ended=false;st.anom=null;return oldNew1060.apply(this,arguments)};
+})();
+</script>
+
 </body>
 </html>
