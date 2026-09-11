@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.1.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.2.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9378,6 +9378,50 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldNew1010=(typeof newRun==='function')?newRun:null;
  if(oldNew1010)newRun=function(){st.moves=0;st.shown=false;st.resolved=false;return oldNew1010.apply(this,arguments)};
 })();
+
+
+/* === V10.2.0 — BRUIT DANS LA BRUME ===
+   Test rapide : après 2 déplacements réussis, une réaction immédiate de terrain.
+   Choix tactique sans modifier le déplacement de base. */
+(function(){
+ const st={moves:0,shown:false,resolved:false};
+ function skills(){return (window.player&&player.char&&player.char.skills)||{}}
+ function offer(){
+   if(st.shown||!window.player||battle)return;st.shown=true;
+   if(typeof cdOpenPanel==='function')cdOpenPanel('BRUIT DANS LA BRUME',
+    '<h2 style="margin-top:0">QUELQUE CHOSE BOUGE HORS DE VUE</h2><p>Un frottement bref vient d’une rue latérale. Trop régulier pour le vent, trop lourd pour un rat.</p><div class="grid2">'+
+    '<button onclick="cd1020Choose(\'ecouter\')">ÉCOUTER SANS BOUGER<br><small>Observation</small></button>'+
+    '<button onclick="cd1020Choose(\'deduire\')">DÉDUIRE LA SOURCE<br><small>Investigation</small></button>'+
+    '<button onclick="cd1020Choose(\'tenir\')">GARDER SON SANG-FROID<br><small>Psychologie</small></button></div>');
+ }
+ window.cd1020Choose=function(mode){
+   if(st.resolved||!window.player)return;st.resolved=true;
+   const skill=mode==='ecouter'?'Observation':mode==='deduire'?'Investigation':'Psychologie';
+   const val=Number(skills()[skill]||0),roll=1+Math.floor(Math.random()*100),ok=roll<=Math.max(5,Math.min(95,val));
+   let title,body;
+   if(ok){
+     title='MENACE LOCALISÉE';player.xp=(player.xp||0)+2;
+     body='Vous isolez la direction du bruit avant qu’il ne disparaisse. Vous savez désormais quel angle surveiller. <b>+2 XP.</b>';
+   }else{
+     title='BRUIT PERDU';
+     body='Le son se fond dans Blackwater avant que vous puissiez l’identifier. <b>Aucune pénalité.</b>';
+   }
+   if(typeof log==='function')log('BRUIT DANS LA BRUME — '+title+' ('+skill+' '+val+', jet '+roll+').'+(ok?' +2 XP.':''));
+   if(typeof toast==='function')toast(title);
+   if(typeof closeOverlays==='function')closeOverlays();
+   if(typeof render==='function')render();
+   setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('BRUIT DANS LA BRUME','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+skill+' '+val+' · jet '+roll+(ok?' ✓':'')+'</b></p>')},80);
+ };
+ const oldMove1020=move;
+ move=function(dx,dy){
+   const bx=px,by=py,out=oldMove1020.apply(this,arguments);
+   try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===2)setTimeout(offer,180)}}catch(e){console.warn('cd1020 move',e)}
+   return out;
+ };
+ const oldNew1020=(typeof newRun==='function')?newRun:null;
+ if(oldNew1020)newRun=function(){st.moves=0;st.shown=false;st.resolved=false;return oldNew1020.apply(this,arguments)};
+})();
+
 </script>
 </body>
 </html>
