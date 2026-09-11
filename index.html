@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.3.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9472,6 +9472,64 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  if(oldNew1030)newRun=function(){st.moves=0;st.shown=false;st.resolved=false;st.token=null;return oldNew1030.apply(this,arguments)};
 })();
 
+
+
+/* === V10.4.0 — RÉFLEXE DE CONFRONTATION ===
+   Test rapide : la première créature rencontrée propose immédiatement une réaction.
+   Aucun changement du déplacement ni du moteur de combat. */
+(function(){
+ const st={shown:false,resolved:false,brace:false};
+ function skill(n){return Number((window.player&&player.char&&player.char.skills&&player.char.skills[n])||0)}
+ function roll(n){const v=skill(n),r=1+Math.floor(Math.random()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
+ function offer(){
+   if(st.shown||!battle||!enemy)return;st.shown=true;
+   const n=enemy.name||'la créature';
+   cdOpenPanel('RÉFLEXE DE CONFRONTATION','<h2 style="margin-top:0">'+n+'</h2><p>La créature surgit avant que vous ayez le temps de reprendre votre souffle. Votre première réaction peut décider du rythme du combat.</p><div class="grid2"><button onclick="cd1040Choose(\'weak\')">CHERCHER L’OUVERTURE<br><small>Observation</small></button><button onclick="cd1040Choose(\'brace\')">ENCAISSER LE CHOC<br><small>Endurance</small></button><button onclick="cd1040Choose(\'myth\')">LIRE L’INHUMAIN<br><small>Occultisme</small></button></div>');
+ }
+ window.cd1040Choose=function(mode){
+   if(st.resolved||!battle||!enemy)return;st.resolved=true;
+   let q,title,body;
+   if(mode==='weak'){
+     q=roll('Observation');
+     if(q.ok){enemy.hp=Math.max(1,enemy.hp-2);player.xp=(player.xp||0)+2;title='OUVERTURE REPÉRÉE';body='Vous identifiez un défaut dans sa posture. <b>-2 PV ennemi, +2 XP.</b>'}
+     else{title='LECTURE TROP LENTE';body='Le mouvement de la créature échappe à votre analyse. <b>Aucune pénalité.</b>'}
+     body+='<br><b>Observation '+q.v+' · jet '+q.r+(q.ok?' ✓':'')+'</b>';
+   }else if(mode==='brace'){
+     q=roll('Endurance');
+     if(q.ok){st.brace=true;player.xp=(player.xp||0)+1;title='GARDE SOLIDE';body='Vous absorbez votre peur et verrouillez votre position. <b>La prochaine attaque ennemie infligera 2 dégâts de moins. +1 XP.</b>'}
+     else{title='APPUI PRÉCAIRE';body='Vous vous préparez trop tard. <b>Aucune pénalité.</b>'}
+     body+='<br><b>Endurance '+q.v+' · jet '+q.r+(q.ok?' ✓':'')+'</b>';
+   }else{
+     q=roll('Occultisme');
+     if(q.ok){player.xp=(player.xp||0)+2;title='NATURE ENTREAPERÇUE';body='Un détail impossible vous révèle quelque chose de sa nature. <b>+2 XP.</b>'}
+     else{player.san=Math.max(0,(player.san||0)-1);title='REGARD DE TROP';body='Vous comprenez juste assez pour le regretter. <b>-1 SAN.</b>'}
+     body+='<br><b>Occultisme '+q.v+' · jet '+q.r+(q.ok?' ✓':'')+'</b>';
+   }
+   log('RÉFLEXE DE CONFRONTATION — '+title+'.');
+   if(typeof toast==='function')toast(title);if(typeof closeOverlays==='function')closeOverlays();if(typeof render==='function')render();
+   setTimeout(()=>cdOpenPanel('RÉFLEXE DE CONFRONTATION','<h2>'+title+'</h2><p>'+body+'</p>'),80);
+ };
+ const oldSpawn1040=spawnEnemy;
+ spawnEnemy=function(){
+   const was=battle,out=oldSpawn1040.apply(this,arguments);
+   try{if(!was&&battle&&enemy&&!st.shown)setTimeout(offer,180)}catch(e){console.warn('cd1040 spawn',e)}
+   return out;
+ };
+ const oldEnemyTurn1040=enemyTurn;
+ enemyTurn=function(){
+   if(st.brace&&battle&&enemy&&player){
+     st.brace=false;
+     const before=player.hp;
+     const out=oldEnemyTurn1040.apply(this,arguments);
+     const lost=Math.max(0,before-player.hp),refund=Math.min(2,lost);
+     if(refund>0){player.hp=Math.min(player.maxhp||player.hp,player.hp+refund);log('GARDE SOLIDE — '+refund+' dégât'+(refund>1?'s':'')+' absorbé'+(refund>1?'s':'')+'.');toast('CHOC ABSORBÉ')}
+     return out;
+   }
+   return oldEnemyTurn1040.apply(this,arguments);
+ };
+ const oldNew1040=(typeof newRun==='function')?newRun:null;
+ if(oldNew1040)newRun=function(){st.shown=false;st.resolved=false;st.brace=false;return oldNew1040.apply(this,arguments)};
+})();
 </script>
 </body>
 </html>
