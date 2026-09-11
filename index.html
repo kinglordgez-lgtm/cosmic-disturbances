@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.6.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9643,5 +9643,47 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 })();
 </script>
 
+<script id="cd-v1070">
+/* === V10.7.0 — MÉMOIRE DU PASSAGE / TRACE RÉCURRENTE ===
+   Test rapide : revenez une seule fois sur une case déjà parcourue.
+   Le moteur de déplacement n'est pas modifié : ce patch observe seulement la position après move(). */
+(function(){
+ const st={visited:new Set(),shown:false};
+ function key(){return String(px)+','+String(py)}
+ function skill(n){return Number(player&&player.char&&player.char.skills&&player.char.skills[n]||0)}
+ function trigger(){
+   if(st.shown||!player)return;st.shown=true;
+   const options=[
+    {skill:'Observation',title:'DÉTAIL DÉPLACÉ',text:'Un détail du décor n’occupe plus exactement la place que votre mémoire lui assignait.'},
+    {skill:'Investigation',title:'TRACE RÉCURRENTE',text:'Vous reconnaissez votre propre passage, mais une seconde trace semble l’avoir suivi.'},
+    {skill:'Psychologie',title:'SOUVENIR ÉTRANGER',text:'Le lieu vous paraît familier d’une manière qui ne correspond pas à vos souvenirs.'}
+   ];
+   const a=options[Math.floor(Math.random()*options.length)],v=skill(a.skill),r=1+Math.floor(Math.random()*100),ok=r<=Math.max(5,Math.min(95,v));
+   let result,body;
+   if(ok){player.xp=(player.xp||0)+2;result='PASSAGE RECONNU';body=a.text+' Vous distinguez ce qui a changé depuis votre premier passage. <b>+2 XP.</b>'}
+   else{result='DÉJÀ-VU TROUBLANT';body=a.text+' La comparaison vous échappe encore. <b>Aucune pénalité.</b>'}
+   body+='<br><b>'+a.skill+' '+v+' · jet '+r+(ok?' ✓':' ✗')+'</b>';
+   log('MÉMOIRE DU PASSAGE — '+result+' — '+a.title+' ('+a.skill+' '+v+', jet '+r+').');
+   if(typeof toast==='function')toast(result);
+   if(typeof cdOpenPanel==='function')cdOpenPanel('MÉMOIRE DU PASSAGE','<h2 style="margin-top:0">'+result+'</h2><h3>'+a.title+'</h3><p>'+body+'</p>');
+   if(typeof render==='function')render();
+ }
+ const oldMove1070=move;
+ move=function(dx,dy){
+   const before=key(),out=oldMove1070.apply(this,arguments);
+   try{
+     if(!battle&&key()!==before){
+       const k=key();
+       if(st.visited.has(k)&&!st.shown)setTimeout(trigger,160);
+       else st.visited.add(k);
+     }
+   }catch(e){console.warn('cd1070 move',e)}
+   return out;
+ };
+ const oldNew1070=(typeof newRun==='function')?newRun:null;
+ if(oldNew1070)newRun=function(){st.visited.clear();st.shown=false;const out=oldNew1070.apply(this,arguments);try{st.visited.add(key())}catch(e){}return out};
+ try{st.visited.add(key())}catch(e){}
+})();
+</script>
 </body>
 </html>
