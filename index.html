@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.7.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9685,5 +9685,69 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  try{st.visited.add(key())}catch(e){}
 })();
 </script>
+
+<script id="cd-v1080">
+/* === V10.8.0 — CONTRECOUP DU PASSAGE / MÉMOIRE CONSÉQUENTE ===
+   Interaction de systèmes : V10.7 arme une conséquence selon le résultat de MÉMOIRE DU PASSAGE.
+   Test rapide : revenez sur une case déjà parcourue, fermez le panneau V10.7, puis faites 1 déplacement réussi.
+   Aucun changement du moteur de déplacement : observation après move(). */
+(function(){
+ const st={armed:false,kind:null,shown:false};
+
+ function armFromMemory(title,body){
+   try{
+     if(title!=='MÉMOIRE DU PASSAGE'||st.shown)return;
+     const txt=String(body||'');
+     if(txt.indexOf('PASSAGE RECONNU')!==-1){
+       st.armed=true; st.kind='recognized';
+     }else if(txt.indexOf('DÉJÀ-VU TROUBLANT')!==-1){
+       st.armed=true; st.kind='troubled';
+     }
+   }catch(e){console.warn('cd1080 arm',e)}
+ }
+
+ function consequence(){
+   if(!st.armed||st.shown||!player)return;
+   st.armed=false; st.shown=true;
+   let title,body;
+   if(st.kind==='recognized'){
+     title="FIL D'ARIANE";
+     player.xp=(player.xp||0)+1;
+     body="Votre mémoire du passage devient un repère exploitable. Vous rattachez la nouvelle position à votre trajet précédent. <b>+1 XP.</b>";
+   }else{
+     title="BOUCLE MENTALE";
+     player.san=Math.max(0,(player.san||0)-1);
+     body="Le déjà-vu persiste après avoir quitté la case. Pendant un instant, vous ne savez plus si vous avancez ou si le lieu vous ramène sur vos propres pas. <b>-1 SAN.</b>";
+   }
+   if(typeof log==='function')log('CONTRECOUP DU PASSAGE — '+title+'.');
+   if(typeof toast==='function')toast(title);
+   if(typeof cdOpenPanel==='function')cdOpenPanel('CONTRECOUP DU PASSAGE','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p><p><b>La mémoire du lieu produit désormais une conséquence réelle.</b></p>');
+   if(typeof render==='function')render();
+ }
+
+ const oldPanel1080=cdOpenPanel;
+ cdOpenPanel=function(title,body){
+   const out=oldPanel1080.apply(this,arguments);
+   armFromMemory(title,body);
+   return out;
+ };
+
+ const oldMove1080=move;
+ move=function(dx,dy){
+   const bx=px,by=py,out=oldMove1080.apply(this,arguments);
+   try{
+     if(st.armed&&!st.shown&&!battle&&(px!==bx||py!==by))setTimeout(consequence,180);
+   }catch(e){console.warn('cd1080 move',e)}
+   return out;
+ };
+
+ const oldNew1080=(typeof newRun==='function')?newRun:null;
+ if(oldNew1080)newRun=function(){
+   st.armed=false; st.kind=null; st.shown=false;
+   return oldNew1080.apply(this,arguments);
+ };
+})();
+</script>
+
 </body>
 </html>
