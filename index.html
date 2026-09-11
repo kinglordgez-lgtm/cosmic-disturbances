@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.4.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.5.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9529,6 +9529,52 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNew1040=(typeof newRun==='function')?newRun:null;
  if(oldNew1040)newRun=function(){st.shown=false;st.resolved=false;st.brace=false;return oldNew1040.apply(this,arguments)};
+})();
+
+
+/* === V10.5.0 — APPROCHE DU TÉMOIN ===
+   Test rapide : le premier PNJ rencontré propose une approche sociale avant l'échange.
+   N'altère pas le moteur de dialogue existant. */
+(function(){
+ const st={shown:false,resolved:false};
+ function skill(n){return Number((window.player&&player.char&&player.char.skills&&player.char.skills[n])||0)}
+ function roll(n){const v=skill(n),r=1+Math.floor(Math.random()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
+ function offer(){
+   if(st.shown||battle||!player||!player.npc)return;st.shown=true;
+   const n=player.npc.name||'Le témoin';
+   cdOpenPanel('APPROCHE DU TÉMOIN','<h2 style="margin-top:0">'+n+'</h2><p>Avant de poser votre première question, vous choisissez comment installer le rapport de force.</p><div class="grid2"><button onclick="cd1050Choose(\'read\')">LIRE LES SILENCES<br><small>Psychologie</small></button><button onclick="cd1050Choose(\'facts\')">FIXER LES FAITS<br><small>Investigation</small></button><button onclick="cd1050Choose(\'calm\')">GARDER VOTRE CALME<br><small>Endurance</small></button></div>');
+ }
+ window.cd1050Choose=function(mode){
+   if(st.resolved||!player||!player.npc)return;st.resolved=true;
+   let q,title,body;
+   if(mode==='read'){
+     q=roll('Psychologie');
+     if(q.ok){player.npc.trust=(player.npc.trust||0)+1;player.xp=(player.xp||0)+1;title='FAILle HUMAINE REPÉRÉE';body='Vous comprenez ce que le témoin évite de dire. <b>Confiance +1, +1 XP.</b>'}
+     else{title='VISAGE FERMÉ';body='Vous ne parvenez pas encore à lire ses réactions. <b>Aucune pénalité.</b>'}
+     body+='<br><b>Psychologie '+q.v+' · jet '+q.r+(q.ok?' ✓':'')+'</b>';
+   }else if(mode==='facts'){
+     q=roll('Investigation');
+     if(q.ok){player.xp=(player.xp||0)+2;title='CONTRADICTION ISOLÉE';body='Un détail du récit ne tient pas. Vous savez où insister. <b>+2 XP.</b>'}
+     else{title='RÉCIT COHÉRENT';body='Aucune contradiction exploitable ne se révèle immédiatement. <b>Aucune pénalité.</b>'}
+     body+='<br><b>Investigation '+q.v+' · jet '+q.r+(q.ok?' ✓':'')+'</b>';
+   }else{
+     q=roll('Endurance');
+     if(q.ok){player.san=Math.min(player.maxsan||player.san||0,(player.san||0)+1);player.xp=(player.xp||0)+1;title='CALME IMPOSÉ';body='Vous gardez une présence stable malgré la tension. <b>+1 SAN, +1 XP.</b>'}
+     else{title='TENSION VISIBLE';body='Votre fatigue transparaît un instant. <b>Aucune pénalité.</b>'}
+     body+='<br><b>Endurance '+q.v+' · jet '+q.r+(q.ok?' ✓':'')+'</b>';
+   }
+   log('APPROCHE DU TÉMOIN — '+title+'.');
+   if(typeof toast==='function')toast(title);if(typeof closeOverlays==='function')closeOverlays();if(typeof render==='function')render();
+   setTimeout(()=>cdOpenPanel('APPROCHE DU TÉMOIN','<h2>'+title+'</h2><p>'+body+'</p><button onclick="closeOverlays();setTimeout(()=>cd18NpcPanel(),80)">POURSUIVRE L’ENTRETIEN</button>'),80);
+ };
+ const oldNpc1050=cd18NpcPanel;
+ cd18NpcPanel=function(){
+   const out=oldNpc1050.apply(this,arguments);
+   try{if(!st.shown&&!battle&&player&&player.npc)setTimeout(offer,180)}catch(e){console.warn('cd1050 npc',e)}
+   return out;
+ };
+ const oldNew1050=(typeof newRun==='function')?newRun:null;
+ if(oldNew1050)newRun=function(){st.shown=false;st.resolved=false;return oldNew1050.apply(this,arguments)};
 })();
 </script>
 </body>
