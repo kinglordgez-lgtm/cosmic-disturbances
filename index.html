@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.8.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9745,6 +9745,73 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  if(oldNew1080)newRun=function(){
    st.armed=false; st.kind=null; st.shown=false;
    return oldNew1080.apply(this,arguments);
+ };
+})();
+</script>
+
+
+<script id="cd-v1090">
+/* V10.9.0 — RÉMANENCE DU CONTRECOUP
+   Le résultat réel de V10.8 modifie le prochain test d'exploration.
+   Test rapide: déclencher FIL D'ARIANE ou BOUCLE MENTALE, fermer, puis ENQUÊTER. */
+(function(){
+ const s={armed:false,kind:null,used:false};
+
+ function arm(title,body){
+   if(title!=='CONTRECOUP DU PASSAGE'||s.used)return;
+   const t=String(body||'');
+   if(t.indexOf("FIL D'ARIANE")>=0){s.armed=true;s.kind='fil';}
+   else if(t.indexOf('BOUCLE MENTALE')>=0){s.armed=true;s.kind='boucle';}
+ }
+
+ const oldPanel1090=cdOpenPanel;
+ cdOpenPanel=function(title,body){
+   const out=oldPanel1090.apply(this,arguments);
+   try{arm(title,body)}catch(e){console.warn('cd1090 panel',e)}
+   return out;
+ };
+
+ function resolve(){
+   if(!s.armed||s.used||!player)return;
+   s.armed=false;s.used=true;
+   let title,body;
+   if(s.kind==='fil'){
+     player.xp=(player.xp||0)+2;
+     title="REPÈRE CONSOLIDÉ";
+     body="Le fil d’Ariane mental survit au déplacement. Votre enquête suivante s’appuie sur un trajet devenu cohérent. <b>+2 XP.</b>";
+   }else{
+     const sk=(player.char&&player.char.skills)||{};
+     const val=Number(sk.Investigation||0), roll=1+Math.floor(Math.random()*100);
+     if(roll<=val){
+       player.xp=(player.xp||0)+2;
+       title="BOUCLE BRISÉE";
+       body="Vous confrontez le faux souvenir aux faits et cassez la boucle. <b>Investigation "+val+" · jet "+roll+" ✓ · +2 XP.</b>";
+     }else{
+       player.san=Math.max(0,(player.san||0)-1);
+       title="RÉMANENCE TROUBLE";
+       body="La boucle mentale contamine votre lecture du secteur. <b>Investigation "+val+" · jet "+roll+" ✕ · -1 SAN.</b>";
+     }
+   }
+   if(typeof log==='function')log("RÉMANENCE DU CONTRECOUP — "+title+".");
+   if(typeof toast==='function')toast(title);
+   cdOpenPanel("RÉMANENCE DU CONTRECOUP","<h2 style='margin-top:0'>"+title+"</h2><p>"+body+"</p><p><b>Une conséquence antérieure modifie maintenant l’enquête suivante.</b></p>");
+   if(typeof render==='function')render();
+ }
+
+ // On n'altère pas investigate(): on observe le bouton d'action existant.
+ const btn=document.getElementById('actionBtn');
+ if(btn)btn.addEventListener('click',function(){
+   try{
+     if(s.armed&&!s.used&&!battle&&String(btn.textContent||'').trim()==='ENQUÊTER'){
+       setTimeout(resolve,220);
+     }
+   }catch(e){console.warn('cd1090 action',e)}
+ },true);
+
+ const oldNew1090=newRun;
+ newRun=function(){
+   s.armed=false;s.kind=null;s.used=false;
+   return oldNew1090.apply(this,arguments);
  };
 })();
 </script>
