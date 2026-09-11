@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.6.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.6.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -6375,6 +6375,7 @@ function cd311State(){
  return player.cd311;
 }
 function cd311Check(){
+ if(typeof player==="undefined"||!player)return;
  const s=cd311State();
  if(player.x!==s.x||player.y!==s.y){
    s.x=player.x;s.y=player.y;s.steps++;
@@ -6433,6 +6434,7 @@ function cd312Try(){
   }
 }
 function cd312Check(){
+  if(typeof player==="undefined"||!player) return;
   if(typeof px!=="number"||typeof py!=="number") return;
   const s=cd312State();
   if(s.x===null||s.y===null){s.x=px;s.y=py;return;}
@@ -9579,7 +9581,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 </script>
 
 <script id="cd-v1060">
-/* === V10.6.0 — ANOMALIE DE SECTEUR / LES LIEUX RESPIRENT ===
+/* === V10.6.1 — correctif démarrage + ANOMALIE DE SECTEUR / LES LIEUX RESPIRENT ===
    Test rapide : 3 déplacements réussis = anomalie, 5 = évolution, 7 = retombée.
    Patch non destructif : le moteur de déplacement reste inchangé. */
 (function(){
