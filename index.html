@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.9.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.10.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9813,6 +9813,66 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.armed=false;s.kind=null;s.used=false;
    return oldNew1090.apply(this,arguments);
  };
+})();
+</script>
+
+<script id="cd-v10100">
+/* V10.10.0 — MÉMOIRE DE RÉMANENCE
+   La résolution du contrecoup laisse une empreinte sur le prochain déplacement réussi.
+   Test rapide : après RÉMANENCE DU CONTRECOUP, fermez le panneau puis faites 1 déplacement. */
+(function(){
+ const s={armed:false,kind:null,used:false};
+ function arm(title,body){
+   if(title!=="RÉMANENCE DU CONTRECOUP"||s.used)return;
+   const t=String(body||'');
+   if(t.indexOf('BOUCLE BRISÉE')>=0)s.kind='brisee';
+   else if(t.indexOf('REPÈRE CONSOLIDÉ')>=0)s.kind='repere';
+   else if(t.indexOf('RÉMANENCE TROUBLE')>=0)s.kind='trouble';
+   else return;
+   s.armed=true;
+ }
+ const oldPanel10100=cdOpenPanel;
+ cdOpenPanel=function(title,body){
+   const out=oldPanel10100.apply(this,arguments);
+   try{arm(title,body)}catch(e){console.warn('cd10100 panel',e)}
+   return out;
+ };
+ function resolve(){
+   if(!s.armed||s.used||!player)return;
+   s.armed=false;s.used=true;
+   let title,body;
+   if(s.kind==='brisee'){
+     player.xp=(player.xp||0)+1;
+     title='REPÈRE RÉTABLI';
+     body='La boucle brisée laisse derrière elle un repère fiable. Votre pas suivant confirme que le secteur obéit encore, au moins en partie, à une géométrie compréhensible. <b>+1 XP.</b>';
+   }else if(s.kind==='repere'){
+     player.xp=(player.xp||0)+1;
+     title='TRACE STABILISÉE';
+     body='Le repère consolidé s’ancre dans votre mémoire. En avançant, vous reconnaissez immédiatement ce qui appartient au trajet réel. <b>+1 XP.</b>';
+   }else{
+     const sk=(player.char&&player.char.skills)||{};
+     const val=Number(sk.Observation||0),roll=1+Math.floor(Math.random()*100);
+     if(roll<=val){
+       player.xp=(player.xp||0)+1;title='FAUX REPÈRE DÉMASQUÉ';
+       body='Le souvenir parasite tente de se superposer au passage, mais un détail concret le trahit. <b>Observation '+val+' · jet '+roll+' ✓ · +1 XP.</b>';
+     }else{
+       player.san=Math.max(0,(player.san||0)-1);title='ESPACE DÉCALÉ';
+       body='Le souvenir parasite gagne un instant sur le réel. Le couloir semble se décaler au moment même où vous avancez. <b>Observation '+val+' · jet '+roll+' ✕ · -1 SAN.</b>';
+     }
+   }
+   if(typeof log==='function')log('MÉMOIRE DE RÉMANENCE — '+title+'.');
+   if(typeof toast==='function')toast(title);
+   cdOpenPanel('MÉMOIRE DE RÉMANENCE','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p><p><b>La résolution précédente laisse maintenant une empreinte sur votre déplacement.</b></p>');
+   if(typeof render==='function')render();
+ }
+ const oldMove10100=move;
+ move=function(dx,dy){
+   const bx=px,by=py,out=oldMove10100.apply(this,arguments);
+   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))setTimeout(resolve,220)}catch(e){console.warn('cd10100 move',e)}
+   return out;
+ };
+ const oldNew10100=newRun;
+ newRun=function(){s.armed=false;s.kind=null;s.used=false;return oldNew10100.apply(this,arguments)};
 })();
 </script>
 
