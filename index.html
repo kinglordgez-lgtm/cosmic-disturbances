@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.20.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.21.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10300,7 +10300,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  newRun=function(){s.used=false;s.result='';s.detail='';return oldNew10200.apply(this,arguments)};
 })();
 </script>
-\n<script id="cd-v10201">
+<script id="cd-v10201">
 /* V10.20.1 — correctif : le menu appelle cd23OpenCodex(), pas openBestiary(). */
 (function(){
  if(typeof cd23OpenCodex!=='function')return;
@@ -10334,6 +10334,49 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldNew10201=newRun;
  newRun=function(){window.cd10201BestiaryState={used:false,result:'',detail:''};return oldNew10201.apply(this,arguments)};
 })();
+</script>\n<script id="cd-v10210">
+/* V10.21.0 — BILAN DE PROGRESSION
+   Première ouverture des succès : l’enquêteur évalue ce qu’il lui reste à accomplir.
+   Test immédiat : MENU > SUCCÈS. */
+(function(){
+ const s={used:false,result:'',detail:''};
+ function resolve(){
+   if(s.used||!player||!player.char||!player.char.skills)return;
+   s.used=true;
+   const sk=player.char.skills;
+   const inv=Number(sk.Investigation||0),end=Number(sk.Endurance||0);
+   const key=inv>=end?'Investigation':'Endurance',val=Math.max(inv,end),roll=1+Math.floor(Math.random()*100);
+   const unlocked=(typeof cd23Stats==='object'&&cd23Stats&&cd23Stats.ach)?Object.keys(cd23Stats.ach).length:0;
+   if(roll<=val){
+     player.xp=(player.xp||0)+1;
+     s.result='CAP À SUIVRE';
+     s.detail='Vous transformez vos progrès en objectifs concrets. <b>'+key+' '+val+' · jet '+roll+' ✓ · +1 XP.</b> Succès déjà acquis : '+unlocked+'.';
+   }else{
+     s.result='HORIZON INCERTAIN';
+     s.detail='Blackwater offre trop de pistes à la fois. Vous gardez plusieurs priorités ouvertes. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b> Succès déjà acquis : '+unlocked+'.';
+   }
+   if(typeof log==='function')log('BILAN DE PROGRESSION — '+s.result+'.');
+   if(typeof toast==='function')toast(s.result);
+ }
+ function banner(){
+   const root=document.getElementById('sheetContent');if(!root||!s.result||root.querySelector('.cd10210-ach'))return;
+   const d=document.createElement('div');d.className='entry cd10210-ach';d.style.cssText='border-color:#8b7440;margin-bottom:12px';
+   d.innerHTML='<b>BILAN DE PROGRESSION — '+s.result+'</b><br>'+s.detail;
+   const h=root.querySelector('h2');if(h&&h.nextSibling)root.insertBefore(d,h.nextSibling);else root.appendChild(d);
+ }
+ if(typeof cd23OpenAchievements==='function'){
+   const oldAch10210=cd23OpenAchievements;
+   cd23OpenAchievements=function(){
+     try{resolve()}catch(e){console.warn('cd10210 resolve',e)}
+     const out=oldAch10210.apply(this,arguments);
+     try{banner()}catch(e){console.warn('cd10210 banner',e)}
+     return out;
+   };
+ }
+ const oldNew10210=newRun;
+ newRun=function(){s.used=false;s.result='';s.detail='';return oldNew10210.apply(this,arguments)};
+})();
 </script>
+
 </body>
 </html>
