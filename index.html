@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.31.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.32.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10842,6 +10842,42 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldStudy10310=cd15StudyEnemy;
  cd15StudyEnemy=function(){const out=oldStudy10310.apply(this,arguments);try{if(battle&&enemy&&!enemy.cd10310Applied)apply(true)}catch(e){console.warn('cd10310 study',e)}return out};
  window.cd10310Doctrine=function(){return {expertise:load(),family:enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
+})();
+</script>
+
+
+
+<script id="cd-v10320">
+/* V10.32.0 — CONTRE-MESURE DOCTRINALE
+   Une famille déjà connue débloque une manoeuvre active au premier assaut.
+   Test rapide : contre une famille OBSERVATEUR+, appuyer sur ATTAQUER. */
+(function(){
+ if(typeof attack!=='function'||typeof cdOpenPanel!=='function'||typeof closeOverlays!=='function')return;
+ const KEY='cosmic_bestiary_expertise_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ function rank(n){return n>=6?3:n>=3?2:n>=1?1:0}
+ function spec(f){return ({
+  ABYSSALE:['Observation','RECUL CALCULÉ','Vous lisez la poussée brutale avant qu’elle ne vous enferme.'],
+  FONGIQUE:['Médecine','COUPE ASEPTIQUE','Vous visez la structure qui nourrit la masse fongique.'],
+  EXTRADIMENSIONNELLE:['Occultisme','ANGLE MORT','Vous anticipez une géométrie que l’œil refuse normalement de suivre.'],
+  RITUELLE:['Investigation','RUPTURE DU RITE','Vous frappez au moment où le geste rituel devient vulnérable.'],
+  NÉCROPHAGE:['Observation','CADENCE BRISÉE','Vous exploitez le rythme de chasse de la créature.']
+ })[f]||['Investigation','RÉFLEXE DOCUMENTÉ','Votre dossier suggère une ouverture.']}
+ function eligible(){if(!battle||!enemy||enemy.cd10320Resolved||enemy.cd10320Offered)return null;const f=family(enemy.base||enemy.baseName||enemy.name),r=rank(Number(load()[f]||0));return r>0?{f:f,r:r,d:spec(f)}:null}
+ const oldAttack10320=attack;
+ window.cd10320Choose=function(mode){
+   if(!battle||!enemy)return closeOverlays();
+   const f=family(enemy.base||enemy.baseName||enemy.name),r=rank(Number(load()[f]||0)),d=spec(f);enemy.cd10320Resolved=true;closeOverlays();
+   if(mode==='apply'){
+     const sk=(player.char&&player.char.skills)||{},val=Number(sk[d[0]]||0),roll=1+Math.floor(rng()*100),bonus=r===1?10:r===2?20:30,ok=roll<=Math.max(15,Math.min(95,val+bonus));
+     if(ok){const dmg=r+1;enemy.hp=Math.max(1,Number(enemy.hp||1)-dmg);player.xp=(player.xp||0)+1;log('CONTRE-MESURE DOCTRINALE — '+d[1]+' réussie ('+d[0]+' '+val+', jet '+roll+'). -'+dmg+' PV ennemi · +1 XP.');toast('DOCTRINE EXPLOITÉE');render();cdOpenPanel('CONTRE-MESURE DOCTRINALE','<h2>'+d[1]+'</h2><p>'+d[2]+'</p><p><b>'+d[0]+' '+val+'</b> · jet <b>'+roll+'</b> ✓</p><p><b>-'+dmg+' PV ennemi · +1 XP.</b></p><button onclick="closeOverlays();cd10320Strike()">PORTER L’ATTAQUE</button>');return}
+     log('CONTRE-MESURE DOCTRINALE — lecture imparfaite ('+d[0]+' '+val+', jet '+roll+').');toast('LECTURE IMPARFAITE');render();cdOpenPanel('CONTRE-MESURE DOCTRINALE','<h2>LECTURE IMPARFAITE</h2><p>Votre doctrine était juste, mais l’ouverture se referme. <b>Aucune pénalité.</b></p><p><b>'+d[0]+' '+val+'</b> · jet <b>'+roll+'</b></p><button onclick="closeOverlays();cd10320Strike()">PORTER L’ATTAQUE</button>');return;
+   }
+   log('CONTRE-MESURE DOCTRINALE — posture conservatrice.');toast('DOCTRINE CONSERVÉE');render();return oldAttack10320();
+ };
+ window.cd10320Strike=function(){closeOverlays();return oldAttack10320()};
+ attack=function(){const x=eligible();if(x){enemy.cd10320Offered=true;cdOpenPanel('CONTRE-MESURE DOCTRINALE','<h2>'+x.d[1]+'</h2><p>'+x.d[2]+'</p><p>Votre rang <b>'+(x.r===1?'OBSERVATEUR':x.r===2?'SPÉCIALISTE':'EXPERT')+'</b> de la famille <b>'+x.f+'</b> vous permet de tenter une exploitation active.</p><div class="grid2"><button onclick="cd10320Choose(\'apply\')">APPLIQUER LA DOCTRINE<br><small>'+x.d[0]+' · bonus de maîtrise</small></button><button onclick="cd10320Choose(\'skip\')">ATTAQUER NORMALEMENT<br><small>aucun risque</small></button></div>');return}return oldAttack10320.apply(this,arguments)};
 })();
 </script>
 
