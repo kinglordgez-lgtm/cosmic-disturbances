@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.15.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.16.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10090,6 +10090,51 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNew10150=newRun;
  newRun=function(){s.used=false;return oldNew10150.apply(this,arguments)};
+})();
+</script>
+
+<script id="cd-v10160">
+/* V10.16.0 — DÉDUCTION CROISÉE
+   Après la première enquête ordinaire, le premier déplacement réel permet de confronter l'indice au terrain. Test très rapide : ENQUÊTER, fermer les panneaux, puis faire 1 déplacement. */
+(function(){
+ const s={armed:false,used:false};
+ function modalBusy(){
+   try{const m=document.getElementById('modal');return !!(m && (m.classList.contains('show') || m.style.display==='flex' || m.style.display==='block'));}catch(e){return false}
+ }
+ function resolve(){
+   if(!s.armed||s.used||battle||!player)return;
+   if(modalBusy()){setTimeout(resolve,250);return;}
+   s.armed=false;s.used=true;
+   const sk=(player.char&&player.char.skills)||{};
+   const inv=Number(sk.Investigation||0),obs=Number(sk.Observation||0);
+   const key=inv>=obs?'Investigation':'Observation',val=Math.max(inv,obs),roll=1+Math.floor(Math.random()*100);
+   let title,body;
+   if(roll<=val){
+     player.xp=(player.xp||0)+1;title='PISTE CONSOLIDÉE';
+     body='En quittant le point fouillé, la disposition du secteur confirme un détail de votre raisonnement. <b>'+key+' '+val+' · jet '+roll+' ✓ · +1 XP.</b>';
+   }else{
+     title='DÉDUCTION FRAGILE';
+     body='Le terrain contredit votre première lecture. Vous abandonnez l’hypothèse avant qu’elle ne devienne une certitude dangereuse. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b>';
+   }
+   log('DÉDUCTION CROISÉE — '+title+'.');toast(title);
+   try{cdOpenPanel('DÉDUCTION CROISÉE','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p><p><b>Une enquête et un déplacement ont suffi pour confronter l’indice au terrain.</b></p>')}catch(e){console.warn('cd10160 panel',e)}
+   try{render()}catch(e){}
+ }
+ const oldInvestigate10160=investigate;
+ investigate=function(){
+   const canArm=!s.used&&!s.armed&&!battle;
+   const out=oldInvestigate10160.apply(this,arguments);
+   try{if(canArm&&!battle){s.armed=true;log('DÉDUCTION CROISÉE — votre prochaine progression mettra cette première lecture à l’épreuve.')}}catch(e){console.warn('cd10160 investigate',e)}
+   return out;
+ };
+ const oldMove10160=move;
+ move=function(dx,dy){
+   const bx=px,by=py,out=oldMove10160.apply(this,arguments);
+   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))setTimeout(resolve,220)}catch(e){console.warn('cd10160 move',e)}
+   return out;
+ };
+ const oldNew10160=newRun;
+ newRun=function(){s.armed=false;s.used=false;return oldNew10160.apply(this,arguments)};
 })();
 </script>
 </body>
