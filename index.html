@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.14.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.15.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10050,6 +10050,46 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNew10140=newRun;
  newRun=function(){s.moves=0;s.used=false;return oldNew10140.apply(this,arguments)};
+})();
+</script>
+
+<script id="cd-v10150">
+/* V10.15.0 — INSTINCT DE FOUILLE
+   La première enquête ordinaire de la nouvelle réalité peut révéler un détail utile sans modifier le système d’enquête existant. */
+(function(){
+ const s={used:false};
+ function modalBusy(){
+   try{const m=document.getElementById('modal');return !!(m && (m.classList.contains('show') || m.style.display==='flex' || m.style.display==='block'));}catch(e){return false}
+ }
+ function resolve(){
+   if(s.used||battle||!player)return;
+   if(modalBusy()){setTimeout(resolve,250);return;}
+   s.used=true;
+   const sk=(player.char&&player.char.skills)||{};
+   const keys=['Investigation','Observation','Érudition'];
+   let key=keys[0]; for(const k of keys)if(Number(sk[k]||0)>Number(sk[key]||0))key=k;
+   const val=Number(sk[key]||0),roll=1+Math.floor(Math.random()*100);
+   let title,body;
+   if(roll<=val){
+     player.xp=(player.xp||0)+1;title='DÉTAIL RÉVÉLATEUR';
+     body='Votre première fouille méthodique fait ressortir un détail que le lieu semblait vouloir dissimuler. <b>'+key+' '+val+' · jet '+roll+' ✓ · +1 XP.</b>';
+   }else{
+     title='FAUSSE PISTE ÉCARTÉE';
+     body='Un détail attire votre attention, puis se révèle trompeur. Vous l’écartez avant qu’il ne déforme votre enquête. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b>';
+   }
+   log('INSTINCT DE FOUILLE — '+title+'.');toast(title);
+   try{cdOpenPanel('INSTINCT DE FOUILLE','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p><p><b>Cette intuition ne se produit qu’une fois par nouvelle réalité.</b></p>')}catch(e){console.warn('cd10150 panel',e)}
+   try{render()}catch(e){}
+ }
+ const oldInvestigate10150=investigate;
+ investigate=function(){
+   const ready=!s.used&&!battle;
+   const out=oldInvestigate10150.apply(this,arguments);
+   try{if(ready&&!battle)setTimeout(resolve,320)}catch(e){console.warn('cd10150 investigate',e)}
+   return out;
+ };
+ const oldNew10150=newRun;
+ newRun=function(){s.used=false;return oldNew10150.apply(this,arguments)};
 })();
 </script>
 </body>
