@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.30.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.31.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10787,5 +10787,63 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  window.cd10300Expertise=function(){return load()};
 })();
 </script>
+
+
+<script id="cd-v10310">
+/* V10.31.0 — DOCTRINES PERMANENTES DE FAMILLE
+   Les paliers du bestiaire donnent désormais un avantage tactique durable
+   propre à chaque famille. Test rapide : ÉTUDIER la première créature. */
+(function(){
+ if(typeof spawnEnemy!=='function'||typeof cd15StudyEnemy!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_bestiary_expertise_v1';
+ function family(n){
+   n=String(n||'');
+   if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';
+   if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';
+   if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';
+   if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';
+   if(/Goule/i.test(n))return 'NÉCROPHAGE';
+   return 'INCONNUE';
+ }
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function rank(n){return n>=6?3:n>=3?2:n>=1?1:0}
+ function rankName(r){return ['AUCUNE','OBSERVATEUR','SPÉCIALISTE','EXPERT'][r]||'EXPERT'}
+ function doctrine(f,r){
+   const d={
+    ABYSSALE:[['RECUL MESURÉ','ATQ ennemie -1'],['GARDE DES PROFONDEURS','ATQ ennemie -1 · PV ennemi -1'],['MAÎTRISE ABYSSALE','ATQ ennemie -2 · PV ennemi -2']],
+    FONGIQUE:[['SPORES ANTICIPÉES','PV ennemi -1'],['ANATOMIE FONGIQUE','PV ennemi -2'],['DISSECTION MI-GO','PV ennemi -3']],
+    EXTRADIMENSIONNELLE:[['ANGLES MÉMORISÉS','PV ennemi -1'],['GÉOMÉTRIE HOSTILE','PV ennemi -2 · ATQ ennemie -1'],['CHASSEUR D’ANGLES','PV ennemi -3 · ATQ ennemie -1']],
+    RITUELLE:[['GESTES DÉCHIFFRÉS','ATQ ennemie -1'],['CONTRE-RITUEL','ATQ ennemie -1 · PV ennemi -1'],['BRISEUR DE CULTE','ATQ ennemie -2 · PV ennemi -2']],
+    NÉCROPHAGE:[['CADENCE DES GOULES','PV ennemi -1'],['CHASSE NÉCROPHAGE','PV ennemi -2'],['MAÎTRISE NÉCROPHAGE','PV ennemi -3 · ATQ ennemie -1']]
+   };
+   return d[f]&&r>0?d[f][Math.min(3,r)-1]:null;
+ }
+ function apply(show){
+   if(!battle||!enemy||enemy.cd10310Applied)return false;
+   const base=String(enemy.base||enemy.baseName||enemy.name||''),f=family(base),r=rank(Number(load()[f]||0)),d=doctrine(f,r);
+   if(!d)return false;
+   enemy.cd10310Applied=true;
+   let hp=0,atk=0;
+   if(f==='ABYSSALE'){atk=r>=3?2:1;hp=r>=2?(r>=3?2:1):0}
+   if(f==='FONGIQUE'){hp=r}
+   if(f==='EXTRADIMENSIONNELLE'){hp=r;atk=r>=2?1:0}
+   if(f==='RITUELLE'){atk=r>=3?2:1;hp=r>=2?(r>=3?2:1):0}
+   if(f==='NÉCROPHAGE'){hp=r;atk=r>=3?1:0}
+   if(hp)enemy.hp=Math.max(1,Number(enemy.hp||1)-hp);
+   if(atk)enemy.atk=Math.max(1,Number(enemy.atk||1)-atk);
+   if(typeof log==='function')log('DOCTRINE DU BESTIAIRE — '+f+' · '+rankName(r)+' : '+d[0]+' — '+d[1]+'.');
+   if(typeof toast==='function')toast('DOCTRINE '+rankName(r));
+   if(show)setTimeout(function(){try{if(battle&&enemy)cdOpenPanel('DOCTRINE DU BESTIAIRE','<h2>'+d[0]+'</h2><p>Votre expertise permanente de la famille <b>'+f+'</b> modifie immédiatement votre manière de combattre.</p><p><b>'+rankName(r)+'</b> · '+d[1]+'.</p><p>Cette connaissance est conservée entre les réalités.</p>')}catch(e){console.warn('cd10310 panel',e)}},420);
+   if(typeof render==='function')render();
+   return true;
+ }
+ const oldSpawn10310=spawnEnemy;
+ spawnEnemy=function(){const out=oldSpawn10310.apply(this,arguments);try{apply(true)}catch(e){console.warn('cd10310 spawn',e)}return out};
+ const oldStudy10310=cd15StudyEnemy;
+ cd15StudyEnemy=function(){const out=oldStudy10310.apply(this,arguments);try{if(battle&&enemy&&!enemy.cd10310Applied)apply(true)}catch(e){console.warn('cd10310 study',e)}return out};
+ window.cd10310Doctrine=function(){return {expertise:load(),family:enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
+})();
+</script>
+
 </body>
 </html>
