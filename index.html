@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.29.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.30.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10745,6 +10745,46 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    return oldAttack10290.apply(this,arguments);
  };
  newRun=function(){window.cd10290State=null;return oldNew10290.apply(this,arguments)};
+})();
+</script>
+
+
+<script id="cd-v10300">
+/* V10.30.0 — EXPERTISE DURABLE DU BESTIAIRE
+   Étudier une créature nourrit désormais une expertise de famille conservée
+   entre les réalités. Test rapide : ÉTUDIER la première créature rencontrée. */
+(function(){
+ if(typeof cd15StudyEnemy!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_bestiary_expertise_v1';
+ function family(n){
+   n=String(n||'');
+   if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';
+   if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';
+   if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';
+   if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';
+   if(/Goule/i.test(n))return 'NÉCROPHAGE';
+   return 'INCONNUE';
+ }
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function save(v){try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){}}
+ function rank(n){return n>=6?3:n>=3?2:n>=1?1:0}
+ function rankName(r){return ['AUCUNE','OBSERVATEUR','SPÉCIALISTE','EXPERT'][r]||'EXPERT'}
+ const oldStudy10300=cd15StudyEnemy;
+ cd15StudyEnemy=function(){
+   const name=(battle&&enemy)?String(enemy.base||enemy.baseName||enemy.name||''):'';
+   const fam=family(name),before=load(),old=Number(before[fam]||0);
+   const out=oldStudy10300.apply(this,arguments);
+   if(!name||!battle)return out;
+   const data=load();data[fam]=Number(data[fam]||0)+1;save(data);
+   const now=data[fam],r0=rank(old),r1=rank(now),title=r1>r0?'PALIER D’EXPERTISE':'EXPERTISE RENFORCÉE';
+   if(r1>r0)player.xp=(player.xp||0)+1;
+   if(typeof log==='function')log('EXPERTISE DU BESTIAIRE — famille '+fam+' : '+now+' observation'+(now>1?'s':'')+' · '+rankName(r1)+(r1>r0?' · +1 XP.':'.'));
+   if(typeof toast==='function')toast(r1>r0?'EXPERTISE '+rankName(r1):'EXPERTISE +1');
+   if(typeof render==='function')render();
+   setTimeout(function(){try{if(battle&&enemy)cdOpenPanel('EXPERTISE DU BESTIAIRE','<h2>'+title+' — '+rankName(r1)+'</h2><p>L’étude de <b>'+name+'</b> enrichit durablement votre dossier sur la famille <b>'+fam+'</b>.</p><p><b>'+now+' observation'+(now>1?'s':'')+'</b> conservée'+(now>1?'s':'')+' entre les réalités.</p>'+(r1>r0?'<p>Nouveau palier atteint : <b>'+rankName(r1)+'</b> · <b>+1 XP</b>.</p>':'<p>Prochain palier : '+(r1===1?'3':r1===2?'6':'maîtrise maximale')+'.</p>'))}catch(e){console.warn('cd10300 panel',e)}},180);
+   return out;
+ };
+ window.cd10300Expertise=function(){return load()};
 })();
 </script>
 </body>
