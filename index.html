@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.26.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.27.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10580,6 +10580,46 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    }
    return oldAttack10260.apply(this,arguments);
  };
+})();
+</script>
+
+
+<script id="cd-v10270">
+/* V10.27.0 — PRÉLÈVEMENT APRÈS COMBAT
+   Après la première victoire, une créature peut laisser un prélèvement exploitable.
+   Test court : le panneau apparaît automatiquement juste après le premier combat gagné. */
+(function(){
+ if(typeof win!=='function'||typeof cdOpenPanel!=='function'||typeof newRun!=='function')return;
+ const s={used:false};
+ const oldWin10270=win;
+ function sampleFor(name){
+   name=String(name||'');
+   if(/Profond|Noyé|Dagon/i.test(name))return ['RÉSIDU SALIN','Un dépôt visqueux mêlé de sel reste sur les vêtements de la créature.','Médecine','Occultisme'];
+   if(/Mi-Go|fongique/i.test(name))return ['TISSU FONGIQUE','Une fibre pâle continue de se contracter malgré la mort de la créature.','Médecine','Érudition'];
+   if(/Byakhee|Tindalos|Polype/i.test(name))return ['MATIÈRE IMPOSSIBLE','Une parcelle de matière semble hésiter entre plusieurs formes.','Occultisme','Érudition'];
+   if(/Cultiste|Veilleur/i.test(name))return ['INDICE RITUEL','Un fragment porté par votre adversaire relie le combat à un rituel local.','Investigation','Occultisme'];
+   return ['TRACE ORGANIQUE','La dépouille conserve un détail qui mérite un examen rapide.','Observation','Investigation'];
+ }
+ function resolve(foe){
+   if(s.used||!player)return;s.used=true;
+   const d=sampleFor(foe),sk=(player.char&&player.char.skills)||{};
+   const a=Number(sk[d[2]]||0),b=Number(sk[d[3]]||0),key=a>=b?d[2]:d[3],val=Math.max(a,b),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(15,Math.min(90,val+10));
+   let title,body;
+   if(ok){player.xp=(player.xp||0)+2;title='PRÉLÈVEMENT EXPLOITABLE';body=d[1]+' Vous le conservez comme donnée de terrain. <b>'+key+' '+val+' · jet '+roll+' ✓ · +2 XP.</b>';}
+   else{title='PRÉLÈVEMENT ALTÉRÉ';body=d[1]+' Mais l’échantillon se dégrade avant que vous puissiez en tirer une conclusion fiable. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b>';}
+   if(typeof log==='function')log('PRÉLÈVEMENT — '+d[0]+' · '+title+' sur '+foe+'.');
+   if(typeof toast==='function')toast(title);
+   if(typeof render==='function')render();
+   setTimeout(function(){try{cdOpenPanel('PRÉLÈVEMENT APRÈS COMBAT','<h2>'+title+'</h2><p><b>'+d[0]+'</b></p><p>'+body+'</p><p>Adversaire : <b>'+foe+'</b></p>')}catch(e){console.warn('cd10270 panel',e)}},900);
+ }
+ win=function(){
+   const foe=(enemy&&enemy.name)||'la créature',eligible=!s.used&&!!enemy;
+   const out=oldWin10270.apply(this,arguments);
+   try{if(eligible)setTimeout(function(){resolve(foe)},1200)}catch(e){console.warn('cd10270 win',e)}
+   return out;
+ };
+ const oldNew10270=newRun;
+ newRun=function(){s.used=false;return oldNew10270.apply(this,arguments)};
 })();
 </script>
 
