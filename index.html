@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.23.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.24.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10411,7 +10411,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 })();
 </script>
 
-\n<script id="cd-v10230">
+<script id="cd-v10230">
 /* V10.23.0 — LECTURE DE L'OBJECTIF D'ÉTAGE
    Dès le début d'une nouvelle réalité, l'enquêteur interprète l'objectif du secteur.
    Test ultra-court : le résultat apparaît dans le journal après le premier déplacement réussi. */
@@ -10453,6 +10453,51 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNew10230=newRun;
  newRun=function(){s.used=false;return oldNew10230.apply(this,arguments)};
+})();
+</script>
+
+<script id="cd-v10240">
+/* V10.24.0 — PISTE -> BESTIAIRE -> COMBAT
+   Une trace examinée peut maintenant être suivie immédiatement.
+   Si elle est identifiée, la rencontre correspondante bénéficie réellement de la préparation (-2 PV ennemi).
+   Si la lecture échoue, suivre la piste reste possible mais sans bonus. */
+(function(){
+ if(typeof cd880State!=='function'||typeof cd880Apply!=='function'||typeof cdOpenPanel!=='function')return;
+ function cd10240Encounter(prepared){
+   const s=cd880State();
+   const name=s.species;
+   const b=(typeof creatures==='object'&&creatures)?creatures[name]:null;
+   if(!b||battle)return;
+   closeOverlays();
+   enemy={name:name,hp:Number(b.hp||8)+Number(player.depth||0)*2,maxhp:Number(b.hp||8)+Number(player.depth||0)*2,atk:Number(b.atk||3)+Math.floor(Number(player.depth||0)/2),def:Number(b.def||0),x:px,y:py,weak:b.weak,resist:b.resist};
+   battle=true;
+   if(typeof codex==='object')codex[name]=true;
+   log('TRACE SUIVIE — '+name+' localisé grâce aux indices du terrain.');
+   if(prepared){s.prepared=name;s.applied=false;cd880Apply();}
+   else{log('PISTE INCERTAINE — rencontre engagée sans avantage préparatoire.');toast('RENCONTRE SANS BONUS');}
+   render();
+ }
+ window.cd10240FollowTrace=function(prepared){cd10240Encounter(!!prepared)};
+ // Remplace seulement la résolution de la trace; déplacement et génération normale restent intacts.
+ window.cd880Examine=function(){
+   const s=cd880State();if(s.resolved)return;s.resolved=true;
+   const skills=(player.char&&player.char.skills)||{};
+   const skill=Number(skills.Observation||0)>=Number(skills.Investigation||0)?'Observation':'Investigation';
+   const val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(20,Math.min(90,val+15));
+   let title,body,button;
+   if(ok){
+     title='PISTE IDENTIFIÉE';s.prepared=s.species;player.xp=(player.xp||0)+1;if(typeof codex==='object')codex[s.species]=true;
+     body='Vous rattachez la trace à <b>'+s.species+'</b>. Vous pouvez la suivre maintenant : la préparation retirera <b>2 PV</b> à la créature avant le premier échange. <b>+1 XP.</b>';
+     button='<button onclick="cd10240FollowTrace(true)">SUIVRE LA TRACE<br><small>avantage préparé : -2 PV ennemi</small></button>';
+   }else{
+     title='PISTE INCERTAINE';s.prepared='';
+     body='La marque résiste à votre lecture. Vous pouvez malgré tout la suivre, mais sans avantage tactique. <b>aucune perte.</b>';
+     button='<button onclick="cd10240FollowTrace(false)">SUIVRE MALGRÉ LE DOUTE<br><small>aucun bonus</small></button>';
+   }
+   log('LECTURE DE TRACE — '+title+' ('+skill+' '+val+', jet '+roll+')'+(ok?' : '+s.species+'.':'.'));
+   toast(title);closeOverlays();render();
+   setTimeout(function(){cdOpenPanel('LECTURE DE TRACE','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+skill+' '+val+'</b> · jet <b>'+roll+'</b></p><div class="grid2">'+button+'<button onclick="closeOverlays();render()">CONTINUER L’EXPLORATION</button></div>')},90);
+ };
 })();
 </script>
 
