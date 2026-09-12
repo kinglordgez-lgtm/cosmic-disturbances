@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.10.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.11.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9873,6 +9873,52 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNew10100=newRun;
  newRun=function(){s.armed=false;s.kind=null;s.used=false;return oldNew10100.apply(this,arguments)};
+})();
+</script>
+
+
+<script id="cd-v10110">
+/* V10.11.0 — AVANTAGE DE CONFRONTATION
+   La première attaque exploite le profil psychologique et les informations recueillies en exploration.
+   Test rapide : enquêtez une fois si possible, rencontrez la première créature, résolvez RÉFLEXE DE CONFRONTATION puis attaquez une fois. */
+(function(){
+ const s={used:false};
+ function hasFieldIntel(){
+   try{return (journal||[]).some(x=>/CARNET DE TERRAIN|CARTOGRAPHIE|ANOMALIE ÉVOLUTIVE|TRACE FRAÎCHE|MÉMOIRE DU PASSAGE|INSTINCT D.EXPLORATION/i.test(String(x)))}catch(e){return false}
+ }
+ function traitBonus(){
+   const t=String((player&&player.char&&player.char.trait)||'');
+   if(/Œil exercé|Méfiant|Sang-froid/i.test(t))return 5;
+   if(/Curieux|Volonté de fer/i.test(t))return 3;
+   return 0;
+ }
+ function resolve(){
+   if(s.used||!battle||!enemy||!player)return;
+   s.used=true;
+   const sk=(player.char&&player.char.skills)||{};
+   const base=Number(sk.Observation||0), intel=hasFieldIntel()?10:0, trait=traitBonus();
+   const target=Math.max(5,Math.min(95,base+intel+trait)), roll=1+Math.floor(Math.random()*100);
+   let title,body;
+   if(roll<=target){
+     enemy.hp=Math.max(1,(enemy.hp||1)-2);player.xp=(player.xp||0)+2;
+     title='AVANTAGE CONVERTI';
+     body='Vos observations du secteur et votre manière instinctive de lire le danger se rejoignent au moment d’attaquer. <b>-2 PV ennemi · +2 XP.</b>';
+   }else{
+     title='AVANTAGE INCOMPLET';
+     body='Vous possédez des indices, mais ils ne s’assemblent pas assez vite pour modifier votre première attaque. <b>Aucune pénalité.</b>';
+   }
+   body+='<br><b>Observation '+base+(intel?' +10 terrain':'')+(trait?' +'+trait+' profil':'')+' · seuil '+target+' · jet '+roll+(roll<=target?' ✓':' ✕')+'</b>';
+   if(typeof log==='function')log('AVANTAGE DE CONFRONTATION — '+title+'.');
+   if(typeof toast==='function')toast(title);
+   setTimeout(()=>{try{cdOpenPanel('AVANTAGE DE CONFRONTATION','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p><p><b>Le terrain et votre profil psychologique ont influencé l’ouverture du combat.</b></p>')}catch(e){console.warn('cd10110 panel',e)}},120);
+ }
+ const oldAttack10110=attack;
+ attack=function(){
+   try{if(!s.used&&battle&&enemy)resolve()}catch(e){console.warn('cd10110 attack',e)}
+   return oldAttack10110.apply(this,arguments);
+ };
+ const oldNew10110=newRun;
+ newRun=function(){s.used=false;return oldNew10110.apply(this,arguments)};
 })();
 </script>
 
