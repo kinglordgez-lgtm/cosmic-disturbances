@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.24.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.25.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10501,5 +10501,44 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 })();
 </script>
 
+
+<script id="cd-v10250">
+/* V10.25.0 — APPROCHE DE RENCONTRE
+   Suivre une trace ouvre désormais un choix tactique juste avant le combat.
+   Une piste identifiée offre une préparation fiable; une piste incertaine permet une tentative prudente sans bloquer la rencontre. */
+(function(){
+ if(typeof window.cd10240FollowTrace!=='function'||typeof cdOpenPanel!=='function')return;
+ const oldFollow10250=window.cd10240FollowTrace;
+ function cd10250Start(prepared,mode){
+   closeOverlays();
+   oldFollow10250(!!prepared && mode==='assaut');
+   if(!battle||!enemy)return;
+   if(mode==='prudence'){
+     const skills=(player.char&&player.char.skills)||{};
+     const key=Number(skills.Observation||0)>=Number(skills.Investigation||0)?'Observation':'Investigation';
+     const val=Number(skills[key]||0),roll=1+Math.floor(rng()*100);
+     const bonus=prepared?20:5,ok=roll<=Math.max(15,Math.min(90,val+bonus));
+     if(ok){enemy.atk=Math.max(1,Number(enemy.atk||1)-1);player.xp=(player.xp||0)+1;log('APPROCHE PRUDENTE — '+enemy.name+' anticipé : ATQ ennemie -1 · +1 XP.');toast('APPROCHE MAÎTRISÉE');}
+     else{log('APPROCHE PRUDENTE — '+enemy.name+' reste imprévisible ('+key+' '+val+', jet '+roll+').');toast('APPROCHE INCERTAINE');}
+     render();
+     setTimeout(function(){if(battle&&enemy)cdOpenPanel('APPROCHE DE RENCONTRE','<h2>'+(ok?'APPROCHE MAÎTRISÉE':'APPROCHE INCERTAINE')+'</h2><p>'+(ok?'Vous transformez les indices du terrain en position sûre. <b>ATQ ennemie -1 · +1 XP.</b>':'La créature ne réagit pas comme prévu. <b>Aucune perte, aucun bonus.</b>')+'</p><p><b>'+key+' '+val+'</b> · jet <b>'+roll+'</b></p><button onclick="closeOverlays();render()">ENGAGER LE COMBAT</button>')},120);
+   }else{
+     log(prepared?'APPROCHE DE RENCONTRE — assaut préparé grâce au bestiaire.':'APPROCHE DE RENCONTRE — engagement direct sans préparation.');
+     render();
+   }
+ }
+ window.cd10250Commit=function(mode,prepared){cd10250Start(!!prepared,mode)};
+ window.cd10240FollowTrace=function(prepared){
+   const s=typeof cd880State==='function'?cd880State():null;
+   const name=(s&&s.species)||'la créature';
+   closeOverlays();
+   if(prepared){
+     cdOpenPanel('APPROCHE DE RENCONTRE','<h2>'+name.toUpperCase()+' — CIBLE IDENTIFIÉE</h2><p>Le bestiaire et la trace vous donnent quelques secondes d’avance.</p><div class="grid2"><button onclick="cd10250Commit(\'assaut\',true)">ASSAUT PRÉPARÉ<br><small>-2 PV ennemi</small></button><button onclick="cd10250Commit(\'prudence\',true)">APPROCHE PRUDENTE<br><small>test +20 · ATQ ennemie -1 si réussite</small></button></div>');
+   }else{
+     cdOpenPanel('APPROCHE DE RENCONTRE','<h2>'+name.toUpperCase()+' — CONTACT INCERTAIN</h2><p>Vous avez suivi une piste mal comprise. Vous pouvez engager immédiatement ou tenter de lire les derniers signes.</p><div class="grid2"><button onclick="cd10250Commit(\'assaut\',false)">ENGAGER DIRECTEMENT<br><small>aucun bonus</small></button><button onclick="cd10250Commit(\'prudence\',false)">AVANCER PRUDEMMENT<br><small>test +5 · ATQ ennemie -1 si réussite</small></button></div>');
+   }
+ };
+})();
+</script>
 </body>
 </html>
