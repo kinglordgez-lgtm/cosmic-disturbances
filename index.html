@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.13.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.14.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9921,7 +9921,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  newRun=function(){s.used=false;return oldNew10110.apply(this,arguments)};
 })();
 </script>
-\n<script id="cd-v10120">
+<script id="cd-v10120">
 /* V10.12.0 — TRACE DE CONFRONTATION
    Une victoire influencée par l'avantage de confrontation laisse une conséquence sur le premier déplacement après le combat. */
 (function(){
@@ -9966,7 +9966,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  newRun=function(){s.armed=false;s.used=false;s.kind=null;s.foe=null;return oldNew10120.apply(this,arguments)};
 })();
 </script>
-\n<script id="cd-v10130">
+<script id="cd-v10130">
 /* V10.13.0 — MÉMOIRE IMMÉDIATE DU COMBAT
    La première enquête après une victoire peut transformer ce que la créature vient d'apprendre au joueur en intuition de terrain. */
 (function(){
@@ -10008,5 +10008,49 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldNew10130=newRun;
  newRun=function(){s.armed=false;s.used=false;s.foe=null;s.skill=null;return oldNew10130.apply(this,arguments)};
 })();
-</script>\n</body>
+</script>
+<script id="cd-v10140">
+/* V10.14.0 — REPÈRE DE SECTEUR
+   Après trois déplacements réels, l'enquêteur tente de fixer mentalement un repère utile du secteur. */
+(function(){
+ const s={moves:0,used:false};
+ function modalBusy(){
+   try{const m=document.getElementById('modal');return !!(m && (m.classList.contains('show') || m.style.display==='flex' || m.style.display==='block'));}catch(e){return false}
+ }
+ function resolve(){
+   if(s.used||battle||!player)return;
+   if(modalBusy()){setTimeout(resolve,250);return;}
+   s.used=true;
+   const sk=(player.char&&player.char.skills)||{};
+   const key=(Number(sk.Observation||0)>=Number(sk.Investigation||0))?'Observation':'Investigation';
+   const val=Number(sk[key]||0), roll=1+Math.floor(Math.random()*100);
+   let title,body;
+   if(roll<=val){
+     player.xp=(player.xp||0)+1;title='REPÈRE FIXÉ';
+     body='Après quelques pas, vous retenez un détail stable dans l’architecture de Blackwater. Le secteur devient un peu moins illisible. <b>'+key+' '+val+' · jet '+roll+' ✓ · +1 XP.</b>';
+   }else{
+     title='ORIENTATION TROUBLÉE';
+     body='Les couloirs semblent se recomposer derrière vous. Vous renoncez à forcer une certitude qui pourrait devenir dangereuse. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b>';
+   }
+   if(typeof log==='function')log('REPÈRE DE SECTEUR — '+title+'.');
+   if(typeof toast==='function')toast(title);
+   try{cdOpenPanel('REPÈRE DE SECTEUR','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p><p><b>Trois déplacements ont suffi pour tester votre sens du terrain.</b></p>')}catch(e){console.warn('cd10140 panel',e)}
+   try{render()}catch(e){}
+ }
+ const oldMove10140=move;
+ move=function(dx,dy){
+   const bx=px,by=py,out=oldMove10140.apply(this,arguments);
+   try{
+     if(!s.used&&!battle&&(px!==bx||py!==by)){
+       s.moves++;
+       if(s.moves>=3)setTimeout(resolve,180);
+     }
+   }catch(e){console.warn('cd10140 move',e)}
+   return out;
+ };
+ const oldNew10140=newRun;
+ newRun=function(){s.moves=0;s.used=false;return oldNew10140.apply(this,arguments)};
+})();
+</script>
+</body>
 </html>
