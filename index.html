@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.27.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.28.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10605,7 +10605,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const d=sampleFor(foe),sk=(player.char&&player.char.skills)||{};
    const a=Number(sk[d[2]]||0),b=Number(sk[d[3]]||0),key=a>=b?d[2]:d[3],val=Math.max(a,b),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(15,Math.min(90,val+10));
    let title,body;
-   if(ok){player.xp=(player.xp||0)+2;title='PRÉLÈVEMENT EXPLOITABLE';body=d[1]+' Vous le conservez comme donnée de terrain. <b>'+key+' '+val+' · jet '+roll+' ✓ · +2 XP.</b>';}
+   if(ok){player.xp=(player.xp||0)+2;window.cd10270Sample={kind:d[0],foe:String(foe||''),used:false};title='PRÉLÈVEMENT EXPLOITABLE';body=d[1]+' Vous le conservez comme donnée de terrain. <b>'+key+' '+val+' · jet '+roll+' ✓ · +2 XP.</b>';}
    else{title='PRÉLÈVEMENT ALTÉRÉ';body=d[1]+' Mais l’échantillon se dégrade avant que vous puissiez en tirer une conclusion fiable. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b>';}
    if(typeof log==='function')log('PRÉLÈVEMENT — '+d[0]+' · '+title+' sur '+foe+'.');
    if(typeof toast==='function')toast(title);
@@ -10619,7 +10619,59 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    return out;
  };
  const oldNew10270=newRun;
- newRun=function(){s.used=false;return oldNew10270.apply(this,arguments)};
+ newRun=function(){s.used=false;window.cd10270Sample=null;return oldNew10270.apply(this,arguments)};
+})();
+</script>
+
+
+<script id="cd-v10280">
+/* V10.28.0 — MÉMOIRE DU PRÉLÈVEMENT
+   Un prélèvement exploitable devient une vraie donnée tactique :
+   la prochaine rencontre le compare automatiquement à la créature rencontrée. */
+(function(){
+ if(typeof spawnEnemy!=='function'||typeof cdOpenPanel!=='function'||typeof newRun!=='function')return;
+ function family(n){
+   n=String(n||'');
+   if(/Profond|Noyé|Dagon/i.test(n))return 'RÉSIDU SALIN';
+   if(/Mi-Go|fongique/i.test(n))return 'TISSU FONGIQUE';
+   if(/Byakhee|Tindalos|Polype/i.test(n))return 'MATIÈRE IMPOSSIBLE';
+   if(/Cultiste|Veilleur/i.test(n))return 'INDICE RITUEL';
+   return 'TRACE ORGANIQUE';
+ }
+ function applyMemory(){
+   const m=window.cd10270Sample;
+   if(!m||m.used||!battle||!enemy)return;
+   m.used=true;
+   const same=family(enemy.name)===m.kind;
+   let title,body;
+   if(same){
+     enemy.hp=Math.max(1,Number(enemy.hp||1)-2);
+     player.xp=(player.xp||0)+1;
+     title='CORRÉLATION CONFIRMÉE';
+     body='Le prélèvement de <b>'+m.foe+'</b> correspond aux signes de <b>'+enemy.name+'</b>. Vous anticipez sa physiologie ou son rituel. <b>-2 PV ennemi · +1 XP.</b>';
+   }else{
+     enemy.atk=Math.max(1,Number(enemy.atk||1)-1);
+     title='CORRÉLATION COMPARATIVE';
+     body='Le prélèvement ne correspond pas à <b>'+enemy.name+'</b>, mais l’écart lui-même vous renseigne. Vous évitez sa première lecture du terrain. <b>ATQ ennemie -1.</b>';
+   }
+   if(typeof log==='function')log('MÉMOIRE DU PRÉLÈVEMENT — '+title+' : '+m.kind+' comparé à '+enemy.name+'.');
+   if(typeof toast==='function')toast(title);
+   if(typeof render==='function')render();
+   setTimeout(function(){try{if(battle&&enemy)cdOpenPanel('MÉMOIRE DU PRÉLÈVEMENT','<h2>'+title+'</h2><p>'+body+'</p><p>Donnée conservée : <b>'+m.kind+'</b>.</p>')}catch(e){console.warn('cd10280 panel',e)}},260);
+ }
+ const oldSpawn10280=spawnEnemy;
+ spawnEnemy=function(){
+   const was=battle,out=oldSpawn10280.apply(this,arguments);
+   try{if(!was&&battle&&enemy&&window.cd10270Sample&&!window.cd10270Sample.used)setTimeout(applyMemory,420)}catch(e){console.warn('cd10280 spawn',e)}
+   return out;
+ };
+ // Les rencontres déclenchées par une trace créent directement enemy sans passer par spawnEnemy.
+ if(typeof window.cd10240FollowTrace==='function'){
+   const oldFollow10280=window.cd10240FollowTrace;
+   window.cd10240FollowTrace=function(){const out=oldFollow10280.apply(this,arguments);try{if(battle&&enemy&&window.cd10270Sample&&!window.cd10270Sample.used)setTimeout(applyMemory,520)}catch(e){console.warn('cd10280 trace',e)}return out};
+ }
+ const oldNew10280=newRun;
+ newRun=function(){window.cd10270Sample=null;return oldNew10280.apply(this,arguments)};
 })();
 </script>
 
