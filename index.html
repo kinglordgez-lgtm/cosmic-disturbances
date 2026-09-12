@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.11.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.12.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9921,6 +9921,50 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  newRun=function(){s.used=false;return oldNew10110.apply(this,arguments)};
 })();
 </script>
-
+\n<script id="cd-v10120">
+/* V10.12.0 — TRACE DE CONFRONTATION
+   Une victoire influencée par l'avantage de confrontation laisse une conséquence sur le premier déplacement après le combat. */
+(function(){
+ const s={armed:false,used:false,kind:null,foe:null};
+ function recentAdvantage(){
+   try{
+     const a=(journal||[]).slice(-18).map(String).join(' | ');
+     if(/AVANTAGE DE CONFRONTATION.*AVANTAGE CONVERTI/i.test(a))return 'converti';
+     if(/AVANTAGE DE CONFRONTATION.*AVANTAGE INCOMPLET/i.test(a))return 'incomplet';
+   }catch(e){}
+   return null;
+ }
+ const oldWin10120=win;
+ win=function(){
+   const foe=(enemy&&enemy.name)||'la créature', kind=recentAdvantage();
+   const out=oldWin10120.apply(this,arguments);
+   try{if(!s.used&&kind){s.armed=true;s.kind=kind;s.foe=foe;log('TRACE DE CONFRONTATION — la victoire laisse une empreinte sur votre progression.')}}catch(e){console.warn('cd10120 win',e)}
+   return out;
+ };
+ function resolve(){
+   if(!s.armed||s.used||!player)return; s.armed=false;s.used=true;
+   let title,body;
+   if(s.kind==='converti'){
+     player.xp=(player.xp||0)+1; title='ÉLAN CONSERVÉ';
+     body='Après avoir abattu '+s.foe+', vous reprenez votre progression sans perdre le fil des signes qui avaient préparé l’affrontement. <b>+1 XP.</b>';
+   }else{
+     const sk=(player.char&&player.char.skills)||{}, val=Number(sk.Psychologie||0), roll=1+Math.floor(Math.random()*100);
+     if(roll<=val){player.xp=(player.xp||0)+1;title='TENSION ÉVACUÉE';body='Le combat avait commencé sur une lecture imparfaite, mais vous refusez d’emporter cette erreur avec vous. <b>Psychologie '+val+' · jet '+roll+' ✓ · +1 XP.</b>';}
+     else{player.san=Math.max(0,(player.san||0)-1);title='DOUTE PERSISTANT';body='La victoire ne suffit pas à effacer votre mauvaise lecture de '+s.foe+'. Chaque bruit du secteur semble annoncer une nouvelle erreur. <b>Psychologie '+val+' · jet '+roll+' ✕ · -1 SAN.</b>';}
+   }
+   log('APRÈS-COMBAT — '+title+'.');toast(title);
+   cdOpenPanel('TRACE DE CONFRONTATION','<h2 style="margin-top:0">'+title+'</h2><p>'+body+'</p><p><b>Le combat vient de modifier votre exploration.</b></p>');
+   render();
+ }
+ const oldMove10120=move;
+ move=function(dx,dy){
+   const bx=px,by=py,out=oldMove10120.apply(this,arguments);
+   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))setTimeout(resolve,180)}catch(e){console.warn('cd10120 move',e)}
+   return out;
+ };
+ const oldNew10120=newRun;
+ newRun=function(){s.armed=false;s.used=false;s.kind=null;s.foe=null;return oldNew10120.apply(this,arguments)};
+})();
+</script>\n
 </body>
 </html>
