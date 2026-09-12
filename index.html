@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.18.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.19.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10222,6 +10222,40 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNew10180=newRun;
  newRun=function(){s.used=false;s.result='';s.detail='';return oldNew10180.apply(this,arguments)};
+})();
+</script>
+
+<script id="cd-v10190">
+/* V10.19.0 — SENS DE L'ORIENTATION
+   Après 3 déplacements réellement réussis, le terrain est lu une fois par réalité. */
+(function(){
+ const s={moves:0,used:false};
+ function react(){
+   if(s.used||s.moves<3||!player||!player.char||!player.char.skills)return;
+   s.used=true;
+   const sk=player.char.skills;
+   const key=(Number(sk.Observation||0)>=Number(sk.Investigation||0))?'Observation':'Investigation';
+   const val=Number(sk[key]||0),roll=1+Math.floor(Math.random()*100);
+   if(roll<=val){
+     player.xp=(player.xp||0)+1;
+     if(typeof log==='function')log("SENS DE L’ORIENTATION — REPÈRE TROUVÉ ("+key+' '+val+', jet '+roll+"). +1 XP.");
+     if(typeof toast==='function')toast('REPÈRE TROUVÉ');
+     if(typeof cdOpenPanel==='function')cdOpenPanel("SENS DE L’ORIENTATION",'<h2>REPÈRE TROUVÉ</h2><p>Après quelques pas, vous fixez mentalement un axe sûr dans le dédale de Blackwater.</p><p><b>'+key+' '+val+' · jet '+roll+' ✓ · +1 XP.</b></p>');
+   }else{
+     if(typeof log==='function')log("SENS DE L’ORIENTATION — ORIENTATION TROUBLÉE ("+key+' '+val+', jet '+roll+").");
+     if(typeof toast==='function')toast('ORIENTATION TROUBLÉE');
+     if(typeof cdOpenPanel==='function')cdOpenPanel("SENS DE L’ORIENTATION",'<h2>ORIENTATION TROUBLÉE</h2><p>Les angles de Blackwater refusent de rester cohérents. Vous renoncez à forcer votre intuition.</p><p><b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b></p>');
+   }
+ }
+ const oldMove10190=move;
+ move=function(dx,dy){
+   const bx=px,by=py;
+   const out=oldMove10190.apply(this,arguments);
+   try{if(!s.used&&(px!==bx||py!==by)){s.moves++;react()}}catch(e){console.warn('cd10190 move',e)}
+   return out;
+ };
+ const oldNew10190=newRun;
+ newRun=function(){s.moves=0;s.used=false;return oldNew10190.apply(this,arguments)};
 })();
 </script>
 </body>
