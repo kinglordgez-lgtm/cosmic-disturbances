@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.41.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.42.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11320,6 +11320,67 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    newRun=function(){st={shown:false,applied:false,kind:null,item:null,result:null};return oldNew10410.apply(this,arguments)};
  }
  window.cd10410State=function(){return Object.assign({},st)};
+})();
+</script>
+
+
+<script id="cd-v10420">
+/* V10.42.0 — HYPOTHÈSE OPÉRATIONNELLE
+   Boucle systémique : exploration -> équipement -> rencontre -> enquête.
+   Le résultat de la convergence V10.41 laisse une hypothèse à vérifier lors
+   de la prochaine enquête hors combat. Un succès produit une découverte
+   garantie ; un échec devient un doute utile qui amortit une perte de SAN. */
+(function(){
+ if(typeof investigate!=='function'||typeof cdOpenPanel!=='function')return;
+ let st={armed:false,strong:false,label:null,consumed:false};
+ function armFromConvergence(){
+   try{
+     if(typeof cd10410State!=='function')return;
+     const c=cd10410State();
+     if(!c||!c.applied||!c.result)return;
+     st.armed=true;st.consumed=false;
+     st.strong=c.result!=='AVANTAGE PERDU';
+     st.label=st.strong?c.result:'DOUTE DE TERRAIN';
+     if(typeof log==='function')log('HYPOTHÈSE OPÉRATIONNELLE — '+st.label+'. La prochaine enquête pourra confirmer ou corriger votre lecture.');
+     if(typeof toast==='function')toast('HYPOTHÈSE FORMÉE');
+   }catch(e){console.warn('cd10420 arm',e)}
+ }
+ if(typeof window.cd10410Choose==='function'){
+   const oldChoose10420=window.cd10410Choose;
+   window.cd10410Choose=function(mode){
+     const out=oldChoose10420.apply(this,arguments);
+     armFromConvergence();
+     return out;
+   };
+ }
+ const oldInvestigate10420=investigate;
+ investigate=function(){
+   if(!st.armed||st.consumed||battle)return oldInvestigate10420.apply(this,arguments);
+   const beforeSan=Number(player&&player.san||0),beforeBattle=!!battle;
+   const out=oldInvestigate10420.apply(this,arguments);
+   try{
+     /* Une rencontre déclenchée par l'enquête ne consomme pas encore l'hypothèse. */
+     if(!beforeBattle&&battle)return out;
+     st.armed=false;st.consumed=true;
+     if(st.strong){
+       if(typeof cd12Discover==='function')cd12Discover();
+       player.xp=(player.xp||0)+1;
+       if(typeof log==='function')log('CORRÉLATION CONFIRMÉE — '+st.label+' éclaire un nouvel indice. +1 XP.');
+       if(typeof toast==='function')toast('CORRÉLATION CONFIRMÉE');
+     }else{
+       if(Number(player.san||0)<beforeSan){player.san=Math.min(player.maxsan||beforeSan,Number(player.san||0)+1);}
+       if(typeof log==='function')log('DOUTE UTILE — votre mauvaise lecture précédente vous rend plus prudent. Jusqu’à 1 SAN récupérée.');
+       if(typeof toast==='function')toast('DOUTE UTILE');
+     }
+     if(typeof render==='function')render();
+   }catch(e){console.warn('cd10420 investigate',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNew10420=newRun;
+   newRun=function(){st={armed:false,strong:false,label:null,consumed:false};return oldNew10420.apply(this,arguments)};
+ }
+ window.cd10420State=function(){return Object.assign({},st)};
 })();
 </script>
 </body>
