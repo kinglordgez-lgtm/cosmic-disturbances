@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.36.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.37.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11040,5 +11040,51 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  window.cd10360Discipline=function(){return load()};
 })();
 </script>
+
+
+<script id="cd-v10370">
+/* V10.37.0 — AUTOMATISME DE VÉTÉRAN
+   La discipline accumulée commence à agir dès le premier assaut d'un combat.
+   Test court : premier ATTAQUER => panneau AUTOMATISME DE VÉTÉRAN, même sans maîtrise préalable. */
+(function(){
+ if(typeof attack!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_veteran_discipline_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ function best(db){let out=null;Object.keys(db||{}).forEach(f=>{const x=db[f]||{},p=Number(x.precision||0),g=Number(x.garde||0),n=Math.max(p,g);if(n&&(!out||n>out.n))out={f:f,k:p>=g?'precision':'garde',n:n}});return out}
+ function current(){
+   if(!battle||!enemy||enemy.cd10370Shown)return null;
+   const f=family(enemy.base||enemy.baseName||enemy.name),db=load(),x=db[f]||{},p=Number(x.precision||0),g=Number(x.garde||0);
+   if(Math.max(p,g)>0)return {f:f,k:p>=g?'precision':'garde',n:Math.max(p,g),transfer:false};
+   const b=best(db);if(b)return {f:f,k:b.k,n:b.n,source:b.f,transfer:true};
+   return {f:f,k:'none',n:0,transfer:false};
+ }
+ const oldAttack10370=attack;
+ window.cd10370Continue=function(){closeOverlays();return oldAttack10370()};
+ attack=function(){
+   const x=current();
+   if(!x)return oldAttack10370.apply(this,arguments);
+   enemy.cd10370Shown=true;
+   let h='';
+   if(x.k==='precision'){
+     const dmg=x.transfer?1:(x.n>=3?2:1);enemy.hp=Math.max(1,Number(enemy.hp||1)-dmg);
+     h='<h2>'+(x.transfer?'RÉFLEXE TRANSFÉRÉ':'PRÉCISION CONDITIONNÉE')+'</h2><p>'+(x.transfer?'Votre discipline '+x.source+' ne correspond pas exactement à cette famille, mais certains gestes restent utiles.':'Votre entraînement contre la famille '+x.f+' agit avant même votre décision consciente.')+'</p><p><b>-'+dmg+' PV ennemi avant le premier assaut.</b></p>';
+     if(typeof log==='function')log('AUTOMATISME DE VÉTÉRAN — '+(x.transfer?'TRANSFERT '+x.source+' → '+x.f:'PRÉCISION '+x.f+' '+Math.min(x.n,3)+'/3')+' : ennemi -'+dmg+' PV.');
+   }else if(x.k==='garde'){
+     const gain=x.transfer?0:1;if(gain)player.def=Number(player.def||0)+1;
+     h='<h2>'+(x.transfer?'POSTURE TRANSFÉRÉE':'GARDE CONDITIONNÉE')+'</h2><p>'+(x.transfer?'Votre ancienne garde vous rend plus prudent, sans reproduire parfaitement la technique.':'Votre corps reprend spontanément la garde apprise contre la famille '+x.f+'.')+'</p><p><b>'+(gain?'+1 DEF pour cette confrontation.':'Lecture prudente : aucune pénalité, aucune dépense.')+'</b></p>';
+     if(typeof log==='function')log('AUTOMATISME DE VÉTÉRAN — '+(x.transfer?'GARDE TRANSFÉRÉE '+x.source+' → '+x.f:'GARDE '+x.f+' '+Math.min(x.n,3)+'/3')+(gain?' : +1 DEF.':' : prudence transférée.'));
+   }else{
+     h='<h2>EXPÉRIENCE EN FORMATION</h2><p>Vous n’avez pas encore assez répété un même réflexe pour créer un automatisme. Cette confrontation alimentera vos futures disciplines.</p><p><b>Aucune pénalité.</b></p>';
+     if(typeof log==='function')log('AUTOMATISME DE VÉTÉRAN — expérience encore en formation pour '+x.f+'.');
+   }
+   if(typeof toast==='function')toast('AUTOMATISME DE VÉTÉRAN');
+   if(typeof render==='function')render();
+   cdOpenPanel('AUTOMATISME DE VÉTÉRAN',h+'<button onclick="cd10370Continue()">PORTER L’ATTAQUE</button>');return;
+ };
+ window.cd10370Automatism=function(){return {discipline:load(),active:battle&&enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
+})();
+</script>
+
 </body>
 </html>
