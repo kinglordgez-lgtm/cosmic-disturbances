@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.44.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.45.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11529,6 +11529,72 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    newRun=function(){st={moved:false,shown:false,resolved:false,result:null,x:null,y:null};return oldNew10440.apply(this,arguments)};
  }
  window.cd10440State=function(){return Object.assign({},st)};
+})();
+</script>
+\n<script id="cd-v10450">
+/* V10.45.0 — DECISION SOUS PRESSION
+   Premier déplacement réussi : choix immédiat avec conséquence persistante légère. */
+(function(){
+ if(typeof move!=='function'||typeof cdOpenPanel!=='function')return;
+ let st={moved:false,shown:false,resolved:false,result:null,effect:null};
+ function skill(name){
+   try{return Number(player&&player.char&&player.char.skills&&player.char.skills[name])||0}catch(e){return 0}
+ }
+ function roll(name){
+   const v=skill(name),r=1+Math.floor((typeof rng==='function'?rng():Math.random())*100);
+   return {v:v,r:r,ok:r<=v};
+ }
+ function offer(tries){
+   if(st.shown||st.resolved||battle)return;
+   const modal=document.getElementById('modal');
+   if(modal&&modal.classList.contains('open')){
+     if((tries||0)<12)setTimeout(()=>offer((tries||0)+1),250);
+     return;
+   }
+   st.shown=true;
+   cdOpenPanel('DÉCISION SOUS PRESSION',
+     '<h2 style="margin-top:0">QUELQUE CHOSE VOUS SUIT</h2>'+ 
+     '<p>Un bruit cesse exactement lorsque vous vous arrêtez. Impossible de savoir si le quartier vous observe… ou s’il vous attire.</p>'+ 
+     '<div class="grid2">'+
+     '<button onclick="cd10450Choose(\'analyse\')">ANALYSER LE RYTHME<br><small>Observation · peut préparer la prochaine enquête</small></button>'+ 
+     '<button onclick="cd10450Choose(\'prudence\')">ROMPRE LA PISTE<br><small>prudence · +1 SAN, aucun jet</small></button>'+ 
+     '<button onclick="cd10450Choose(\'risk\')">SE RETOURNER<br><small>Endurance · risque réel, récompense supérieure</small></button>'+ 
+     '</div>');
+ }
+ window.cd10450Choose=function(mode){
+   if(st.resolved){closeOverlays();return}
+   st.resolved=true;closeOverlays();
+   if(mode==='prudence'){
+     player.san=Math.min(Number(player.maxsan||player.san||0),Number(player.san||0)+1);
+     st.result='PISTE ROMPUE';st.effect='calme';
+     log('DÉCISION SOUS PRESSION — PISTE ROMPUE : +1 SAN.');toast('PISTE ROMPUE');
+   }else if(mode==='analyse'){
+     const q=roll('Observation');
+     if(q.ok){player.xp=Number(player.xp||0)+2;st.result='RYTHME DÉCHIFFRÉ';st.effect='indice';
+       log('DÉCISION SOUS PRESSION — RYTHME DÉCHIFFRÉ : Observation '+q.v+' · jet '+q.r+' ✓ · +2 XP.');toast('RYTHME DÉCHIFFRÉ');
+     }else{st.result='FAUSSE CADENCE';st.effect='doute';
+       log('DÉCISION SOUS PRESSION — FAUSSE CADENCE : Observation '+q.v+' · jet '+q.r+' ✗.');toast('FAUSSE CADENCE');}
+   }else{
+     const q=roll('Endurance');
+     if(q.ok){player.xp=Number(player.xp||0)+3;st.result='PRÉSENCE DÉMASQUÉE';st.effect='audace';
+       log('DÉCISION SOUS PRESSION — PRÉSENCE DÉMASQUÉE : Endurance '+q.v+' · jet '+q.r+' ✓ · +3 XP.');toast('PRÉSENCE DÉMASQUÉE');
+     }else{player.san=Math.max(0,Number(player.san||0)-2);st.result='REGARD DANS LA BRUME';st.effect='choc';
+       log('DÉCISION SOUS PRESSION — REGARD DANS LA BRUME : Endurance '+q.v+' · jet '+q.r+' ✗ · -2 SAN.');toast('REGARD DANS LA BRUME');}
+   }
+   if(typeof render==='function')render();
+ };
+ const oldMove10450=move;
+ move=function(dx,dy){
+   const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
+   const out=oldMove10450.apply(this,arguments);
+   try{if(!st.moved&&bx!==null&&by!==null&&(px!==bx||py!==by)){st.moved=true;setTimeout(()=>offer(0),420)}}catch(e){console.warn('cd10450 move',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNew10450=newRun;
+   newRun=function(){st={moved:false,shown:false,resolved:false,result:null,effect:null};return oldNew10450.apply(this,arguments)};
+ }
+ window.cd10450State=function(){return Object.assign({},st)};
 })();
 </script>
 </body>
