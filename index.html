@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.40.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.41.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11235,6 +11235,91 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  if(typeof newRun==='function'){const oldNew10400=newRun;newRun=function(){st={armed:false,kind:null,item:null,used:false};return oldNew10400.apply(this,arguments)}}
  window.cd10400State=function(){return Object.assign({},st)};
+})();
+</script>
+
+
+<script id="cd-v10410">
+/* V10.41.0 — AVANTAGE DE RENCONTRE CONVERGENT
+   Une préparation de terrain réellement exploitée (V10.40) laisse maintenant
+   un avantage tactique au moment de la rencontre. Le matériel ne donne plus
+   seulement un bonus abstrait : il change la lecture du premier échange.
+   Test court : 3 déplacements -> BALISER/MARQUER -> entrer dans le premier combat. */
+(function(){
+ if(typeof spawnEnemy!=='function'||typeof cdOpenPanel!=='function')return;
+ let st={shown:false,applied:false,kind:null,item:null,result:null};
+ function invTag(tag){
+   try{return typeof cd760ItemsWithTag==='function'?(cd760ItemsWithTag(tag)||[]):[]}catch(e){return []}
+ }
+ function context(){
+   try{
+     if(typeof cd10400State==='function'){
+       const b=cd10400State();
+       if(b&&b.used)return {kind:b.kind||'terrain',item:b.item||'votre équipement',prepared:true};
+     }
+     if(typeof cd10390State==='function'){
+       const t=cd10390State();
+       if(t&&t.shown)return {kind:'terrain',item:'votre repère de secteur',prepared:true};
+     }
+   }catch(e){}
+   return null;
+ }
+ function skill(name){
+   try{return Number(player&&player.char&&player.char.skills&&player.char.skills[name])||35}catch(e){return 35}
+ }
+ function offer(){
+   if(st.shown||!battle||!enemy)return;
+   const c=context();if(!c)return;
+   st.shown=true;st.kind=c.kind;st.item=c.item;
+   let opts=[];
+   if(c.kind==='light'||invTag('lumière').length||invTag('feu').length){
+     opts.push({id:'initiative',label:'PRENDRE L’INITIATIVE',small:'Observation · désorganiser le premier assaut'});
+   }
+   if(c.kind==='metal'||invTag('métal').length||invTag('bruit').length){
+     opts.push({id:'feint',label:'FORCER UNE FAUSSE PISTE',small:'Investigation · déplacer l’attention ennemie'});
+   }
+   if(c.kind==='occult'||invTag('occulte').length){
+     opts.push({id:'read',label:'LIRE LA MENACE',small:'Occultisme · exploiter un signe impossible'});
+   }
+   if(!opts.length)opts.push({id:'ground',label:'EXPLOITER LE REPÈRE',small:'Observation · transformer le terrain en avantage'});
+   opts=opts.slice(0,3);
+   const buttons=opts.map(o=>'<button onclick="cd10410Choose(\''+o.id+'\')">'+o.label+'<br><small>'+o.small+'</small></button>').join('');
+   setTimeout(()=>{try{if(battle&&enemy)cdOpenPanel('AVANTAGE DE RENCONTRE','<h2>LE TERRAIN ENTRE DANS LE COMBAT</h2><p>Votre préparation avec <b>'+st.item+'</b> vous donne une fraction de seconde avant le premier échange.</p><div class="grid2">'+buttons+'</div><p><b>Échec : aucune pénalité.</b> La préparation est simplement perdue.</p>')}catch(e){console.warn('cd10410 panel',e)}},520);
+ }
+ window.cd10410Choose=function(mode){
+   if(st.applied||!battle||!enemy){closeOverlays();return}
+   st.applied=true;closeOverlays();
+   let sk='Observation',title='REPÈRE EXPLOITÉ',success='Vous imposez votre rythme avant que la menace ne comprenne votre position.',effect='-1 PV ennemi · ATQ ennemie -1';
+   if(mode==='feint'){sk='Investigation';title='FAUSSE PISTE RÉUSSIE';success='Le marquage matériel attire la menace sur une mauvaise ligne.';effect='-2 PV ennemi';}
+   else if(mode==='read'){sk='Occultisme';title='MENACE DÉCHIFFRÉE';success='Le signe et le terrain se répondent. Vous reconnaissez une faiblesse avant l’assaut.';effect='-2 PV ennemi · +1 XP';}
+   else if(mode==='initiative'){sk='Observation';title='INITIATIVE SAISIE';success='Votre balisage révèle le mouvement adverse une seconde trop tôt pour lui.';effect='-1 PV ennemi · ATQ ennemie -1';}
+   const val=skill(sk),roll=1+Math.floor(Math.random()*100),ok=roll<=val;
+   if(ok){
+     if(mode==='feint')enemy.hp=Math.max(1,Number(enemy.hp||1)-2);
+     else if(mode==='read'){enemy.hp=Math.max(1,Number(enemy.hp||1)-2);player.xp=(player.xp||0)+1;}
+     else{enemy.hp=Math.max(1,Number(enemy.hp||1)-1);enemy.atk=Math.max(1,Number(enemy.atk||1)-1);}
+     st.result=title;
+     if(typeof log==='function')log('AVANTAGE DE RENCONTRE — '+title+' ('+sk+' '+val+', jet '+roll+'). '+effect+'.');
+     if(typeof toast==='function')toast(title);
+   }else{
+     title='AVANTAGE PERDU';effect='Aucune pénalité';st.result=title;
+     if(typeof log==='function')log('AVANTAGE DE RENCONTRE — préparation perdue ('+sk+' '+val+', jet '+roll+').');
+     if(typeof toast==='function')toast('AVANTAGE PERDU');
+   }
+   if(typeof render==='function')render();
+   setTimeout(()=>{try{cdOpenPanel('CONVERGENCE DE RENCONTRE','<h2>'+title+'</h2><p>'+(ok?success:'La menace rompt votre lecture du terrain avant que vous puissiez l’exploiter. Vous ne perdez rien, mais l’ouverture disparaît.')+'</p><p><b>'+sk+' '+val+' · jet '+roll+(ok?' ✓':'')+'</b></p><p><b>'+effect+'.</b></p><p>Équipement, exploration et rencontre influencent désormais le même échange.</p>')}catch(e){}},100);
+ };
+ const oldSpawn10410=spawnEnemy;
+ spawnEnemy=function(){
+   const out=oldSpawn10410.apply(this,arguments);
+   try{if(battle&&enemy&&!st.shown&&context())offer()}catch(e){console.warn('cd10410 spawn',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNew10410=newRun;
+   newRun=function(){st={shown:false,applied:false,kind:null,item:null,result:null};return oldNew10410.apply(this,arguments)};
+ }
+ window.cd10410State=function(){return Object.assign({},st)};
 })();
 </script>
 </body>
