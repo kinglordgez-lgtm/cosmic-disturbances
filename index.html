@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.39.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.40.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11174,5 +11174,68 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 })();
 </script>
 
+
+<script id="cd-v10400">
+/* V10.40.0 — BALISAGE MATÉRIEL DE TRAJECTOIRE
+   Convergence exploration + équipement + combat : le choix de trajectoire de V10.39
+   reçoit une troisième solution si l'inventaire possède un tag exploitable.
+   Test rapide : 3 déplacements, puis choisir BALISER AVEC... */
+(function(){
+ if(typeof cdOpenPanel!=='function'||typeof spawnEnemy!=='function'||typeof cd760ItemsWithTag!=='function')return;
+ let st={armed:false,kind:null,item:null,used:false};
+ function pick(){
+   const light=cd760ItemsWithTag('lumière')[0]||cd760ItemsWithTag('feu')[0];
+   if(light)return {kind:'light',item:light.n,label:'BALISER AVEC '+String(light.n||'UNE LUMIÈRE').toUpperCase(),small:'lumière / feu · prochaine menace -1 PV et ATQ -1'};
+   const metal=cd760ItemsWithTag('métal')[0]||cd760ItemsWithTag('bruit')[0];
+   if(metal)return {kind:'metal',item:metal.n,label:'MARQUER AVEC '+String(metal.n||'DU MÉTAL').toUpperCase(),small:'métal / bruit · prochaine menace -2 PV'};
+   const occult=cd760ItemsWithTag('occulte')[0];
+   if(occult)return {kind:'occult',item:occult.n,label:'TRACER AVEC '+String(occult.n||'UN OBJET OCCULTE').toUpperCase(),small:'occulte · prochaine menace -2 PV · +1 XP'};
+   return null;
+ }
+ window.cd10400Choose=function(){
+   const o=pick();if(!o)return;closeOverlays();st={armed:true,kind:o.kind,item:o.item,used:false};
+   let body='';
+   if(o.kind==='light')body='<b>'+o.item+'</b> devient un repère dans la brume. La prochaine menace sera révélée avant de refermer son approche : <b>-1 PV et ATQ -1</b>.';
+   else if(o.kind==='metal')body='<b>'+o.item+'</b> sert à marquer physiquement votre ligne de repli. La prochaine menace entrera dans une zone préparée : <b>-2 PV</b>.';
+   else body='<b>'+o.item+'</b> fixe un signe que vous seul osez suivre. Prochaine menace : <b>-2 PV</b>, puis <b>+1 XP</b> si le balisage est exploité.';
+   if(typeof log==='function')log('BALISAGE MATÉRIEL — '+o.item+' transforme votre équipement en préparation de terrain.');
+   if(typeof toast==='function')toast('BALISAGE MATÉRIEL');
+   if(typeof render==='function')render();
+   cdOpenPanel('CONVERGENCE DE TERRAIN','<h2>BALISAGE MATÉRIEL</h2><p>'+body+'</p><p><b>L’objet n’est pas consommé : c’est sa propriété qui devient une mécanique de terrain.</b></p>');
+ };
+ const oldPanel10400=cdOpenPanel;
+ cdOpenPanel=function(title,body){
+   try{
+     if(title==='CHOIX DE TRAJECTOIRE'&&/LE SECTEUR PREND FORME/i.test(String(body||''))){
+       const o=pick();
+       if(o){
+         const b='<button onclick="cd10400Choose()">'+o.label+'<br><small>'+o.small+'</small></button>';
+         body=String(body).replace('</div>',b+'</div>');
+       }
+     }
+   }catch(e){console.warn('cd10400 panel',e)}
+   return oldPanel10400.call(this,title,body);
+ };
+ const oldSpawn10400=spawnEnemy;
+ spawnEnemy=function(){
+   const out=oldSpawn10400.apply(this,arguments);
+   try{
+     if(st.armed&&!st.used&&battle&&enemy){
+       st.armed=false;st.used=true;
+       if(st.kind==='light'){enemy.hp=Math.max(1,Number(enemy.hp||1)-1);enemy.atk=Math.max(1,Number(enemy.atk||1)-1);}
+       else{enemy.hp=Math.max(1,Number(enemy.hp||1)-2);if(st.kind==='occult')player.xp=(player.xp||0)+1;}
+       const effect=st.kind==='light'?'-1 PV · ATQ -1':('-2 PV'+(st.kind==='occult'?' · +1 XP':''));
+       if(typeof log==='function')log('BALISAGE EXPLOITÉ — '+st.item+' : '+effect+'.');
+       if(typeof toast==='function')toast('BALISAGE EXPLOITÉ');
+       if(typeof render==='function')render();
+       setTimeout(()=>{try{cdOpenPanel('BALISAGE EXPLOITÉ','<h2>LE MATÉRIEL DEVIENT TERRAIN</h2><p>Votre préparation avec <b>'+st.item+'</b> agit avant le premier échange.</p><p><b>'+effect+'</b>.</p><p>Exploration, équipement et combat viennent de produire une même conséquence.</p>')}catch(e){}},90);
+     }
+   }catch(e){console.warn('cd10400 spawn',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){const oldNew10400=newRun;newRun=function(){st={armed:false,kind:null,item:null,used:false};return oldNew10400.apply(this,arguments)}}
+ window.cd10400State=function(){return Object.assign({},st)};
+})();
+</script>
 </body>
 </html>
