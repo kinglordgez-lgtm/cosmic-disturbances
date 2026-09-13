@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.32.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.33.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10881,5 +10881,37 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 })();
 </script>
 
-</body>
+\n\n<script id="cd-v10330">
+/* V10.33.0 — MÉMOIRE DES AFFRONTEMENTS
+   Les victoires répétées contre une même famille construisent une mémoire tactique permanente.
+   Test court : la première victoire d'une nouvelle réalité déclenche immédiatement MÉMOIRE DES AFFRONTEMENTS. */
+(function(){
+ if(typeof win!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_combat_memory_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function save(x){try{localStorage.setItem(KEY,JSON.stringify(x))}catch(e){}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ function tier(n){return n>=6?3:n>=3?2:n>=1?1:0}
+ function tierName(t){return ['INCONNUE','TRACE DE COMBAT','RÉFLEXE ACQUIS','VÉTÉRAN DE LA MENACE'][t]||'VÉTÉRAN DE LA MENACE'}
+ function lesson(f){return ({ABYSSALE:'Vous retenez le rythme des charges et des replis.',FONGIQUE:'Vous mémorisez les zones qui cèdent sous la pression.',EXTRADIMENSIONNELLE:'Votre corps apprend à ne plus suivre les angles trompeurs.',RITUELLE:'Vous reconnaissez les gestes qui précèdent l’attaque.',NÉCROPHAGE:'Vous retenez la cadence prédatrice et ses ruptures.',INCONNUE:'Vous conservez les gestes qui vous ont permis de survivre.'})[f]}
+ function record(foe){
+   const f=family(foe),m=load(),before=Number(m[f]||0),r0=tier(before),now=before+1,r1=tier(now);m[f]=now;save(m);
+   const gained=r1>r0;if(gained)player.xp=(player.xp||0)+1;
+   log('MÉMOIRE DES AFFRONTEMENTS — '+f+' : '+now+' victoire'+(now>1?'s':'')+' mémorisée'+(now>1?'s':'')+'.'+(gained?' '+tierName(r1)+' · +1 XP.':''));
+   toast(gained?'MÉMOIRE : '+tierName(r1):'MÉMOIRE RENFORCÉE');
+   if(typeof render==='function')render();
+   setTimeout(function(){try{
+     cdOpenPanel('MÉMOIRE DES AFFRONTEMENTS','<h2>'+(gained?tierName(r1):'EXPÉRIENCE CONSOLIDÉE')+'</h2><p>'+lesson(f)+'</p><p>Famille <b>'+f+'</b> · <b>'+now+' victoire'+(now>1?'s':'')+'</b> conservée'+(now>1?'s':'')+' entre les réalités.</p>'+(gained?'<p>Nouveau palier : <b>'+tierName(r1)+'</b> · <b>+1 XP</b>.</p>':'<p>Palier actuel : <b>'+tierName(r1)+'</b>. Prochain palier : <b>'+(r1===1?'3 victoires':r1===2?'6 victoires':'maîtrise maximale')+'</b>.</p>'));
+   }catch(e){console.warn('cd10330 panel',e)}},1450);
+ }
+ const oldWin10330=win;
+ win=function(){
+   const foe=(enemy&&(enemy.base||enemy.baseName||enemy.name))||'INCONNUE',eligible=!!enemy;
+   const out=oldWin10330.apply(this,arguments);
+   try{if(eligible)setTimeout(function(){record(foe)},250)}catch(e){console.warn('cd10330 win',e)}
+   return out;
+ };
+ window.cd10330Memory=function(){return load()};
+})();
+</script>\n</body>
 </html>
