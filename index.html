@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.35.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.36.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10996,6 +10996,48 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    return oldAttack10350.apply(this,arguments);
  };
  window.cd10350Reflex=function(){const m=load();return {memory:m,active:battle&&enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
+})();
+</script>
+
+<script id="cd-v10360">
+/* V10.36.0 — DISCIPLINE DE VÉTÉRAN
+   Les choix du RÉFLEXE ACQUIS se spécialisent par famille et persistent entre les réalités.
+   Test court : au premier RÉFLEXE ACQUIS, choisir une option ; la discipline 1/3 apparaît dans le panneau et le journal. */
+(function(){
+ if(typeof window.cd10350Choose!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_veteran_discipline_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function save(v){try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ let last=null;
+ const oldChoose10360=window.cd10350Choose;
+ window.cd10350Choose=function(mode){
+   if(!battle||!enemy)return oldChoose10360.apply(this,arguments);
+   const f=family(enemy.base||enemy.baseName||enemy.name),db=load();
+   if(!db[f])db[f]={precision:0,garde:0};
+   const k=mode==='precision'?'precision':'garde',before=Number(db[f][k]||0),after=before+1;
+   db[f][k]=after;save(db);last={f:f,k:k,n:after,unlocked:before<3&&after>=3};
+   if(after>=3){
+     if(k==='precision')enemy.hp=Math.max(1,Number(enemy.hp||1)-1);
+     else player.san=Math.min(player.maxsan||player.san,Number(player.san||0)+1);
+   }
+   if(typeof log==='function')log('DISCIPLINE DE VÉTÉRAN — '+f+' · '+(k==='precision'?'PRÉCISION':'GARDE')+' '+Math.min(after,3)+'/3.'+(last.unlocked?' SPÉCIALISATION ACQUISE.':after>=3?(k==='precision'?' Bonus : ennemi -1 PV.':' Bonus : +1 SAN.') : ''));
+   if(typeof toast==='function')toast(last.unlocked?'SPÉCIALISATION ACQUISE':'DISCIPLINE '+Math.min(after,3)+'/3');
+   return oldChoose10360.apply(this,arguments);
+ };
+ const oldPanel10360=cdOpenPanel;
+ cdOpenPanel=function(title,body){
+   try{
+     if(title==='RÉFLEXE ACQUIS'&&last){
+       const name=last.k==='precision'?'PRÉCISION MÉMORISÉE':'GARDE MÉMORISÉE';
+       const effect=last.n>=3?(last.k==='precision'?'Maîtrise : <b>-1 PV ennemi supplémentaire</b> avant la résolution du réflexe.':'Maîtrise : <b>+1 SAN</b> lorsque cette garde est adoptée.'):'Encore <b>'+(3-last.n)+'</b> utilisation'+(3-last.n>1?'s':'')+' avant spécialisation.';
+       body=String(body||'')+'<div style="margin-top:14px;padding:10px 12px;border:1px solid rgba(201,170,105,.55);border-radius:10px"><b>DISCIPLINE DE VÉTÉRAN — '+name+' · '+Math.min(last.n,3)+'/3</b><br><span class="small">'+effect+'</span></div>';
+       last=null;
+     }
+   }catch(e){console.warn('cd10360 panel',e)}
+   return oldPanel10360.call(this,title,body);
+ };
+ window.cd10360Discipline=function(){return load()};
 })();
 </script>
 </body>
