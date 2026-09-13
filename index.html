@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.42.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.43.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11381,6 +11381,76 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    newRun=function(){st={armed:false,strong:false,label:null,consumed:false};return oldNew10420.apply(this,arguments)};
  }
  window.cd10420State=function(){return Object.assign({},st)};
+})();
+</script>
+<script id="cd-v10430">
+/* V10.43.0 — CHOIX D'ITINÉRAIRE
+   Nouvelle décision d'exploration indépendante des chaînes de mémoire :
+   après trois déplacements réellement réussis, le joueur choisit entre
+   sécuriser son orientation ou risquer un raccourci. Aucun déplacement,
+   combat ni événement existant n'est remplacé. */
+(function(){
+ if(typeof move!=='function'||typeof cdOpenPanel!=='function')return;
+ let st={moves:0,shown:false,resolved:false,result:null};
+ function skill(name){
+   try{return Number(player&&player.char&&player.char.skills&&player.char.skills[name])||35}catch(e){return 35}
+ }
+ function offer(){
+   if(st.shown||battle)return;
+   st.shown=true;
+   setTimeout(function(){
+     try{
+       if(battle||st.resolved)return;
+       cdOpenPanel('CHOIX D’ITINÉRAIRE',
+         '<h2>LE QUARTIER SE REFERME</h2>'+ 
+         '<p>Après quelques rues, deux logiques s’opposent. Vous pouvez <b>ancrer votre trajet</b> et préserver vos nerfs, ou <b>couper par l’inconnu</b> pour gagner du temps au risque de vous perdre.</p>'+ 
+         '<div class="grid2">'+
+         '<button onclick="cd10430Choose(\'anchor\')">ANCRER LE TRAJET<br><small>+1 SAN · garanti</small></button>'+ 
+         '<button onclick="cd10430Choose(\'risk\')">COUPER PAR L’INCONNU<br><small>Observation · +3 XP si réussite · -2 SAN si échec</small></button>'+ 
+         '</div>');
+     }catch(e){console.warn('cd10430 panel',e)}
+   },120);
+ }
+ window.cd10430Choose=function(mode){
+   if(st.resolved){closeOverlays();return}
+   st.resolved=true;closeOverlays();
+   if(mode==='anchor'){
+     const max=Number(player&&player.maxsan||player&&player.san||0);
+     player.san=Math.min(max,Number(player.san||0)+1);
+     st.result='REPÈRE ANCRÉ';
+     if(typeof log==='function')log('CHOIX D’ITINÉRAIRE — REPÈRE ANCRÉ : +1 SAN.');
+     if(typeof toast==='function')toast('REPÈRE ANCRÉ');
+   }else{
+     const val=skill('Observation'),roll=1+Math.floor(Math.random()*100),ok=roll<=val;
+     if(ok){
+       player.xp=(player.xp||0)+3;st.result='RACCOURCI MAÎTRISÉ';
+       if(typeof log==='function')log('CHOIX D’ITINÉRAIRE — RACCOURCI MAÎTRISÉ (Observation '+val+', jet '+roll+'). +3 XP.');
+       if(typeof toast==='function')toast('RACCOURCI MAÎTRISÉ');
+     }else{
+       player.san=Math.max(0,Number(player.san||0)-2);st.result='ORIENTATION TROUBLÉE';
+       if(typeof log==='function')log('CHOIX D’ITINÉRAIRE — ORIENTATION TROUBLÉE (Observation '+val+', jet '+roll+'). -2 SAN.');
+       if(typeof toast==='function')toast('ORIENTATION TROUBLÉE');
+     }
+   }
+   if(typeof render==='function')render();
+ }
+ const oldMove10430=move;
+ move=function(dx,dy){
+   const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
+   const out=oldMove10430.apply(this,arguments);
+   try{
+     if(!st.shown&&bx!==null&&by!==null&&(px!==bx||py!==by)){
+       st.moves++;
+       if(st.moves>=3&&!battle)offer();
+     }
+   }catch(e){console.warn('cd10430 move',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNew10430=newRun;
+   newRun=function(){st={moves:0,shown:false,resolved:false,result:null};return oldNew10430.apply(this,arguments)};
+ }
+ window.cd10430State=function(){return Object.assign({},st)};
 })();
 </script>
 </body>
