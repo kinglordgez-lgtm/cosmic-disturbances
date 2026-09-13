@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.33.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.34.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10912,6 +10912,42 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    return out;
  };
  window.cd10330Memory=function(){return load()};
+})();
+</script>
+
+<script id="cd-v10340">
+/* V10.34.0 — RÉFLEXE DE VÉTÉRAN
+   La mémoire des affrontements influence désormais l'entrée en combat.
+   Test court : entrer dans le premier combat. Une mémoire déjà acquise déclenche RÉFLEXE DE VÉTÉRAN. */
+(function(){
+ if(typeof spawnEnemy!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_combat_memory_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ function tier(n){return n>=6?3:n>=3?2:n>=1?1:0}
+ function tierName(t){return ['AUCUNE','TRACE DE COMBAT','RÉFLEXE ACQUIS','VÉTÉRAN DE LA MENACE'][t]||'VÉTÉRAN DE LA MENACE'}
+ function strongest(m){let k=null,v=0;Object.keys(m||{}).forEach(function(x){const n=Number(m[x]||0);if(n>v){v=n;k=x}});return {family:k,count:v,tier:tier(v)}}
+ function apply(){
+   if(!battle||!enemy||enemy.cd10340Applied)return false;
+   const m=load(),base=String(enemy.base||enemy.baseName||enemy.name||''),f=family(base),exact=tier(Number(m[f]||0)),best=strongest(m);
+   if(!best.family||best.tier<1)return false;
+   enemy.cd10340Applied=true;
+   const used=exact>0?exact:best.tier;
+   const dmg=exact>0?Math.min(3,used):1;
+   enemy.hp=Math.max(1,Number(enemy.hp||1)-dmg);
+   const title=exact>0?'MENACE RECONNUE':'RÉFLEXE TRANSFÉRÉ';
+   const text=exact>0
+     ?'Votre corps reconnaît cette famille avant même que l’analyse consciente ne commence.'
+     :'Une ancienne victoire ne correspond pas exactement à cette créature, mais le réflexe de survie demeure.';
+   if(typeof log==='function')log('RÉFLEXE DE VÉTÉRAN — '+title+' : mémoire '+(exact>0?f:best.family)+' · '+tierName(used)+' · ennemi -'+dmg+' PV.');
+   if(typeof toast==='function')toast('RÉFLEXE DE VÉTÉRAN');
+   if(typeof render==='function')render();
+   setTimeout(function(){try{if(battle&&enemy)cdOpenPanel('RÉFLEXE DE VÉTÉRAN','<h2>'+title+'</h2><p>'+text+'</p><p>Mémoire mobilisée : <b>'+(exact>0?f:best.family)+'</b> · <b>'+tierName(used)+'</b>.</p><p><b>-'+dmg+' PV ennemi</b> avant le premier assaut.</p>')}catch(e){console.warn('cd10340 panel',e)}},700);
+   return true;
+ }
+ const oldSpawn10340=spawnEnemy;
+ spawnEnemy=function(){const out=oldSpawn10340.apply(this,arguments);try{apply()}catch(e){console.warn('cd10340 spawn',e)}return out};
+ window.cd10340Veteran=function(){return {memory:load(),active:battle&&enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
 })();
 </script>
 </body>
