@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.33.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.33.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10881,8 +10881,8 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 })();
 </script>
 
-\n\n<script id="cd-v10330">
-/* V10.33.0 — MÉMOIRE DES AFFRONTEMENTS
+<script id="cd-v10330">
+/* V10.33.1 — MÉMOIRE DES AFFRONTEMENTS
    Les victoires répétées contre une même famille construisent une mémoire tactique permanente.
    Test court : la première victoire d'une nouvelle réalité déclenche immédiatement MÉMOIRE DES AFFRONTEMENTS. */
 (function(){
@@ -10913,5 +10913,6 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  window.cd10330Memory=function(){return load()};
 })();
-</script>\n</body>
+</script>
+</body>
 </html>
