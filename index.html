@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.34.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.35.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -10948,6 +10948,54 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldSpawn10340=spawnEnemy;
  spawnEnemy=function(){const out=oldSpawn10340.apply(this,arguments);try{apply()}catch(e){console.warn('cd10340 spawn',e)}return out};
  window.cd10340Veteran=function(){return {memory:load(),active:battle&&enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
+})();
+</script>
+
+
+<script id="cd-v10350">
+/* V10.35.0 — RÉFLEXE ACQUIS : DÉCISION TACTIQUE
+   Au palier 3 victoires d'une famille, la mémoire ne donne plus seulement un bonus passif :
+   au premier assaut contre cette famille, le joueur choisit comment exploiter son expérience. */
+(function(){
+ if(typeof attack!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_combat_memory_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ function tier(n){return n>=6?3:n>=3?2:n>=1?1:0}
+ function profile(f){return ({
+   ABYSSALE:['Observation','RECUL ANTICIPÉ','Vous reconnaissez l’instant où la poussée abyssale va se briser.'],
+   FONGIQUE:['Médecine','ZONE NÉCROSÉE','Vous identifiez la partie de l’organisme qui supporte mal un choc précis.'],
+   EXTRADIMENSIONNELLE:['Occultisme','ANGLE IMPOSSIBLE','Vous refusez le faux angle et frappez là où la forme doit réellement passer.'],
+   RITUELLE:['Psychologie','GESTE INTERROMPU','Vous reconnaissez la préparation du geste rituel avant son achèvement.'],
+   NÉCROPHAGE:['Endurance','RYTHME PRÉDATEUR','Vous attendez la rupture de cadence avant de vous engager.'],
+   INCONNUE:['Investigation','RÉFLEXE TRANSFÉRÉ','Votre expérience générale vous donne une lecture imparfaite mais exploitable.']
+ })[f]}
+ function eligible(){
+   if(!battle||!enemy||enemy.cd10350Resolved||enemy.cd10350Offered)return null;
+   const f=family(enemy.base||enemy.baseName||enemy.name),count=Number(load()[f]||0),r=tier(count);
+   return r>=2?{f:f,count:count,r:r,p:profile(f)}:null;
+ }
+ window.cd10350Choose=function(mode){
+   if(!battle||!enemy)return closeOverlays();
+   const x=eligible()||{f:family(enemy.base||enemy.baseName||enemy.name),r:tier(Number(load()[family(enemy.base||enemy.baseName||enemy.name)]||0))};
+   const p=profile(x.f);enemy.cd10350Resolved=true;closeOverlays();
+   if(mode==='precision'){
+     const sk=(player.char&&player.char.skills)||{},val=Number(sk[p[0]]||0),roll=1+Math.floor(rng()*100),bonus=x.r>=3?25:15,ok=roll<=Math.max(15,Math.min(95,val+bonus));
+     if(ok){const dmg=x.r>=3?4:3;enemy.hp=Math.max(1,Number(enemy.hp||1)-dmg);player.xp=(player.xp||0)+1;log('RÉFLEXE ACQUIS — '+p[1]+' : '+p[0]+' '+val+', jet '+roll+' ✓. -'+dmg+' PV ennemi · +1 XP.');toast('RÉFLEXE EXPLOITÉ');render();cdOpenPanel('RÉFLEXE ACQUIS','<h2>'+p[1]+'</h2><p>'+p[2]+'</p><p><b>'+p[0]+' '+val+'</b> · jet <b>'+roll+'</b> ✓</p><p><b>-'+dmg+' PV ennemi · +1 XP.</b></p><button onclick="closeOverlays();cd10350Strike()">PORTER L’ATTAQUE</button>');return}
+     log('RÉFLEXE ACQUIS — anticipation imparfaite ('+p[0]+' '+val+', jet '+roll+').');toast('ANTICIPATION MANQUÉE');render();cdOpenPanel('RÉFLEXE ACQUIS','<h2>ANTICIPATION MANQUÉE</h2><p>Votre souvenir était juste, mais la créature change son rythme. <b>Aucune pénalité : l’attaque reste disponible.</b></p><p><b>'+p[0]+' '+val+'</b> · jet <b>'+roll+'</b></p><button onclick="closeOverlays();cd10350Strike()">PORTER L’ATTAQUE</button>');return;
+   }
+   enemy.atk=Math.max(1,Number(enemy.atk||1)-1);enemy.cd10350Guard=true;
+   log('RÉFLEXE ACQUIS — GARDE MÉMORISÉE : ATQ ennemie -1 pour ce combat.');toast('GARDE MÉMORISÉE');render();
+   cdOpenPanel('RÉFLEXE ACQUIS','<h2>GARDE MÉMORISÉE</h2><p>Vous ne cherchez pas l’ouverture parfaite. Vous adoptez la posture qui vous a déjà permis de survivre à cette famille.</p><p><b>ATQ ennemie -1 pour ce combat · garanti.</b></p><button onclick="closeOverlays();cd10350Strike()">ENGAGER</button>');
+ };
+ const oldAttack10350=attack;
+ window.cd10350Strike=function(){closeOverlays();return oldAttack10350()};
+ attack=function(){
+   const x=eligible();
+   if(x){enemy.cd10350Offered=true;cdOpenPanel('RÉFLEXE ACQUIS','<h2>'+x.p[1]+' — '+x.f+'</h2><p>Vos <b>'+x.count+' victoires</b> contre cette famille ont créé un réflexe durable. Vous pouvez désormais choisir comment employer cette mémoire.</p><div class="grid2"><button onclick="cd10350Choose(\'precision\')">EXPLOITER LE RÉFLEXE<br><small>'+x.p[0]+' · -3 PV +1 XP si réussite</small></button><button onclick="cd10350Choose(\'garde\')">GARDE MÉMORISÉE<br><small>ATQ ennemie -1 · garanti</small></button></div>');return}
+   return oldAttack10350.apply(this,arguments);
+ };
+ window.cd10350Reflex=function(){const m=load();return {memory:m,active:battle&&enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
 })();
 </script>
 </body>
