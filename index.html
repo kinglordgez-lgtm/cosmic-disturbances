@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.37.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.38.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11083,6 +11083,42 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    cdOpenPanel('AUTOMATISME DE VÉTÉRAN',h+'<button onclick="cd10370Continue()">PORTER L’ATTAQUE</button>');return;
  };
  window.cd10370Automatism=function(){return {discipline:load(),active:battle&&enemy?family(enemy.base||enemy.baseName||enemy.name):null}};
+})();
+</script>
+
+
+
+<script id="cd-v10380">
+/* V10.38.0 — PALIER DE VÉTÉRAN
+   Le troisième souvenir d'une même famille devient un seuil tangible :
+   à partir de 3 victoires mémorisées, le premier assaut révèle une maîtrise consolidée.
+   Test court : avec 2 victoires déjà mémorisées, gagner une nouvelle confrontation de la même famille ;
+   sinon, le premier ATTAQUER affiche immédiatement la progression actuelle sans pénalité. */
+(function(){
+ if(typeof attack!=='function'||typeof cdOpenPanel!=='function')return;
+ const KEY='cosmic_combat_memory_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ function doctrine(f){return ({ABYSSALE:['MARÉE LUE','Vous ne réagissez plus à la charge : vous anticipez son reflux.'],FONGIQUE:['ANATOMIE MÉMORISÉE','Les tissus anormaux révèlent désormais leurs zones de rupture.'],EXTRADIMENSIONNELLE:['GÉOMÉTRIE REFUSÉE','Votre regard cesse de suivre les angles que la créature veut imposer.'],RITUELLE:['GESTE DEVANCÉ','Le début d’un rite suffit désormais à révéler l’intention hostile.'],NÉCROPHAGE:['CADENCE BRISÉE','Vous reconnaissez la fraction de seconde où l’instinct prédateur se découvre.'],INCONNUE:['SURVIE CONSOLIDÉE','Plusieurs affrontements ont transformé une intuition en méthode.']})[f]}
+ const oldAttack10380=attack;
+ window.cd10380Continue=function(){closeOverlays();return oldAttack10380()};
+ attack=function(){
+   if(!battle||!enemy||enemy.cd10380Shown)return oldAttack10380.apply(this,arguments);
+   enemy.cd10380Shown=true;
+   const f=family(enemy.base||enemy.baseName||enemy.name),n=Number(load()[f]||0),d=doctrine(f);
+   if(n>=3){
+     const bonus=n>=6?2:1; enemy.hp=Math.max(1,Number(enemy.hp||1)-bonus);
+     if(typeof log==='function')log('PALIER DE VÉTÉRAN — '+f+' · '+d[0]+' : '+n+' victoires mémorisées · ennemi -'+bonus+' PV.');
+     if(typeof toast==='function')toast('PALIER DE VÉTÉRAN');
+     if(typeof render==='function')render();
+     cdOpenPanel('PALIER DE VÉTÉRAN','<h2>'+d[0]+'</h2><p>'+d[1]+'</p><p>Famille <b>'+f+'</b> · <b>'+n+' victoires mémorisées</b>.</p><p>Votre expérience consolidée agit avant le premier assaut : <b>-'+bonus+' PV ennemi</b>.</p><p><b>Seuil suivant : '+(n>=6?'MAÎTRISE MAXIMALE':'6 victoires')+'.</b></p><button onclick="cd10380Continue()">PORTER L’ATTAQUE</button>');return;
+   }
+   const left=Math.max(0,3-n);
+   if(typeof log==='function')log('PALIER DE VÉTÉRAN — '+f+' : '+n+'/3 · encore '+left+' victoire'+(left>1?'s':'')+' avant consolidation.');
+   if(typeof toast==='function')toast('PALIER '+n+'/3');
+   cdOpenPanel('PALIER DE VÉTÉRAN','<h2>EXPÉRIENCE EN CONSOLIDATION</h2><p>Famille <b>'+f+'</b> · <b>'+n+'/3</b>.</p><p>Encore <b>'+left+' victoire'+(left>1?'s':'')+'</b> contre cette famille pour transformer la mémoire de combat en avantage consolidé.</p><p><b>Aucune pénalité.</b></p><button onclick="cd10380Continue()">PORTER L’ATTAQUE</button>');return;
+ };
+ window.cd10380Tier=function(){return load()};
 })();
 </script>
 
