@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.43.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.44.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11451,6 +11451,84 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    newRun=function(){st={moves:0,shown:false,resolved:false,result:null};return oldNew10430.apply(this,arguments)};
  }
  window.cd10430State=function(){return Object.assign({},st)};
+})();
+</script>
+\n<script id="cd-v10440">
+/* V10.44.0 — MARQUAGE DU TERRAIN
+   Une décision d'exploration modifie réellement la carte.
+   Test rapide : après le premier déplacement réussi. */
+(function(){
+ if(typeof move!=='function'||typeof cdOpenPanel!=='function')return;
+ let st={moved:false,shown:false,resolved:false,result:null,x:null,y:null};
+ function nearest(kind){
+   let best=null,dist=999;
+   for(let y=1;y<12;y++)for(let x=1;x<12;x++){
+     if(!map[y]||map[y][x]!==kind||(x===px&&y===py))continue;
+     const d=Math.abs(x-px)+Math.abs(y-py);
+     if(d<dist){dist=d;best={x,y}}
+   }
+   return best;
+ }
+ function floorTarget(){
+   let best=null,dist=999;
+   for(let y=1;y<12;y++)for(let x=1;x<12;x++){
+     if(!map[y]||map[y][x]!=="floor"||(x===px&&y===py))continue;
+     const d=Math.abs(x-px)+Math.abs(y-py);
+     if(d<dist){dist=d;best={x,y}}
+   }
+   return best;
+ }
+ function offer(tries){
+   if(st.shown||st.resolved||battle)return;
+   const modal=document.getElementById('modal');
+   if(modal&&modal.classList.contains('open')){
+     if((tries||0)<8)setTimeout(()=>offer((tries||0)+1),250);
+     return;
+   }
+   st.shown=true;
+   cdOpenPanel('LECTURE DU TERRAIN',
+     '<h2 style="margin-top:0">MARQUAGE DU SECTEUR</h2>'+
+     '<p>Un détail du quartier peut devenir une ressource concrète. Vous choisissez ce que votre enquête doit laisser derrière elle sur la carte.</p>'+
+     '<div class="grid2">'+
+     '<button onclick="cd10440Choose(\'cache\')">BALISER UNE CACHE<br><small>fait apparaître un ▣ à proximité</small></button>'+
+     '<button onclick="cd10440Choose(\'safe\')">DÉTOURNER UN DANGER<br><small>neutralise le piège × le plus proche</small></button>'+
+     '</div>');
+ }
+ window.cd10440Choose=function(mode){
+   if(st.resolved){closeOverlays();return}
+   st.resolved=true;closeOverlays();
+   if(mode==='cache'){
+     const t=floorTarget();
+     if(t){map[t.y][t.x]='chest';st.x=t.x;st.y=t.y;st.result='CACHE BALISÉE';
+       log('MARQUAGE DU TERRAIN — CACHE BALISÉE : un ▣ exploitable apparaît sur la carte.');
+       toast('CACHE BALISÉE');
+     }else{st.result='REPÈRE CONSIGNÉ';player.xp=(player.xp||0)+1;log('MARQUAGE DU TERRAIN — aucun emplacement libre : +1 XP.');}
+   }else{
+     const t=nearest('trap');
+     if(t){map[t.y][t.x]='floor';st.x=t.x;st.y=t.y;st.result='DANGER DÉTOURNÉ';
+       log('MARQUAGE DU TERRAIN — DANGER DÉTOURNÉ : le piège × le plus proche est neutralisé.');
+       toast('DANGER DÉTOURNÉ');
+     }else{st.result='SECTEUR SÛR';player.san=Math.min(player.maxsan||player.san,Number(player.san||0)+1);
+       log('MARQUAGE DU TERRAIN — aucun piège à détourner : +1 SAN.');toast('SECTEUR SÛR');}
+   }
+   if(typeof render==='function')render();
+ };
+ const oldMove10440=move;
+ move=function(dx,dy){
+   const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
+   const out=oldMove10440.apply(this,arguments);
+   try{
+     if(!st.moved&&bx!==null&&by!==null&&(px!==bx||py!==by)){
+       st.moved=true;setTimeout(()=>offer(0),180);
+     }
+   }catch(e){console.warn('cd10440 move',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNew10440=newRun;
+   newRun=function(){st={moved:false,shown:false,resolved:false,result:null,x:null,y:null};return oldNew10440.apply(this,arguments)};
+ }
+ window.cd10440State=function(){return Object.assign({},st)};
 })();
 </script>
 </body>
