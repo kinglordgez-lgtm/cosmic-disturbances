@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.38.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.39.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11119,6 +11119,58 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    cdOpenPanel('PALIER DE VÉTÉRAN','<h2>EXPÉRIENCE EN CONSOLIDATION</h2><p>Famille <b>'+f+'</b> · <b>'+n+'/3</b>.</p><p>Encore <b>'+left+' victoire'+(left>1?'s':'')+'</b> contre cette famille pour transformer la mémoire de combat en avantage consolidé.</p><p><b>Aucune pénalité.</b></p><button onclick="cd10380Continue()">PORTER L’ATTAQUE</button>');return;
  };
  window.cd10380Tier=function(){return load()};
+})();
+</script>
+
+
+<script id="cd-v10390">
+/* V10.39.0 — CHOIX DE TRAJECTOIRE
+   Première connexion directe exploration -> rencontre : après 3 déplacements réussis,
+   le joueur choisit entre lire le terrain ou conserver une marge de sécurité.
+   Le choix modifie concrètement la prochaine rencontre. Test : 3 déplacements. */
+(function(){
+ if(typeof move!=='function'||typeof spawnEnemy!=='function'||typeof cdOpenPanel!=='function')return;
+ let st={moves:0,shown:false,pending:null};
+ function skills(){return (player&&player.char&&player.char.skills)||{}}
+ function reset(){st={moves:0,shown:false,pending:null}}
+ window.cd10390Choose=function(mode){
+   closeOverlays();
+   if(mode==='read'){
+     const val=Number(skills().Observation||0),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(15,Math.min(95,val));
+     if(ok){st.pending='read';if(typeof log==='function')log('CHOIX DE TRAJECTOIRE — TERRAIN LU : Observation '+val+', jet '+roll+' ✓. La prochaine menace commencera avec -2 PV.');if(typeof toast==='function')toast('TERRAIN LU');cdOpenPanel('CHOIX DE TRAJECTOIRE','<h2>TERRAIN LU</h2><p>Vous mémorisez les angles morts, les issues et les endroits où une silhouette devra se découvrir.</p><p><b>Observation '+val+' · jet '+roll+' ✓</b></p><p>Prochaine rencontre : <b>-2 PV ennemi</b>.</p>');}
+     else {st.pending=null;if(typeof log==='function')log('CHOIX DE TRAJECTOIRE — LECTURE INCERTAINE : Observation '+val+', jet '+roll+'. Aucune pénalité.');if(typeof toast==='function')toast('LECTURE INCERTAINE');cdOpenPanel('CHOIX DE TRAJECTOIRE','<h2>LECTURE INCERTAINE</h2><p>La brume efface vos repères avant que vous puissiez les exploiter.</p><p><b>Observation '+val+' · jet '+roll+'</b></p><p>Aucune pénalité.</p>');}
+   }else{
+     st.pending='guard';
+     if(typeof log==='function')log('CHOIX DE TRAJECTOIRE — MARGE DE SÉCURITÉ : la prochaine menace aura ATQ -1.');
+     if(typeof toast==='function')toast('MARGE DE SÉCURITÉ');
+     cdOpenPanel('CHOIX DE TRAJECTOIRE','<h2>MARGE DE SÉCURITÉ</h2><p>Vous renoncez à comprendre chaque détail et conservez toujours une issue derrière vous.</p><p>Prochaine rencontre : <b>ATQ ennemie -1</b>.</p>');
+   }
+   if(typeof render==='function')render();
+ };
+ function offer(){
+   if(st.shown||st.moves<3||battle)return;st.shown=true;
+   if(typeof log==='function')log('CHOIX DE TRAJECTOIRE — trois déplacements suffisent pour lire le secteur.');
+   if(typeof toast==='function')toast('CHOIX DE TRAJECTOIRE');
+   cdOpenPanel('CHOIX DE TRAJECTOIRE','<h2>LE SECTEUR PREND FORME</h2><p>Après quelques rues, vous pouvez transformer votre déplacement en avantage — ou préserver une marge de sécurité.</p><div class="grid2"><button onclick="cd10390Choose(\'read\')">LIRE LE TERRAIN<br><small>Observation · prochaine menace -2 PV si réussite</small></button><button onclick="cd10390Choose(\'guard\')">GARDER UNE ISSUE<br><small>prochaine menace ATQ -1 · garanti</small></button></div>');
+ }
+ const oldMove10390=move;
+ move=function(dx,dy){
+   const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
+   const out=oldMove10390.apply(this,arguments);
+   try{if(!st.shown&&bx!==null&&by!==null&&(px!==bx||py!==by)){st.moves++;offer()}}catch(e){console.warn('cd10390 move',e)}
+   return out;
+ };
+ const oldSpawn10390=spawnEnemy;
+ spawnEnemy=function(){
+   const out=oldSpawn10390.apply(this,arguments);
+   try{if(battle&&enemy&&st.pending){if(st.pending==='read'){enemy.hp=Math.max(1,Number(enemy.hp||1)-2);if(typeof log==='function')log('TRAJECTOIRE EXPLOITÉE — la menace entre dans l’angle prévu : -2 PV ennemi.');if(typeof toast==='function')toast('ANGLE PRÉVU');}else{enemy.atk=Math.max(1,Number(enemy.atk||1)-1);if(typeof log==='function')log('TRAJECTOIRE EXPLOITÉE — votre issue préparée réduit la pression : ATQ ennemie -1.');if(typeof toast==='function')toast('ISSUE PRÉPARÉE');}st.pending=null;if(typeof render==='function')render();}}catch(e){console.warn('cd10390 spawn',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNewRun10390=newRun;
+   newRun=function(){reset();return oldNewRun10390.apply(this,arguments)};
+ }
+ window.cd10390State=function(){return Object.assign({},st)};
 })();
 </script>
 
