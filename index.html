@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.45.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.46.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11453,7 +11453,8 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  window.cd10430State=function(){return Object.assign({},st)};
 })();
 </script>
-\n<script id="cd-v10440">
+
+<script id="cd-v10440">
 /* V10.44.0 — MARQUAGE DU TERRAIN
    Une décision d'exploration modifie réellement la carte.
    Test rapide : après le premier déplacement réussi. */
@@ -11531,7 +11532,8 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  window.cd10440State=function(){return Object.assign({},st)};
 })();
 </script>
-\n<script id="cd-v10450">
+
+<script id="cd-v10450">
 /* V10.45.0 — DECISION SOUS PRESSION
    Premier déplacement réussi : choix immédiat avec conséquence persistante légère. */
 (function(){
@@ -11597,5 +11599,65 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  window.cd10450State=function(){return Object.assign({},st)};
 })();
 </script>
+
+<script id="cd-v10460">
+/* V10.46.0 — CONSEQUENCE DU MARQUAGE
+   Le choix de V10.44 devient un lieu réellement exploitable sur la carte. */
+(function(){
+ if(typeof move!=='function'||typeof resolveTile!=='function')return;
+ let st={cacheUsed:false,safeUsed:false,last:null};
+ function prof(){try{return String(player&&player.char&&player.char.job||'')}catch(e){return ''}}
+ function rewardCache(){
+   if(st.cacheUsed)return; st.cacheUsed=true;
+   const j=prof();
+   if(/Médec|Infirm/i.test(j)){
+     player.hp=Math.min(Number(player.maxhp||player.hp||0),Number(player.hp||0)+3);st.last='CACHE MÉDICALE';
+     log('MARQUAGE EXPLOITÉ — CACHE MÉDICALE : +3 PV.');toast('CACHE MÉDICALE +3 PV');
+   }else if(/Détect|Journal|Photograph/i.test(j)){
+     player.xp=Number(player.xp||0)+3;st.last='CACHE DE PREUVES';
+     log('MARQUAGE EXPLOITÉ — CACHE DE PREUVES : +3 XP.');toast('CACHE DE PREUVES +3 XP');
+   }else if(/Professeur|Antiquaire/i.test(j)){
+     player.san=Math.min(Number(player.maxsan||player.san||0),Number(player.san||0)+2);st.last='CACHE DOCUMENTAIRE';
+     log('MARQUAGE EXPLOITÉ — CACHE DOCUMENTAIRE : +2 SAN.');toast('CACHE DOCUMENTAIRE +2 SAN');
+   }else{
+     player.xp=Number(player.xp||0)+2;st.last='CACHE DE TERRAIN';
+     log('MARQUAGE EXPLOITÉ — CACHE DE TERRAIN : +2 XP.');toast('CACHE DE TERRAIN +2 XP');
+   }
+ }
+ function rewardSafe(){
+   if(st.safeUsed)return;st.safeUsed=true;st.last='PASSAGE SÉCURISÉ';
+   player.xp=Number(player.xp||0)+1;
+   player.san=Math.min(Number(player.maxsan||player.san||0),Number(player.san||0)+1);
+   log('MARQUAGE EXPLOITÉ — PASSAGE SÉCURISÉ : le détour préparé paie. +1 XP, +1 SAN.');toast('PASSAGE SÉCURISÉ');
+ }
+ const oldResolve10460=resolveTile;
+ resolveTile=function(){
+   let m=null,t=null;
+   try{m=typeof cd10440State==='function'?cd10440State():null;t=map&&map[py]?map[py][px]:null}catch(e){}
+   const marked=!!(m&&m.result==='CACHE BALISÉE'&&m.x===px&&m.y===py&&t==='chest');
+   const out=oldResolve10460.apply(this,arguments);
+   try{if(marked)rewardCache()}catch(e){console.warn('cd10460 cache',e)}
+   return out;
+ };
+ const oldMove10460=move;
+ move=function(dx,dy){
+   const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
+   const out=oldMove10460.apply(this,arguments);
+   try{
+     if(bx!==null&&by!==null&&(px!==bx||py!==by)){
+       const m=typeof cd10440State==='function'?cd10440State():null;
+       if(m&&m.result==='DANGER DÉTOURNÉ'&&m.x===px&&m.y===py)rewardSafe();
+     }
+   }catch(e){console.warn('cd10460 safe',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNew10460=newRun;
+   newRun=function(){st={cacheUsed:false,safeUsed:false,last:null};return oldNew10460.apply(this,arguments)};
+ }
+ window.cd10460State=function(){return Object.assign({},st)};
+})();
+</script>
+
 </body>
 </html>
