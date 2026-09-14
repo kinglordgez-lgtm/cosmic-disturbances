@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.47.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.48.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11807,6 +11807,69 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    newRun=function(){st={cacheConsumed:false,safeCrossed:false,cacheInsight:false,insightUsed:false,last:null};return oldNew10470.apply(this,arguments)};
  }
  window.cd10470State=function(){return Object.assign({},st)};
+})();
+</script>
+
+<script id="cd-v10480">
+/* V10.48.0 — MEMOIRE TACTIQUE DU SECTEUR
+   Les repères réellement exploités sur la carte modifient la prochaine rencontre. */
+(function(){
+ if(typeof spawnEnemy!=='function'||typeof investigate!=='function'||typeof move!=='function')return;
+ let st={cacheArmed:false,safeArmed:false,cacheUsed:false,safeUsed:false,last:null};
+ function r47(){try{return typeof cd10470State==='function'?cd10470State():null}catch(e){return null}}
+ const oldInvestigate10480=investigate;
+ investigate=function(){
+   const before=r47(),out=oldInvestigate10480.apply(this,arguments);
+   try{
+     const after=r47();
+     if(!st.cacheUsed&&!st.cacheArmed&&after&&after.last==='REPÈRE RECROISÉ'&&(!before||before.last!=='REPÈRE RECROISÉ')){
+       st.cacheArmed=true;st.last='ANGLE PRÉPARÉ';
+       log('MÉMOIRE DU SECTEUR — le repère recroisé révèle un angle d’approche. La prochaine rencontre sera préparée.');
+       toast('ANGLE DE RENCONTRE PRÉPARÉ');
+     }
+   }catch(e){console.warn('cd10480 investigate',e)}
+   return out;
+ };
+ const oldMove10480=move;
+ move=function(dx,dy){
+   const before=r47(),bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
+   const out=oldMove10480.apply(this,arguments);
+   try{
+     const after=r47();
+     if(!st.safeUsed&&!st.safeArmed&&bx!==null&&by!==null&&(px!==bx||py!==by)&&after&&after.last==='PASSAGE MÉMORISÉ'&&(!before||before.last!=='PASSAGE MÉMORISÉ')){
+       st.safeArmed=true;st.last='REPLI PRÉPARÉ';
+       log('MÉMOIRE DU SECTEUR — le passage sécurisé devient une ligne de repli. La prochaine rencontre sera moins dangereuse.');
+       toast('LIGNE DE REPLI PRÉPARÉE');
+     }
+   }catch(e){console.warn('cd10480 move',e)}
+   return out;
+ };
+ const oldSpawn10480=spawnEnemy;
+ spawnEnemy=function(){
+   const out=oldSpawn10480.apply(this,arguments);
+   try{
+     if(!battle||!enemy)return out;
+     if(st.cacheArmed&&!st.cacheUsed){
+       st.cacheArmed=false;st.cacheUsed=true;st.last='ANGLE EXPLOITÉ';
+       const d=Math.min(3,Math.max(1,Number(enemy.hp||1)-1));
+       enemy.hp=Math.max(1,Number(enemy.hp||1)-d);
+       log('CARTE → RENCONTRE — ANGLE EXPLOITÉ : '+enemy.name+' commence avec -'+d+' PV grâce au repère préparé.');
+       toast('ANGLE EXPLOITÉ -'+d+' PV ENNEMI');
+     }else if(st.safeArmed&&!st.safeUsed){
+       st.safeArmed=false;st.safeUsed=true;st.last='REPLI EXPLOITÉ';
+       enemy.atk=Math.max(1,Number(enemy.atk||1)-1);
+       log('CARTE → RENCONTRE — REPLI EXPLOITÉ : '+enemy.name+' perd 1 ATQ pour cette confrontation.');
+       toast('REPLI EXPLOITÉ -1 ATQ ENNEMI');
+     }
+     if(typeof render==='function')render();
+   }catch(e){console.warn('cd10480 spawn',e)}
+   return out;
+ };
+ if(typeof newRun==='function'){
+   const oldNew10480=newRun;
+   newRun=function(){st={cacheArmed:false,safeArmed:false,cacheUsed:false,safeUsed:false,last:null};return oldNew10480.apply(this,arguments)};
+ }
+ window.cd10480State=function(){return Object.assign({},st)};
 })();
 </script>
 
