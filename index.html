@@ -628,7 +628,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.49.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.50.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11940,6 +11940,73 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    newRun=function(){st={investigated:false,placed:false,claimed:false,armed:false,used:false,x:null,y:null,last:null};return oldNew10490.apply(this,arguments)};
  }
  window.cd10490State=function(){return Object.assign({},st)};
+})();
+</script>
+
+<script id="cd-v10500">
+/* V10.50.0 — PISTE EN CHAINE
+   L'indice V10.49 mène à un second lieu concret : découverte ou menace, puis conséquence durable. */
+(function(){
+ if(typeof move!=='function'||typeof glyph!=='function'||typeof cdOpenPanel!=='function')return;
+ let st={leadPlaced:false,reached:false,resolved:false,x:null,y:null,result:null,combatArmed:false};
+ function s49(){try{return typeof cd10490State==='function'?cd10490State():null}catch(e){return null}}
+ function nearestFloor(){
+   let best=null,bd=999;
+   try{for(let y=0;y<13;y++)for(let x=0;x<13;x++){
+     if(!map[y]||map[y][x]!=='floor'||(x===px&&y===py))continue;
+     const d=Math.abs(x-px)+Math.abs(y-py);
+     if(d<bd){bd=d;best={x:x,y:y}}
+   }}catch(e){}
+   return best;
+ }
+ function placeLead(){
+   if(st.leadPlaced||st.resolved)return;
+   const t=nearestFloor();if(!t)return;
+   st.leadPlaced=true;st.x=t.x;st.y=t.y;map[t.y][t.x]='lead50';
+   log('PISTE EN CHAÎNE — l’indice révèle un second lieu. Rejoignez le ◈ pour décider comment l’exploiter.');
+   toast('NOUVELLE PISTE ◈');render();
+ }
+ const oldGlyph10500=glyph;
+ glyph=function(t){if(t==='lead50')return '◈';return oldGlyph10500.apply(this,arguments)};
+ function offer(){
+   if(st.resolved)return;
+   cdOpenPanel('PISTE EN CHAÎNE',`<h2>LIEU CORRÉLÉ</h2><p>Les marques relevées sur le premier indice convergent ici. Une cache semble avoir été fouillée à la hâte, mais quelque chose rôde encore dans le secteur.</p><div class="actions"><button onclick="cd10500Choose('proof')">RECHERCHER UNE PREUVE<br><small>Investigation</small></button><button onclick="cd10500Choose('threat')">PRÉPARER LA MENACE<br><small>Observation</small></button></div>`);
+ }
+ window.cd10500Choose=function(mode){
+   if(st.resolved)return;st.resolved=true;
+   try{if(map[st.y]&&map[st.y][st.x]==='lead50')map[st.y][st.x]='floor'}catch(e){}
+   const skills=player&&player.char&&player.char.skills?player.char.skills:{};
+   const skill=mode==='proof'?'Investigation':'Observation',val=Number(skills[skill]||0),roll=1+Math.floor(Math.random()*100),ok=roll<=val;
+   if(typeof closeModalOnly==='function')closeModalOnly();
+   if(mode==='proof'){
+     if(ok){player.xp=Number(player.xp||0)+2;st.result='PREUVE MATÉRIELLE';log('PISTE → DÉCOUVERTE — PREUVE MATÉRIELLE ('+skill+' '+val+', jet '+roll+') : +2 XP et une trouvaille supplémentaire.');toast('PREUVE MATÉRIELLE · +2 XP');setTimeout(function(){try{if(typeof loot==='function')loot()}catch(e){}},120)}
+     else{player.san=Math.max(0,Number(player.san||0)-1);st.result='PISTE SOUILLÉE';st.combatArmed=true;log('PISTE → MENACE — PISTE SOUILLÉE ('+skill+' '+val+', jet '+roll+') : -1 SAN. La prochaine créature sera alertée.');toast('PISTE SOUILLÉE · -1 SAN')}
+   }else{
+     if(ok){player.xp=Number(player.xp||0)+1;st.result='MENACE ANTICIPÉE';st.combatArmed=true;log('PISTE → COMBAT — MENACE ANTICIPÉE ('+skill+' '+val+', jet '+roll+') : +1 XP. La prochaine rencontre commencera à votre avantage.');toast('MENACE ANTICIPÉE · +1 XP')}
+     else{player.san=Math.max(0,Number(player.san||0)-1);st.result='FAUSSE LECTURE';log('PISTE — FAUSSE LECTURE ('+skill+' '+val+', jet '+roll+') : -1 SAN. La piste se referme sans certitude.');toast('FAUSSE LECTURE · -1 SAN')}
+   }
+   render();
+ };
+ const oldMove10500=move;
+ move=function(dx,dy){
+   const before=s49(),out=oldMove10500.apply(this,arguments);
+   try{
+     const after=s49();
+     if(!st.leadPlaced&&after&&after.claimed&&(!before||!before.claimed))setTimeout(placeLead,160);
+     if(st.leadPlaced&&!st.reached&&!st.resolved&&px===st.x&&py===st.y&&map[py]&&map[py][px]==='lead50'){st.reached=true;setTimeout(offer,140)}
+   }catch(e){console.warn('cd10500 move',e)}
+   return out;
+ };
+ if(typeof spawnEnemy==='function'){
+   const oldSpawn10500=spawnEnemy;
+   spawnEnemy=function(){
+     const out=oldSpawn10500.apply(this,arguments);
+     try{if(st.combatArmed&&battle&&enemy){st.combatArmed=false;if(st.result==='MENACE ANTICIPÉE'){enemy.hp=Math.max(1,Number(enemy.hp||1)-2);log('PISTE → RENCONTRE — votre préparation retire 2 PV à '+enemy.name+'.');toast('MENACE ANTICIPÉE · -2 PV ENNEMI')}else{enemy.atk=Number(enemy.atk||1)+1;log('PISTE → RENCONTRE — la piste souillée a alerté '+enemy.name+' : +1 ATQ ennemi.');toast('ENNEMI ALERTÉ · +1 ATQ')}render()} }catch(e){console.warn('cd10500 spawn',e)}
+     return out;
+   };
+ }
+ if(typeof newRun==='function'){const oldNew10500=newRun;newRun=function(){st={leadPlaced:false,reached:false,resolved:false,x:null,y:null,result:null,combatArmed:false};return oldNew10500.apply(this,arguments)}}
+ window.cd10500State=function(){return Object.assign({},st)};
 })();
 </script>
 
