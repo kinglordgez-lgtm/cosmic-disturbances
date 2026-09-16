@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.52.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.53.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12139,6 +12139,73 @@ window.cd10514NpcLiveRefresh=true;
  window.cdPerceptionState=perception;
  window.cdWorldSnapshot=snapshot;
  window.cd10520State=function(){return {moves:st.moves,last:st.last};};
+})();
+</script>
+
+
+<style id="cd-v10530-style">
+.tile.cd-perception-mundane{box-shadow:inset 0 0 0 1px rgba(205,190,150,.22)}
+.tile.cd-perception-sign{box-shadow:inset 0 0 0 2px rgba(198,169,101,.48);text-shadow:0 0 8px currentColor}
+.tile.cd-perception-cosmic{box-shadow:inset 0 0 0 2px rgba(179,132,190,.72),0 0 10px rgba(179,132,190,.18)}
+.tile.cd-perception-false{opacity:.78;text-shadow:0 0 7px currentColor}
+</style>
+<script id="cd-v10530">
+/* V10.53.0 — PREMIÈRE RÉALITÉ PERÇUE
+   Une anomalie existe désormais dans l'état du monde sans modifier la tuile logique.
+   Sa représentation varie avec SAN × MYTHE : détail banal, signe, structure cosmique,
+   tandis qu'une SAN basse peut aussi produire un faux signal distinct. */
+(function(){
+ let st={real:null,falseSignal:null,announced:false};
+ function key(p){return p?p.x+','+p.y:''}
+ function chooseReality(){
+   st={real:null,falseSignal:null,announced:false};
+   if(!Array.isArray(map))return;
+   let floors=[];
+   for(let y=1;y<12;y++)for(let x=1;x<12;x++){
+     if(map[y][x]==='floor' && !(x===px&&y===py)) floors.push({x:x,y:y,d:Math.abs(x-px)+Math.abs(y-py)});
+   }
+   floors.sort((a,b)=>a.d-b.d);
+   const near=floors.filter(p=>p.d>=2&&p.d<=5);
+   st.real=(near.length?near:floors)[0]||null;
+   const far=floors.filter(p=>!st.real||key(p)!==key(st.real));
+   st.falseSignal=far.length?far[far.length-1]:null;
+ }
+ function bands(){
+   if(!player)return {san:'haute',mythe:'faible'};
+   const r=Number(player.san||0)/Math.max(1,Number(player.maxsan||1));
+   return {san:r>=.72?'haute':r>=.38?'fragile':'basse',mythe:Number(player.myth||0)>=50?'élevé':Number(player.myth||0)>=20?'éveillé':'faible'};
+ }
+ function paint(){
+   if(!st.real||!Array.isArray(mapCells)||mapCells.length!==169)return;
+   for(const d of mapCells)d.classList.remove('cd-perception-mundane','cd-perception-sign','cd-perception-cosmic','cd-perception-false');
+   const b=bands(),d=mapCells[st.real.y*13+st.real.x];
+   if(d && !(enemy&&enemy.x===st.real.x&&enemy.y===st.real.y) && !(px===st.real.x&&py===st.real.y)){
+     if(b.mythe==='élevé'){d.classList.add('cd-perception-cosmic');d.textContent='◈'}
+     else if(b.mythe==='éveillé'){d.classList.add('cd-perception-sign');d.textContent='?'}
+     else {d.classList.add('cd-perception-mundane');if(!d.textContent)d.textContent='·'}
+   }
+   if(b.san==='basse'&&b.mythe==='faible'&&st.falseSignal){
+     const f=mapCells[st.falseSignal.y*13+st.falseSignal.x];
+     if(f && !(px===st.falseSignal.x&&py===st.falseSignal.y)){f.classList.add('cd-perception-false');if(!f.textContent)f.textContent='?'}
+   }
+ }
+ if(typeof render==='function'){
+   const oldRender10530=render;
+   render=function(){const out=oldRender10530.apply(this,arguments);try{paint()}catch(e){console.warn('cd10530 paint',e)}return out};
+ }
+ if(typeof newRun==='function'){
+   const oldNew10530=newRun;
+   newRun=function(){const out=oldNew10530.apply(this,arguments);try{chooseReality();render()}catch(e){console.warn('cd10530 reality',e)}return out};
+ }
+ if(typeof move==='function'){
+   const oldMove10530=move;
+   move=function(dx,dy){const bx=px,by=py,out=oldMove10530.apply(this,arguments);try{
+     if(!st.real)chooseReality();
+     if((px!==bx||py!==by)&&!st.announced){st.announced=true;const b=bands();if(typeof toast==='function')toast(b.mythe==='faible'?'MONDE · UN DÉTAIL PARAÎT ANODIN':b.mythe==='éveillé'?'MYTHE · UN SIGNE ÉMERGE':'MYTHE · LA STRUCTURE SE RÉVÈLE');}
+     paint();
+   }catch(e){console.warn('cd10530 move',e)}return out};
+ }
+ window.cd10530State=function(){return {reality:st.real,falseSignal:st.falseSignal,bands:bands()};};
 })();
 </script>
 
