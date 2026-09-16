@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.57.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.58.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12365,6 +12365,46 @@ window.cd10514NpcLiveRefresh=true;
  const oldNew10570=newRun;
  newRun=function(){st.suppressed=0;st.last='';return oldNew10570.apply(this,arguments)};
  window.cd10570State=function(){return {oneWindowOneDecision:true,suppressed:st.suppressed,last:st.last};};
+})();
+</script>
+
+
+<script id="cd-v10580">
+/* V10.58.0 — LECTURE TACTIQUE SANS INTERRUPTION
+   Le choix FRAPPE CIBLÉE / ATTAQUE NORMALE reste une vraie décision.
+   Son résultat (réussite ou échec) devient toast + journal et l'attaque
+   choisie se poursuit immédiatement, sans seconde fenêtre bloquante. */
+(function(){
+ if(typeof cdOpenPanel!=='function'||typeof newRun!=='function')return;
+ const oldPanel10580=cdOpenPanel;
+ let forwarding=false;
+ const st={suppressed:0,last:''};
+ function plain10580(html){
+   const d=document.createElement('div');d.innerHTML=String(html||'');
+   return (d.textContent||d.innerText||'').replace(/\s+/g,' ').trim();
+ }
+ cdOpenPanel=function(title,body){
+   try{
+     const t=String(title||''),b=String(body||'');
+     if(!forwarding && t==='LECTURE TACTIQUE' && /cd10260Strike\(\)/.test(b)){
+       const h=(b.match(/<h2[^>]*>(.*?)<\/h2>/i)||[])[1]||t;
+       const label=plain10580(h);
+       st.suppressed++;st.last=label;
+       if(typeof toast==='function')toast(label);
+       setTimeout(function(){
+         try{
+           if(typeof closeOverlays==='function')closeOverlays();
+           if(typeof cd10260Strike==='function')cd10260Strike();
+         }catch(e){console.warn('cd10580 tactical result',e)}
+       },40);
+       return true;
+     }
+   }catch(e){console.warn('cd10580 panel',e)}
+   forwarding=true;try{return oldPanel10580.apply(this,arguments)}finally{forwarding=false}
+ };
+ const oldNew10580=newRun;
+ newRun=function(){st.suppressed=0;st.last='';return oldNew10580.apply(this,arguments)};
+ window.cd10580State=function(){return {tacticalResultsNonBlocking:true,suppressed:st.suppressed,last:st.last};};
 })();
 </script>
 
