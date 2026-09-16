@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.53.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.54.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12206,6 +12206,54 @@ window.cd10514NpcLiveRefresh=true;
    }catch(e){console.warn('cd10530 move',e)}return out};
  }
  window.cd10530State=function(){return {reality:st.real,falseSignal:st.falseSignal,bands:bands()};};
+})();
+</script>
+
+
+<style id="cd-v10540-style">
+.tile.cd10540-known{outline:2px solid rgba(222,190,105,.72);outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(222,190,105,.20)}
+</style>
+<script id="cd-v10540">
+/* V10.54.0 — FLUIDITÉ D'EXPLORATION
+   Les retours automatiques de lecture du terrain deviennent non bloquants.
+   Les vrais choix restent des fenêtres. Une lecture automatique marque aussi
+   un élément concret du secteur sur la carte. */
+(function(){
+ const st={marks:new Set(),suppressed:0,last:''};
+ const passiveTitles=new Set(['SENS DU TERRAIN','SENS DE L’ORIENTATION','CARTOGRAPHIE INSTINCTIVE','ÉCHO DU CHEMIN']);
+ function plain(html){
+   const d=document.createElement('div');d.innerHTML=String(html||'');return (d.textContent||'').replace(/\s+/g,' ').trim();
+ }
+ function markNearby(){
+   if(!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
+   let best=null,dist=999;
+   for(let y=0;y<13;y++)for(let x=0;x<13;x++){
+     const t=map[y]&&map[y][x];if(t==='wall'||t==='water')continue;
+     const special=(t!=='floor');const d=Math.abs(x-px)+Math.abs(y-py);
+     if(d===0)continue;
+     const score=d+(special?0:20);
+     if(score<dist){dist=score;best=[x,y];}
+   }
+   if(best){st.marks.add(best[1]*13+best[0]);}
+ }
+ const oldPanel10540=cdOpenPanel;
+ cdOpenPanel=function(title,body){
+   try{
+     if(passiveTitles.has(String(title||''))){
+       st.suppressed++;st.last=String(title||'');markNearby();
+       const text=plain(body);if(typeof log==='function')log('LECTURE DU TERRAIN — '+st.last+' : information intégrée sans interrompre l’exploration.');
+       if(typeof toast==='function')toast(st.last+' · CARTE MISE À JOUR');
+       if(typeof render==='function')setTimeout(function(){try{render()}catch(e){}},0);
+       return true;
+     }
+   }catch(e){console.warn('cd10540 panel',e)}
+   return oldPanel10540.apply(this,arguments);
+ };
+ const oldRender10540=render;
+ render=function(){const out=oldRender10540.apply(this,arguments);try{st.marks.forEach(function(i){if(mapCells[i])mapCells[i].classList.add('cd10540-known')})}catch(e){console.warn('cd10540 render',e)}return out};
+ const oldNew10540=newRun;
+ newRun=function(){st.marks.clear();st.suppressed=0;st.last='';return oldNew10540.apply(this,arguments)};
+ window.cd10540State=function(){return {suppressed:st.suppressed,last:st.last,marks:Array.from(st.marks)};};
 })();
 </script>
 
