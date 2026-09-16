@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.55.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.56.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12285,6 +12285,46 @@ window.cd10514NpcLiveRefresh=true;
    try{return oldPanel10550.apply(this,arguments)}finally{forwarding=false}
  };
  window.cd10550State=function(){return {fluidCombat:true};};
+})();
+</script>
+
+
+
+<script id="cd-v10560">
+/* V10.56.0 — RÉSULTATS DE COMBAT NON BLOQUANTS
+   Les décisions restent en fenêtre. Les résultats purement informatifs passent
+   dans le journal + toast afin de rendre immédiatement la main au joueur. */
+(function(){
+ if(typeof cdOpenPanel!=='function')return;
+ const oldPanel10560=cdOpenPanel;
+ let forwarding=false;
+ const st={suppressed:0,last:''};
+ function compact(title,body){
+   const text=String(body||'').replace(/<br\s*\/?>(?=.)/gi,' · ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+   const h=(String(body||'').match(/<h2[^>]*>(.*?)<\/h2>/i)||[])[1];
+   const label=(h?String(h).replace(/<[^>]*>/g,''):String(title||'')).trim();
+   st.suppressed++;st.last=label;
+   if(typeof toast==='function')toast(label);
+   if(typeof log==='function' && text && !/APRÈS-COUP|PRÉLÈVEMENT|RÉFLEXE DE CONFRONTATION|CONTRE-MESURE DOCTRINALE/.test(text))log(label+' — '+text.slice(0,150));
+   if(typeof render==='function')setTimeout(function(){try{render()}catch(e){}},0);
+ }
+ cdOpenPanel=function(title,body){
+   try{
+     const t=String(title||''),b=String(body||'');
+     if(!forwarding && t==='RÉFLEXE DE CONFRONTATION' && !/cd1040Choose\(/.test(b)){compact(t,b);return true;}
+     if(!forwarding && t==='APRÈS-COUP DE CONFRONTATION'){compact(t,b);return true;}
+     if(!forwarding && t==='PRÉLÈVEMENT APRÈS COMBAT'){compact(t,b);return true;}
+     if(!forwarding && t==='CONTRE-MESURE DOCTRINALE' && /cd10320Strike\(\)/.test(b)){
+       compact(t,b);
+       setTimeout(function(){try{if(typeof closeOverlays==='function')closeOverlays();if(typeof cd10320Strike==='function')cd10320Strike()}catch(e){console.warn('cd10560 doctrine',e)}},40);
+       return true;
+     }
+   }catch(e){console.warn('cd10560 panel',e)}
+   forwarding=true;try{return oldPanel10560.apply(this,arguments)}finally{forwarding=false}
+ };
+ const oldNew10560=newRun;
+ newRun=function(){st.suppressed=0;st.last='';return oldNew10560.apply(this,arguments)};
+ window.cd10560State=function(){return {nonBlockingCombatResults:true,suppressed:st.suppressed,last:st.last};};
 })();
 </script>
 
