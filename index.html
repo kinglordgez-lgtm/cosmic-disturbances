@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.51.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.52.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12085,5 +12085,62 @@ window.cd10513NpcFlow=true;
    Les panneaux PNJ successifs ne sont plus ajoutés à la file d'attente. */
 window.cd10514NpcLiveRefresh=true;
 </script>
+
+<script id="cd-v10520">
+/* V10.52.0 — ARCHITECTURE MONDE / PERCEPTION
+   Première couche de transition : le moteur de grille reste intact, mais l'état réel du monde
+   et ce que l'investigateur perçoit sont désormais deux représentations distinctes. */
+(function(){
+ const TILE_KIND={wall:'structure',floor:'passage',water:'eau',exit:'transition',chest:'objet',shrine:'anomalie',trap:'danger',npc:'personne',quest:'indice'};
+ let st={moves:0,last:null};
+ function band(v,max){
+   const r=max>0?v/max:1;
+   return r>=.72?'haute':r>=.38?'fragile':'basse';
+ }
+ function mythBand(v){return v>=50?'élevé':v>=20?'éveillé':'faible'}
+ function realityAt(x,y){
+   if(!Array.isArray(map)||!map[y])return null;
+   const tile=map[y][x];
+   return {x:x,y:y,tile:tile,kind:TILE_KIND[tile]||'inconnu',occupied:!!(enemy&&enemy.x===x&&enemy.y===y)};
+ }
+ function perception(){
+   if(typeof player==='undefined'||!player)return null;
+   const san=band(Number(player.san||0),Number(player.maxsan||1));
+   const myth=mythBand(Number(player.myth||0));
+   let mode='VOILE HUMAIN';
+   if(san==='basse'&&myth==='élevé')mode='RÉALITÉ COSMIQUE INSTABLE';
+   else if(myth==='élevé')mode='VOILE AMINCI';
+   else if(san==='basse')mode='PERCEPTION FRACTURÉE';
+   else if(myth==='éveillé')mode='SIGNES DU MYTHE';
+   return {san:san,mythe:myth,mode:mode,position:{x:px,y:py},visible:realityAt(px,py)};
+ }
+ function snapshot(){
+   if(typeof player==='undefined'||!player)return null;
+   return {seed:seed,depth:player.depth,position:{x:px,y:py},reality:realityAt(px,py),perception:perception()};
+ }
+ if(typeof move==='function'){
+   const oldMove10520=move;
+   move=function(dx,dy){
+     const bx=px,by=py,out=oldMove10520.apply(this,arguments);
+     try{
+       if(px!==bx||py!==by){
+         st.moves++;st.last=snapshot();
+         if(st.moves===1&&typeof toast==='function')toast('PERCEPTION · '+st.last.perception.mode+' · SAN '+st.last.perception.san+' · MYTHE '+st.last.perception.mythe);
+       }
+     }catch(e){console.warn('cd10520 perception',e)}
+     return out;
+   };
+ }
+ if(typeof newRun==='function'){
+   const oldNew10520=newRun;
+   newRun=function(){st={moves:0,last:null};const out=oldNew10520.apply(this,arguments);try{st.last=snapshot()}catch(e){}return out};
+ }
+ window.cdWorldRealityAt=realityAt;
+ window.cdPerceptionState=perception;
+ window.cdWorldSnapshot=snapshot;
+ window.cd10520State=function(){return {moves:st.moves,last:st.last};};
+})();
+</script>
+
 </body>
 </html>
