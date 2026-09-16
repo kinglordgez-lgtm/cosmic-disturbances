@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.54.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.55.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12254,6 +12254,37 @@ window.cd10514NpcLiveRefresh=true;
  const oldNew10540=newRun;
  newRun=function(){st.marks.clear();st.suppressed=0;st.last='';return oldNew10540.apply(this,arguments)};
  window.cd10540State=function(){return {suppressed:st.suppressed,last:st.last,marks:Array.from(st.marks)};};
+})();
+</script>
+
+
+<script id="cd-v10550">
+/* V10.55.0 — FLUIDITÉ DE COMBAT
+   Les paliers et automatismes de vétéran déjà calculés restent visibles dans le
+   journal/toast mais ne bloquent plus l'action par une fenêtre intermédiaire.
+   Les fenêtres qui demandent un vrai choix restent intactes. */
+(function(){
+ if(typeof cdOpenPanel!=='function')return;
+ const oldPanel10550=cdOpenPanel;
+ let forwarding=false;
+ cdOpenPanel=function(title,body){
+   try{
+     const t=String(title||'');
+     if(!forwarding && t==='PALIER DE VÉTÉRAN' && /cd10380Continue\(\)/.test(String(body||''))){
+       if(typeof toast==='function')toast('PALIER DE VÉTÉRAN · INTÉGRÉ');
+       setTimeout(function(){try{if(typeof cd10380Continue==='function')cd10380Continue()}catch(e){console.warn('cd10550 palier',e)}},0);
+       return true;
+     }
+     if(!forwarding && t==='AUTOMATISME DE VÉTÉRAN' && /cd10370Continue\(\)/.test(String(body||''))){
+       if(typeof toast==='function')toast('AUTOMATISME · INTÉGRÉ');
+       setTimeout(function(){try{if(typeof cd10370Continue==='function')cd10370Continue()}catch(e){console.warn('cd10550 automatisme',e)}},0);
+       return true;
+     }
+   }catch(e){console.warn('cd10550 panel',e)}
+   forwarding=true;
+   try{return oldPanel10550.apply(this,arguments)}finally{forwarding=false}
+ };
+ window.cd10550State=function(){return {fluidCombat:true};};
 })();
 </script>
 
