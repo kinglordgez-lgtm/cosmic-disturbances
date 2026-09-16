@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.56.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.57.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12325,6 +12325,46 @@ window.cd10514NpcLiveRefresh=true;
  const oldNew10560=newRun;
  newRun=function(){st.suppressed=0;st.last='';return oldNew10560.apply(this,arguments)};
  window.cd10560State=function(){return {nonBlockingCombatResults:true,suppressed:st.suppressed,last:st.last};};
+})();
+</script>
+
+
+<script id="cd-v10570">
+/* V10.57.0 — UNE FENÊTRE = UNE DÉCISION
+   Les résultats du Réflexe acquis sont rendus non bloquants. La décision
+   initiale reste en modal; réussite/échec revient immédiatement au combat. */
+(function(){
+ if(typeof cdOpenPanel!=='function')return;
+ const oldPanel10570=cdOpenPanel;
+ let forwarding=false;
+ const st={suppressed:0,last:''};
+ function compact10570(title,body){
+   const b=String(body||'');
+   const h=(b.match(/<h2[^>]*>(.*?)<\/h2>/i)||[])[1];
+   const label=(h?String(h).replace(/<[^>]*>/g,''):String(title||'')).trim();
+   st.suppressed++;st.last=label;
+   if(typeof toast==='function')toast(label);
+   if(typeof render==='function')setTimeout(function(){try{render()}catch(e){}},0);
+ }
+ cdOpenPanel=function(title,body){
+   try{
+     const t=String(title||''),b=String(body||'');
+     if(!forwarding && t==='RÉFLEXE ACQUIS' && /cd10350Strike\(\)/.test(b)){
+       compact10570(t,b);
+       setTimeout(function(){
+         try{
+           if(typeof closeOverlays==='function')closeOverlays();
+           if(typeof cd10350Strike==='function')cd10350Strike();
+         }catch(e){console.warn('cd10570 reflex result',e)}
+       },40);
+       return true;
+     }
+   }catch(e){console.warn('cd10570 panel',e)}
+   forwarding=true;try{return oldPanel10570.apply(this,arguments)}finally{forwarding=false}
+ };
+ const oldNew10570=newRun;
+ newRun=function(){st.suppressed=0;st.last='';return oldNew10570.apply(this,arguments)};
+ window.cd10570State=function(){return {oneWindowOneDecision:true,suppressed:st.suppressed,last:st.last};};
 })();
 </script>
 
