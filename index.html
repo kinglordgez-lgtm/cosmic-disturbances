@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.51.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.51.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9578,9 +9578,15 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  const oldNpc1050=cd18NpcPanel;
  cd18NpcPanel=function(){
-   const out=oldNpc1050.apply(this,arguments);
-   try{if(!st.shown&&!battle&&player&&player.npc)setTimeout(offer,180)}catch(e){console.warn('cd1050 npc',e)}
-   return out;
+   try{
+     /* V10.51.3: au premier contact, l'approche vient AVANT le panneau social.
+        On évite ainsi d'empiler deux fenêtres puis de revenir à la première. */
+     if(!st.shown&&!battle&&player){
+       if(!player.npc&&typeof cd18NPC==='function')player.npc=cd18NPC();
+       if(player.npc){setTimeout(offer,40);return true}
+     }
+   }catch(e){console.warn('cd1050 npc',e)}
+   return oldNpc1050.apply(this,arguments);
  };
  const oldNew1050=(typeof newRun==='function')?newRun:null;
  if(oldNew1050)newRun=function(){st.shown=false;st.resolved=false;return oldNew1050.apply(this,arguments)};
@@ -12058,6 +12064,14 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Corrige la détection des boutons de V10.51.0 : les vraies décisions (PNJ, trajectoire, itinéraire, synergies)
    restent des fenêtres interactives ; seules les informations sans action passent en feedback discret. */
 window.cd10512ChoiceFix=true;
+</script>
+
+
+<script id="cd-v10513">
+/* V10.51.3 — FLUX PNJ SÉQUENTIEL
+   Premier contact : Approche du témoin -> Poursuivre -> dialogue principal.
+   Plus de panneau PNJ placé derrière l'approche, donc la croix ferme réellement la fenêtre courante. */
+window.cd10513NpcFlow=true;
 </script>
 
 </body>
