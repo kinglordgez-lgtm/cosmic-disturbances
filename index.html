@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.61.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.62.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12536,5 +12536,65 @@ window.cd10514NpcLiveRefresh=true;
  };
  window.cd10610State=function(){return {reperesInteractifs:true,cartographie:state()};};
 })();
-</script>\n</body>
+</script>
+
+<script id="cd-v10620">
+/* V10.62.0 — PRIORITÉ AUX DÉCISIONS + CONSÉQUENCES DE CARTE
+   - Les notifications automatiques attendent la fermeture d'une vraie décision.
+   - Un repère cartographié exploité laisse une trace visuelle temporaire sur le terrain.
+   - Aucun changement du mouvement de base. */
+(function(){
+ if(typeof toast!=='function'||typeof cdOpenPanel!=='function')return;
+ const baseToast=toast;
+ const queue=[];
+ let timer=0;
+ function modalOpen(){
+   const m=document.getElementById('modal');
+   return !!(m&&(m.classList.contains('open')||m.style.display==='block'||m.getAttribute('aria-hidden')==='false'));
+ }
+ function flush(){
+   clearTimeout(timer);
+   if(modalOpen()){timer=setTimeout(flush,220);return;}
+   if(!queue.length)return;
+   const msg=queue.shift();
+   try{baseToast(msg)}catch(e){}
+   if(queue.length)timer=setTimeout(flush,1050);
+ }
+ toast=function(msg){
+   if(modalOpen()){
+     const t=String(msg||'').trim();
+     if(t&&queue[queue.length-1]!==t)queue.push(t);
+     clearTimeout(timer);timer=setTimeout(flush,260);
+     return;
+   }
+   return baseToast.apply(this,arguments);
+ };
+ const oldClose=window.closeModal;
+ if(typeof oldClose==='function')window.closeModal=function(){const r=oldClose.apply(this,arguments);setTimeout(flush,90);return r};
+
+ const css=document.createElement('style');
+ css.textContent='.tile.cd10620-used{box-shadow:inset 0 0 0 2px rgba(213,178,95,.42);filter:brightness(1.12)}';
+ document.head.appendChild(css);
+ function markUsed(x,y){
+   try{
+     const d=mapCells&&mapCells[y*13+x];if(!d)return;
+     d.classList.add('cd10620-used');
+     setTimeout(()=>{try{d.classList.remove('cd10620-used')}catch(e){}},2200);
+   }catch(e){}
+ }
+ if(typeof move==='function'){
+   const oldMove=move;
+   move=function(dx,dy){
+     let tx=null,ty=null;
+     try{const st=typeof window.cd10600State==='function'?window.cd10600State():null;const t=st&&st.target;if(t&&px+dx===t.x&&py+dy===t.y){tx=t.x;ty=t.y}}catch(e){}
+     const r=oldMove.apply(this,arguments);
+     if(tx!==null)setTimeout(()=>markUsed(tx,ty),40);
+     return r;
+   };
+ }
+ window.cd10620State=function(){return {prioriteDecisions:true,notificationsEnAttente:queue.length,traceCarte:true};};
+})();
+</script>
+
+</body>
 </html>
