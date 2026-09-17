@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.59.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.60.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12431,6 +12431,73 @@ window.cd10514NpcLiveRefresh=true;
    try{q=typeof cd10461QueueState==='function'?cd10461QueueState():null}catch(e){}
    return {marquage:m,queue:q,compact:!!document.getElementById('cd10590-auto')};
  };
+})();
+</script>
+
+
+<script id="cd-v10600">
+/* V10.60.0 — CARTOGRAPHIE VISIBLE
+   Après deux déplacements réussis sur un étage, l'enquêteur repère sans
+   interruption un élément concret du terrain. Le repère reste visible sur
+   la carte jusqu'à interaction ou changement d'étage. */
+(function(){
+ if(typeof move!=='function'||typeof render!=='function'||typeof newRun!=='function')return;
+ const st={depth:null,moves:0,target:null,reveals:0};
+ function validTarget(){
+   if(!st.target||!Array.isArray(map))return false;
+   const y=st.target.y,x=st.target.x;
+   return !!(map[y]&&['chest','quest','shrine','trap','exit'].includes(map[y][x]));
+ }
+ function pickTarget(){
+   if(!Array.isArray(map))return null;
+   let best=null,bestD=999;
+   for(let y=0;y<13;y++)for(let x=0;x<13;x++){
+     const t=map[y][x];
+     if(!['chest','quest','shrine','trap','exit'].includes(t))continue;
+     const d=Math.abs(x-px)+Math.abs(y-py);
+     if(d<bestD){bestD=d;best={x:x,y:y,type:t};}
+   }
+   return best;
+ }
+ function label(t){return t==='chest'?'CACHE':t==='quest'?'INDICE':t==='shrine'?'ANOMALIE':t==='trap'?'DANGER':'PASSAGE';}
+ function reveal(){
+   if(st.target||st.moves<2)return;
+   const q=pickTarget();if(!q)return;
+   st.target=q;st.reveals++;
+   if(typeof toast==='function')toast('CARTOGRAPHIE · '+label(q.type)+' REPÉRÉ');
+   if(typeof log==='function')log('CARTOGRAPHIE — '+label(q.type)+' repéré sur le terrain.');
+ }
+ const oldMove10600=move;
+ move=function(dx,dy){
+   const bx=px,by=py,bd=player&&player.depth;
+   const r=oldMove10600.apply(this,arguments);
+   const nd=player&&player.depth;
+   if(st.depth===null)st.depth=nd;
+   if(nd!==st.depth){st.depth=nd;st.moves=0;st.target=null;}
+   if((px!==bx||py!==by)&&nd===bd){st.moves++;reveal();}
+   if(st.target&&!validTarget())st.target=null;
+   try{render()}catch(e){}
+   return r;
+ };
+ const oldRender10600=render;
+ render=function(){
+   const r=oldRender10600.apply(this,arguments);
+   try{
+     if(st.target&&!validTarget())st.target=null;
+     for(let i=0;i<mapCells.length;i++)mapCells[i].classList.remove('cd10600-mark');
+     if(st.target){
+       const d=mapCells[st.target.y*13+st.target.x];
+       if(d)d.classList.add('cd10600-mark');
+     }
+   }catch(e){console.warn('cd10600 render',e)}
+   return r;
+ };
+ const oldNew10600=newRun;
+ newRun=function(){st.depth=null;st.moves=0;st.target=null;st.reveals=0;return oldNew10600.apply(this,arguments)};
+ const css=document.createElement('style');
+ css.textContent='.tile.cd10600-mark{outline:2px solid #d5b25f;outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(213,178,95,.32),0 0 10px rgba(213,178,95,.18)}';
+ document.head.appendChild(css);
+ window.cd10600State=function(){return {cartographieVisible:true,moves:st.moves,target:st.target,reveals:st.reveals};};
 })();
 </script>
 
