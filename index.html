@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.62.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.63.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12593,6 +12593,46 @@ window.cd10514NpcLiveRefresh=true;
    };
  }
  window.cd10620State=function(){return {prioriteDecisions:true,notificationsEnAttente:queue.length,traceCarte:true};};
+})();
+</script>
+
+
+<script id="cd-v10630">
+/* V10.63.0 — ARBITRAGE GLOBAL DES SURCOUCHES
+   Une décision interactive possède l'écran. Les retours automatiques sont
+   différés et rendus ensuite comme notifications non bloquantes. */
+(function(){
+ if(typeof cdOpenPanel!=='function'||typeof toast!=='function')return;
+ const prevPanel=cdOpenPanel, prevToast=toast;
+ const delayed=[];
+ let flushing=false;
+ const AUTO=/^(ANCRAGE PSYCHOLOGIQUE|RÉSONANCE D['’]OBJET|MÉMOIRE DU PASSAGE|CARTOGRAPHIE INSTINCTIVE|CONTRECOUP DU TRAIT|INVENTAIRE SOUS TENSION|INSTINCT D['’]EXPLORATION)/i;
+ function modalOpen(){const m=document.getElementById('modal');return !!(m&&(m.classList.contains('open')||m.style.display==='block'||m.getAttribute('aria-hidden')==='false'));}
+ function add(msg){msg=String(msg||'').replace(/\s+/g,' ').trim();if(!msg)return;if(delayed[delayed.length-1]!==msg)delayed.push(msg.slice(0,180));}
+ function hideToast(){const t=document.getElementById('toast');if(t&&t.style.display!=='none'&&t.textContent.trim()){add(t.textContent);t.style.display='none';clearTimeout(t._x);}}
+ function flush(){if(flushing||modalOpen()||!delayed.length)return;flushing=true;const next=()=>{if(modalOpen()){flushing=false;return}const m=delayed.shift();if(m)try{prevToast(m)}catch(e){}if(delayed.length)setTimeout(next,1650);else flushing=false};next();}
+ cdOpenPanel=function(title,body){
+   const t=String(title||'');
+   if(AUTO.test(t)){add(t+' · '+String(body||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim());setTimeout(flush,120);return;}
+   hideToast();
+   const r=prevPanel.apply(this,arguments);
+   setTimeout(arbitrate,0);return r;
+ };
+ function arbitrate(){
+   if(!modalOpen())return;
+   hideToast();
+   [...document.body.children].forEach(el=>{
+     if(!el||el.id==='modal'||el.id==='toast')return;
+     const txt=(el.textContent||'').replace(/\s+/g,' ').trim();
+     if(!txt||!AUTO.test(txt))return;
+     const st=getComputedStyle(el);
+     if(st.position==='fixed'){add(txt);try{el.remove()}catch(e){el.style.display='none'}}
+   });
+ }
+ const obs=new MutationObserver(()=>{arbitrate();if(!modalOpen())setTimeout(flush,100)});
+ obs.observe(document.body,{childList:true,subtree:false,attributes:true,attributeFilter:['class','style','aria-hidden']});
+ setInterval(()=>{if(modalOpen())arbitrate();else flush()},250);
+ window.cd10630State=()=>({decisionPrioritaire:true,retoursDifferes:delayed.length,arbitrageGlobal:true});
 })();
 </script>
 
