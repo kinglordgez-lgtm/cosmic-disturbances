@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.58.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.59.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11726,7 +11726,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  function ensureMark(){
    if(markQueued)return;
    let m=null;try{m=typeof cd10440State==='function'?cd10440State():null}catch(e){}
-   if(!m||m.resolved||!m.moved)return;
+   if(!m||m.resolved||!m.moved||m.shown)return;
    markQueued=true;
    cdOpenPanel('LECTURE DU TERRAIN',
      '<h2 style="margin-top:0">MARQUAGE DU SECTEUR</h2>'+ 
@@ -12408,5 +12408,29 @@ window.cd10514NpcLiveRefresh=true;
 })();
 </script>
 
+\n<script id="cd-v10590">
+/* V10.59.0 — HIÉRARCHIE DES ÉVÉNEMENTS
+   - verrou anti-double du marquage
+   - réactions automatiques de combat compactes et non bloquantes
+   - les décisions restent des panneaux complets */
+(function(){
+ function compact(kind,title,detail,accent){
+   try{
+     const old=document.getElementById('cd10590-auto'); if(old)old.remove();
+     const b=document.createElement('div'); b.id='cd10590-auto';
+     b.style.cssText='position:fixed;left:50%;top:8%;transform:translateX(-50%);z-index:100005;width:min(620px,68vw);padding:8px 14px;border:1px solid '+accent+';background:rgba(11,14,20,.96);color:#eee;font-family:monospace;text-align:center;border-radius:8px;box-shadow:0 5px 18px #000;pointer-events:none';
+     b.innerHTML='<div style="font-size:12px;font-weight:700;color:'+accent+'">'+kind+'</div><div style="font-size:16px;font-weight:700;margin-top:2px">'+title+'</div><div style="font-size:12px;color:#aeb4c0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+detail+'</div>';
+     document.body.appendChild(b); setTimeout(()=>{if(b.parentNode)b.remove()},2200);
+   }catch(e){console.warn('cd10590 compact',e)}
+ }
+ if(typeof cd440Banner==='function')cd440Banner=function(title,detail){compact('ADAPTATION HOSTILE',title,detail,'#d39a9a')};
+ if(typeof cd450Banner==='function')cd450Banner=function(title,detail){compact('CHANGEMENT DE PHASE',title,detail,'#b99abd')};
+ window.cd10590State=function(){
+   let m=null,q=null;try{m=typeof cd10440State==='function'?cd10440State():null}catch(e){}
+   try{q=typeof cd10461QueueState==='function'?cd10461QueueState():null}catch(e){}
+   return {marquage:m,queue:q,compact:!!document.getElementById('cd10590-auto')};
+ };
+})();
+</script>\n
 </body>
 </html>
