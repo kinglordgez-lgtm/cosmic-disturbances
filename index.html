@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.60.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.61.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12501,5 +12501,40 @@ window.cd10514NpcLiveRefresh=true;
 })();
 </script>
 
-</body>
+
+<script id="cd-v10610">
+/* V10.61.0 — REPÈRES INTERACTIFS
+   Un repère cartographié devient un objectif concret du terrain.
+   L'atteindre produit une conséquence immédiate sans nouvelle fenêtre. */
+(function(){
+ if(typeof move!=='function'||typeof render!=='function')return;
+ function state(){try{return typeof window.cd10600State==='function'?window.cd10600State():null}catch(e){return null}}
+ function award(n){if(!player)return;player.xp=(player.xp||0)+n;}
+ const oldMove10610=move;
+ move=function(dx,dy){
+   const s=state(),t=s&&s.target;
+   let hit=false,type=null;
+   if(t&&Number.isInteger(px)&&Number.isInteger(py)){
+     const nx=px+dx,ny=py+dy;
+     hit=(nx===t.x&&ny===t.y);type=t.type;
+     if(hit&&type==='trap'&&map[ny]&&map[ny][nx]==='trap'){
+       map[ny][nx]='floor';
+       if(typeof log==='function')log('REPÈRE EXPLOITÉ — danger neutralisé avant déclenchement.');
+       if(typeof toast==='function')toast('DANGER CARTOGRAPHIÉ · NEUTRALISÉ');
+     }
+   }
+   const beforeDepth=player&&player.depth,beforeSan=player&&player.san;
+   const r=oldMove10610.apply(this,arguments);
+   if(hit&&player){
+     if(type==='chest'){award(1);if(typeof log==='function')log('REPÈRE EXPLOITÉ — cache atteinte : +1 XP.');if(typeof toast==='function')toast('CACHE CARTOGRAPHIÉE · +1 XP');}
+     else if(type==='quest'){award(1);if(typeof log==='function')log('REPÈRE EXPLOITÉ — indice localisé : +1 XP.');if(typeof toast==='function')toast('INDICE CARTOGRAPHIÉ · +1 XP');}
+     else if(type==='shrine'){player.san=Math.min(player.maxsan||player.san,(player.san||0)+1);if(typeof log==='function')log('REPÈRE EXPLOITÉ — anomalie anticipée : +1 SAN récupéré.');if(typeof toast==='function')toast('ANOMALIE CARTOGRAPHIÉE · IMPACT LIMITÉ');}
+     else if(type==='exit'&&player.depth!==beforeDepth){player.san=Math.min(player.maxsan||player.san,(player.san||0)+1);if(typeof log==='function')log('REPÈRE EXPLOITÉ — passage préparé : +1 SAN.');if(typeof toast==='function')toast('PASSAGE CARTOGRAPHIÉ · +1 SAN');}
+     try{render()}catch(e){}
+   }
+   return r;
+ };
+ window.cd10610State=function(){return {reperesInteractifs:true,cartographie:state()};};
+})();
+</script>\n</body>
 </html>
