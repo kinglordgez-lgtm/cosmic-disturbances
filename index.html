@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.64.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.65.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12693,6 +12693,64 @@ window.cd10514NpcLiveRefresh=true;
  const oldNew10640=newRun;
  newRun=function(){const r=oldNew10640.apply(this,arguments);if(player)player.cd10640=fresh();return r;};
  window.cd10640State=function(){const s=state();return {maitriseEtage:true,depth:s.depth,count:s.count,required:REQUIRED,done:s.done,total:s.total||0};};
+})();
+</script>
+
+<script id="cd-v10650">
+/* V10.65.0 — UNE DÉCISION, UNE FENÊTRE
+   - L'ancienne bannière de contamination ne recouvre plus un choix actif.
+   - Les panneaux de résultat à bouton unique deviennent des retours compacts,
+     puis l'action attendue reprend automatiquement. */
+(function(){
+ if(typeof cdOpenPanel!=='function'||typeof newRun!=='function')return;
+ const st={bannersSuppressed:0,singleResultsCompacted:0,last:''};
+
+ /* cd330Try écrit déjà le résultat complet dans le journal et appelle toast().
+    La seconde bannière fixe était donc redondante et pouvait recouvrir un choix. */
+ if(typeof cd330Banner==='function'){
+   cd330Banner=function(title){st.bannersSuppressed++;st.last=String(title||'CONTAMINATION');};
+ }
+
+ const resultTitles=new Set([
+   'DÉCISION DE CORRÉLATION',
+   'CONTRE-MESURE DOCTRINALE',
+   'RÉFLEXE ACQUIS',
+   'AUTOMATISME DE VÉTÉRAN',
+   'PALIER DE VÉTÉRAN',
+   'LECTURE TACTIQUE'
+ ]);
+ const basePanel10650=cdOpenPanel;
+ function plain(html){
+   const d=document.createElement('div');d.innerHTML=String(html||'');
+   return (d.textContent||d.innerText||'').replace(/\s+/g,' ').trim();
+ }
+ function resultLabel(title,body){
+   const h=String(body||'').match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+   return plain(h?h[1]:title).slice(0,90);
+ }
+ cdOpenPanel=function(title,body){
+   try{
+     const t=String(title||''),b=String(body||'');
+     const buttons=b.match(/<button\b/gi)||[];
+     const action=b.match(/onclick=["'][^"']*\b(cd(?:10290Strike|10320Strike|10350Strike|10370Continue|10380Continue|10260Strike))\(\)[^"']*["']/i);
+     if(resultTitles.has(t)&&buttons.length===1&&action){
+       const label=resultLabel(t,b),fn=action[1];
+       st.singleResultsCompacted++;st.last=label;
+       if(typeof toast==='function')toast(label);
+       setTimeout(function(){
+         try{
+           if(typeof closeOverlays==='function')closeOverlays();
+           if(typeof window[fn]==='function')window[fn]();
+         }catch(e){console.warn('cd10650 continuation',e)}
+       },80);
+       return true;
+     }
+   }catch(e){console.warn('cd10650 panel',e)}
+   return basePanel10650.apply(this,arguments);
+ };
+ const baseNew10650=newRun;
+ newRun=function(){st.bannersSuppressed=0;st.singleResultsCompacted=0;st.last='';return baseNew10650.apply(this,arguments);};
+ window.cd10650State=function(){return {oneDecisionOneWindow:true,bannersSuppressed:st.bannersSuppressed,singleResultsCompacted:st.singleResultsCompacted,last:st.last};};
 })();
 </script>
 
