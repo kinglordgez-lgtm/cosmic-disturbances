@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.63.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.64.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12633,6 +12633,66 @@ window.cd10514NpcLiveRefresh=true;
  obs.observe(document.body,{childList:true,subtree:false,attributes:true,attributeFilter:['class','style','aria-hidden']});
  setInterval(()=>{if(modalOpen())arbitrate();else flush()},250);
  window.cd10630State=()=>({decisionPrioritaire:true,retoursDifferes:delayed.length,arbitrageGlobal:true});
+})();
+</script>
+
+<script id="cd-v10640">
+/* V10.64.0 — MAÎTRISE DE L'ÉTAGE
+   Les repères cartographiés forment désormais une progression cohérente.
+   Deux repères exploités sur le même étage accordent une maîtrise unique :
+   +2 XP et +1 SAN, sans fenêtre supplémentaire. */
+(function(){
+ if(typeof move!=='function'||typeof newRun!=='function')return;
+ const REQUIRED=2;
+ function depth(){return Number(player&&player.depth)||0;}
+ function fresh(){return {depth:depth(),count:0,done:false,total:0};}
+ function state(){
+   if(!player)return fresh();
+   if(!player.cd10640)player.cd10640=fresh();
+   const s=player.cd10640,d=depth();
+   if(s.depth!==d){s.depth=d;s.count=0;s.done=false;}
+   return s;
+ }
+ function target(){
+   try{const s=typeof window.cd10600State==='function'?window.cd10600State():null;return s&&s.target?{x:s.target.x,y:s.target.y,type:s.target.type}:null}
+   catch(e){return null}
+ }
+ function label(t){return t==='chest'?'cache':t==='quest'?'indice':t==='shrine'?'anomalie':t==='trap'?'danger':'passage';}
+ function record(t,oldDepth){
+   if(!player)return;
+   const currentDepth=depth();
+   /* Un passage compte pour l'étage quitté; sa récompense de maîtrise ne
+      traverse jamais artificiellement vers le nouvel étage. */
+   if(currentDepth!==oldDepth)return;
+   const s=state();
+   if(s.done)return;
+   s.count=Math.min(REQUIRED,s.count+1);
+   if(typeof log==='function')log('MAÎTRISE DE L’ÉTAGE — '+label(t)+' exploité ('+s.count+'/'+REQUIRED+').');
+   if(s.count<REQUIRED){
+     if(typeof toast==='function')toast('MAÎTRISE DE L’ÉTAGE · '+s.count+'/'+REQUIRED);
+     return;
+   }
+   s.done=true;s.total=(s.total||0)+1;
+   player.xp=(player.xp||0)+2;
+   player.san=Math.min(player.maxsan||player.san,(player.san||0)+1);
+   if(typeof log==='function')log('ITINÉRAIRE MAÎTRISÉ — lecture complète du secteur : +2 XP, +1 SAN.');
+   if(typeof toast==='function')toast('ITINÉRAIRE MAÎTRISÉ · +2 XP · +1 SAN');
+   try{if(typeof render==='function')render()}catch(e){}
+ }
+ const oldMove10640=move;
+ move=function(dx,dy){
+   const t=target(),ox=px,oy=py,od=depth();
+   const expected=t&&ox+dx===t.x&&oy+dy===t.y;
+   const r=oldMove10640.apply(this,arguments);
+   if(expected){
+     const arrived=(px===t.x&&py===t.y)||depth()!==od;
+     if(arrived)record(t.type,od);
+   }
+   return r;
+ };
+ const oldNew10640=newRun;
+ newRun=function(){const r=oldNew10640.apply(this,arguments);if(player)player.cd10640=fresh();return r;};
+ window.cd10640State=function(){const s=state();return {maitriseEtage:true,depth:s.depth,count:s.count,required:REQUIRED,done:s.done,total:s.total||0};};
 })();
 </script>
 
