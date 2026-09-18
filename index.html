@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.65.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.66.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12751,6 +12751,99 @@ window.cd10514NpcLiveRefresh=true;
  const baseNew10650=newRun;
  newRun=function(){st.bannersSuppressed=0;st.singleResultsCompacted=0;st.last='';return baseNew10650.apply(this,arguments);};
  window.cd10650State=function(){return {oneDecisionOneWindow:true,bannersSuppressed:st.bannersSuppressed,singleResultsCompacted:st.singleResultsCompacted,last:st.last};};
+})();
+</script>
+
+<script id="cd-v10660">
+/* V10.66.0 — LECTURE CROISÉE DU TERRAIN
+   À la deuxième enquête d'un étage, métier, trait et environnement sont
+   réellement combinés dans un test procédural unique. Le résultat reste
+   compact (journal + notification), sans créer de fenêtre supplémentaire. */
+(function(){
+ if(typeof investigate!=='function'||typeof newRun!=='function')return;
+ const JOB={
+   'Détective privé':['Investigation','reconstitue la succession des traces'],
+   'Détective privée':['Investigation','reconstitue la succession des traces'],
+   'Médecin':['Médecine','isole ce qui relève d’une présence organique'],
+   'Professeur':['Érudition','rapproche le lieu d’un savoir interdit'],
+   'Professeure':['Érudition','rapproche le lieu d’un savoir interdit'],
+   'Journaliste':['Investigation','repère une contradiction dans le décor'],
+   'Marin':['Endurance','lit l’humidité et la pression de l’air'],
+   'Marine':['Endurance','lit l’humidité et la pression de l’air'],
+   'Antiquaire':['Occultisme','reconnaît une survivance très ancienne'],
+   'Photographe':['Observation','cadre une géométrie invisible à l’œil nu'],
+   'Infirmier':['Médecine','reconnaît les signes d’une détresse anormale'],
+   'Infirmière':['Médecine','reconnaît les signes d’une détresse anormale']
+ };
+ const TRAIT={
+   'Sang-froid':['Psychologie','garde ses perceptions sous contrôle'],
+   'Curieux':['Investigation','s’attarde sur le détail que tous éviteraient'],
+   'Méfiant':['Observation','cherche d’abord ce que le lieu dissimule'],
+   'Insomniaque':['Endurance','reconnaît les déformations nées de l’épuisement'],
+   'Œil exercé':['Observation','sépare l’anomalie du simple désordre'],
+   'Volonté de fer':['Psychologie','refuse l’interprétation la plus terrifiante'],
+   'Superstitieux':['Occultisme','compare les signes aux interdits populaires'],
+   'Cicatrice étrange':['Médecine','laisse son propre corps réagir au danger']
+ };
+ const SITE={
+   floor:['rue silencieuse','Investigation',false],
+   water:['eau noire','Endurance',true],
+   chest:['cache abandonnée','Observation',false],
+   shrine:['autel impossible','Occultisme',true],
+   trap:['dispositif hostile','Observation',true],
+   quest:['symbole d’enquête','Érudition',false],
+   npc:['présence humaine','Psychologie',false],
+   exit:['passage vers les profondeurs','Investigation',true]
+ };
+ function fresh(total){return {depth:Number(player&&player.depth)||0,investigations:0,done:false,total:total||0,last:null};}
+ function state(){
+   if(!player)return fresh(0);
+   if(!player.cd10660)player.cd10660=fresh(0);
+   const s=player.cd10660,d=Number(player.depth)||0;
+   if(s.depth!==d){const total=s.total||0;player.cd10660=fresh(total);}
+   return player.cd10660;
+ }
+ function skill(name){return Number(player&&player.char&&player.char.skills&&player.char.skills[name])||0;}
+ function run(tile){
+   const s=state();if(s.done||!player||!player.char)return;
+   s.done=true;s.total=(s.total||0)+1;
+   const job=player.char.job||'Enquêteur',trait=player.char.trait||'Sans trait';
+   const j=JOB[job]||['Investigation','analyse méthodiquement les traces'];
+   const tr=TRAIT[trait]||['Observation','reste attentif au moindre écart'];
+   const env=SITE[tile]||SITE.floor,envSkill=env[1];
+   const both=j[0]===envSkill&&tr[0]===envSkill;
+   const affinity=(j[0]===envSkill?12:0)+(tr[0]===envSkill?12:0);
+   const base=Math.round((skill(j[0])+skill(tr[0])+skill(envSkill))/3);
+   const target=Math.max(20,Math.min(92,base+affinity));
+   const roll=1+Math.floor(rng()*100),ok=roll<=target;
+   s.last={job:job,trait:trait,site:env[0],skill:envSkill,roll:roll,target:target,ok:ok};
+   log('LECTURE CROISÉE — '+job+' × '+trait+' · '+env[0]+' : '+j[1]+' et '+tr[1]+'.');
+   if(ok){
+     const gain=both?3:2;player.xp=(player.xp||0)+gain;
+     if(roll<=Math.max(5,Math.floor(target/4)))player.san=Math.min(player.maxsan||player.san,(player.san||0)+1);
+     log('TERRAIN DÉCHIFFRÉ — '+envSkill+' '+roll+'/'+target+' ✓ : +'+gain+' XP'+(roll<=Math.max(5,Math.floor(target/4))?' · +1 SAN.':'.'));
+     if(typeof toast==='function')toast('TERRAIN DÉCHIFFRÉ · +'+gain+' XP');
+   }else{
+     if(env[2]){player.san=Math.max(0,(player.san||0)-1);log('LECTURE TROMPEUSE — '+envSkill+' '+roll+'/'+target+' ✗ : le lieu vous répond · -1 SAN.');}
+     else log('LECTURE INCOMPLÈTE — '+envSkill+' '+roll+'/'+target+' ✗ : aucune certitude exploitable.');
+     if(typeof toast==='function')toast(env[2]?'LECTURE TROMPEUSE · -1 SAN':'LECTURE INCOMPLÈTE');
+   }
+   try{if(typeof render==='function')render()}catch(e){}
+ }
+ const baseInvestigate10660=investigate;
+ investigate=function(){
+   if(!player||battle)return baseInvestigate10660.apply(this,arguments);
+   const beforeDepth=Number(player.depth)||0;
+   const tile=Array.isArray(map)&&map[py]?map[py][px]:'floor';
+   const r=baseInvestigate10660.apply(this,arguments);
+   if(!player||Number(player.depth)!==beforeDepth)return r;
+   const s=state();s.investigations++;
+   if(s.investigations>=2&&!s.done)setTimeout(function(){run(tile)},100);
+   return r;
+ };
+ const baseNew10660=newRun;
+ newRun=function(){const r=baseNew10660.apply(this,arguments);if(player)player.cd10660=fresh(0);return r;};
+ window.cd10660State=function(){const s=state();return {lectureCroisee:true,depth:s.depth,investigations:s.investigations,done:s.done,total:s.total,last:s.last};};
 })();
 </script>
 
