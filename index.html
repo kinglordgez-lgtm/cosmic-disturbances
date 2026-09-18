@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.67.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.68.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12889,6 +12889,61 @@ window.cd10514NpcLiveRefresh=true;
  css.textContent='#questTracker{cursor:ns-resize!important;touch-action:pan-y!important;overscroll-behavior-y:contain!important}#questTracker .qtRecent{padding-bottom:22px!important}#questTracker .cd10670-head{position:sticky;top:0;z-index:2;margin:0 0 7px!important;padding:5px 3px!important;background:#0b0e14!important;color:#c7a96b!important;font-weight:800;letter-spacing:.5px;border-bottom:1px solid #4d4431}#questTracker .cd10670-key{color:#d8bc78!important;border-left:2px solid #b89a5a;padding-left:6px!important;background:rgba(184,154,90,.08)}';
  document.head.appendChild(css);
  window.cd10670State=function(){const t=document.getElementById('questTracker');return {journalTactile:true,stored:journal.length,visible:Math.min(30,journal.length),scrollTop:t?t.scrollTop:0};};
+})();
+</script>
+
+<script id="cd-v10680">
+/* V10.68.0 — VALIDATION FIABLE DU LIEU CORRÉLÉ
+   Le choix de la piste en chaîne n'utilise plus uniquement un onclick en ligne.
+   Les boutons sont liés explicitement, protégés contre le double toucher et la
+   fenêtre est toujours fermée après transmission du choix au système V10.50. */
+(function(){
+ if(typeof cdOpenPanel!=='function')return;
+ const basePanel10680=cdOpenPanel;
+ let active=false,locked=false,lastTouch=0,lastChoice=null;
+ function closeChoice(){
+   try{if(typeof closeOverlays==='function')closeOverlays();else if(typeof closeModalOnly==='function')closeModalOnly()}catch(e){}
+ }
+ function commit(mode){
+   if(!active||locked||(mode!=='proof'&&mode!=='threat'))return false;
+   locked=true;lastChoice=mode;
+   try{
+     if(typeof window.cd10500Choose==='function')window.cd10500Choose(mode);
+     else throw new Error('cd10500Choose indisponible');
+   }catch(e){
+     locked=false;
+     if(typeof log==='function')log('PISTE EN CHAÎNE — validation impossible : '+String(e&&e.message||e)+'.');
+     if(typeof toast==='function')toast('CHOIX NON VALIDÉ');
+     return false;
+   }
+   closeChoice();active=false;
+   try{if(typeof render==='function')render()}catch(e){}
+   return true;
+ }
+ window.cd10680Select=commit;
+ cdOpenPanel=function(title,body){
+   const t=String(title||''),b=String(body||'');
+   if(t==='PISTE EN CHAÎNE'&&/LIEU CORRÉLÉ/.test(b)){
+     active=true;locked=false;lastChoice=null;
+     const fixed=b
+       .replace(/<button\s+onclick=["']cd10500Choose\(['"]proof['"]\)["']/i,'<button type="button" data-cd10680-choice="proof"')
+       .replace(/<button\s+onclick=["']cd10500Choose\(['"]threat['"]\)["']/i,'<button type="button" data-cd10680-choice="threat"');
+     const r=basePanel10680.call(this,title,fixed);
+     setTimeout(function(){
+       document.querySelectorAll('[data-cd10680-choice]').forEach(function(btn){
+         btn.style.pointerEvents='auto';btn.style.touchAction='manipulation';
+         btn.addEventListener('pointerup',function(ev){lastTouch=Date.now();ev.preventDefault();ev.stopPropagation();commit(btn.getAttribute('data-cd10680-choice'));},{passive:false});
+         btn.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();if(Date.now()-lastTouch<650)return;commit(btn.getAttribute('data-cd10680-choice'));});
+       });
+     },0);
+     return r;
+   }
+   return basePanel10680.apply(this,arguments);
+ };
+ const css=document.createElement('style');
+ css.textContent='#sheetContent [data-cd10680-choice]{pointer-events:auto!important;touch-action:manipulation!important;min-height:58px!important;padding:10px 12px!important;position:relative!important;z-index:3!important}#sheetContent .actions:has([data-cd10680-choice]){display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin-top:14px!important}';
+ document.head.appendChild(css);
+ window.cd10680State=function(){return {lieuCorreleTactile:true,active:active,locked:locked,lastChoice:lastChoice};};
 })();
 </script>
 
