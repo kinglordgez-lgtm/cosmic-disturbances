@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.66.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.67.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12844,6 +12844,51 @@ window.cd10514NpcLiveRefresh=true;
  const baseNew10660=newRun;
  newRun=function(){const r=baseNew10660.apply(this,arguments);if(player)player.cd10660=fresh(0);return r;};
  window.cd10660State=function(){const s=state();return {lectureCroisee:true,depth:s.depth,investigations:s.investigations,done:s.done,total:s.total,last:s.last};};
+})();
+</script>
+
+<script id="cd-v10670">
+/* V10.67.0 — JOURNAL TACTILE COMPLET
+   Le tracker ne tronque plus artificiellement l'historique à quatre lignes.
+   Il affiche trente événements, conserve la position de lecture et met en
+   évidence les résultats de la lecture croisée du terrain. */
+(function(){
+ if(typeof renderQuestTracker!=='function')return;
+ const IMPORTANT=/^(LECTURE CROISÉE|TERRAIN DÉCHIFFRÉ|LECTURE TROMPEUSE|LECTURE INCOMPLÈTE)/;
+ const baseTracker10670=renderQuestTracker;
+ renderQuestTracker=function(){
+   const tracker=document.getElementById('questTracker');
+   const oldTop=tracker?tracker.scrollTop:0,oldHeight=tracker?tracker.scrollHeight:0;
+   const readingHistory=oldTop>8;
+   const r=baseTracker10670.apply(this,arguments);
+   try{
+     const recent=document.querySelector('#questTracker .qtRecent');
+     if(recent){
+       recent.textContent='';
+       const head=document.createElement('div');
+       head.className='cd10670-head';
+       head.textContent='HISTORIQUE · '+Math.min(30,journal.length)+' / '+journal.length+'  ↕';
+       recent.appendChild(head);
+       journal.slice(0,30).forEach(function(entry){
+         const line=document.createElement('div');
+         line.textContent=String(entry||'');
+         if(IMPORTANT.test(String(entry||'')))line.className='cd10670-key';
+         recent.appendChild(line);
+       });
+     }
+     if(tracker){
+       requestAnimationFrame(function(){
+         if(readingHistory)tracker.scrollTop=Math.max(0,oldTop+(tracker.scrollHeight-oldHeight));
+         else tracker.scrollTop=0;
+       });
+     }
+   }catch(e){console.warn('cd10670 tracker',e)}
+   return r;
+ };
+ const css=document.createElement('style');
+ css.textContent='#questTracker{cursor:ns-resize!important;touch-action:pan-y!important;overscroll-behavior-y:contain!important}#questTracker .qtRecent{padding-bottom:22px!important}#questTracker .cd10670-head{position:sticky;top:0;z-index:2;margin:0 0 7px!important;padding:5px 3px!important;background:#0b0e14!important;color:#c7a96b!important;font-weight:800;letter-spacing:.5px;border-bottom:1px solid #4d4431}#questTracker .cd10670-key{color:#d8bc78!important;border-left:2px solid #b89a5a;padding-left:6px!important;background:rgba(184,154,90,.08)}';
+ document.head.appendChild(css);
+ window.cd10670State=function(){const t=document.getElementById('questTracker');return {journalTactile:true,stored:journal.length,visible:Math.min(30,journal.length),scrollTop:t?t.scrollTop:0};};
 })();
 </script>
 
