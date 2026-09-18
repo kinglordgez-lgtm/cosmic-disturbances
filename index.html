@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.69.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.70.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12971,6 +12971,44 @@ window.cd10514NpcLiveRefresh=true;
  css.textContent='#toast.cd10690-combat{top:max(82px,14dvh)!important;bottom:auto!important;max-width:min(54vw,720px)!important;text-align:center!important;pointer-events:none!important;z-index:900!important;box-shadow:0 7px 24px #000c!important}@media (orientation:landscape) and (max-height:430px){#toast.cd10690-combat{top:72px!important;font-size:12px!important;padding:7px 11px!important}}';
  document.head.appendChild(css);
  window.cd10690State=function(){const t=document.getElementById('toast');return {combatNotificationsClear:true,combat:combatVisible(),repositioned:!!(t&&t.classList.contains('cd10690-combat'))};};
+})();
+</script>
+
+<script id="cd-v10700">
+/* V10.70.0 — DÉFILEMENT TACTILE DIRECT DU JOURNAL
+   Sur iPhone/PWA, le journal est placé dans une interface fixe qui peut neutraliser
+   le scroll natif. Le déplacement vertical du doigt pilote donc scrollTop directement. */
+(function(){
+ const tracker=document.getElementById('questTracker');if(!tracker)return;
+ const st={dragging:false,startY:0,startTop:0,lastY:0,moved:0};
+ function yOf(ev){return ev.touches&&ev.touches[0]?ev.touches[0].clientY:null;}
+ function start(ev){
+   const y=yOf(ev);if(y===null)return;
+   st.dragging=true;st.startY=y;st.lastY=y;st.startTop=tracker.scrollTop;st.moved=0;
+   tracker.classList.add('cd10700-dragging');
+   if(ev.cancelable)ev.preventDefault();ev.stopPropagation();
+ }
+ function moveTouch(ev){
+   if(!st.dragging)return;
+   const y=yOf(ev);if(y===null)return;
+   const delta=st.startY-y,max=Math.max(0,tracker.scrollHeight-tracker.clientHeight);
+   tracker.scrollTop=Math.max(0,Math.min(max,st.startTop+delta));
+   st.moved=Math.max(st.moved,Math.abs(y-st.startY));st.lastY=y;
+   if(ev.cancelable)ev.preventDefault();ev.stopPropagation();
+ }
+ function end(ev){
+   if(!st.dragging)return;
+   st.dragging=false;tracker.classList.remove('cd10700-dragging');
+   if(ev&&ev.cancelable)ev.preventDefault();if(ev)ev.stopPropagation();
+ }
+ tracker.addEventListener('touchstart',start,{passive:false,capture:true});
+ tracker.addEventListener('touchmove',moveTouch,{passive:false,capture:true});
+ tracker.addEventListener('touchend',end,{passive:false,capture:true});
+ tracker.addEventListener('touchcancel',end,{passive:false,capture:true});
+ const css=document.createElement('style');
+ css.textContent='#questTracker{touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;pointer-events:auto!important;overflow-y:scroll!important}#questTracker.cd10700-dragging{cursor:grabbing!important}#questTracker .cd10670-head::after{content:" · GLISSER";font-size:.82em;opacity:.75}';
+ document.head.appendChild(css);
+ window.cd10700State=function(){return {journalDragTactile:true,dragging:st.dragging,scrollTop:tracker.scrollTop,maxScroll:Math.max(0,tracker.scrollHeight-tracker.clientHeight),lastMovement:st.moved};};
 })();
 </script>
 
