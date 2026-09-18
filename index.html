@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.68.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.69.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12944,6 +12944,33 @@ window.cd10514NpcLiveRefresh=true;
  css.textContent='#sheetContent [data-cd10680-choice]{pointer-events:auto!important;touch-action:manipulation!important;min-height:58px!important;padding:10px 12px!important;position:relative!important;z-index:3!important}#sheetContent .actions:has([data-cd10680-choice]){display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin-top:14px!important}';
  document.head.appendChild(css);
  window.cd10680State=function(){return {lieuCorreleTactile:true,active:active,locked:locked,lastChoice:lastChoice};};
+})();
+</script>
+
+<script id="cd-v10690">
+/* V10.69.0 — NOTIFICATIONS HORS DES COMMANDES DE COMBAT
+   Lorsqu'un affrontement est actif, les toasts passent au-dessus de la carte
+   et ne recouvrent plus ATTAQUER / DÉFENDRE / ÉTUDIER / OBJET / FUIR. */
+(function(){
+ if(typeof toast!=='function')return;
+ const baseToast10690=toast;
+ function combatVisible(){
+   try{
+     const c=document.getElementById('context');
+     return !!battle||!!(c&&getComputedStyle(c).display!=='none'&&c.textContent.indexOf('COMBAT')!==-1);
+   }catch(e){return !!battle}
+ }
+ function place(){
+   const t=document.getElementById('toast');if(!t)return;
+   t.classList.toggle('cd10690-combat',combatVisible());
+ }
+ toast=function(){place();const r=baseToast10690.apply(this,arguments);place();return r;};
+ const baseRender10690=typeof render==='function'?render:null;
+ if(baseRender10690)render=function(){const r=baseRender10690.apply(this,arguments);place();return r;};
+ const css=document.createElement('style');
+ css.textContent='#toast.cd10690-combat{top:max(82px,14dvh)!important;bottom:auto!important;max-width:min(54vw,720px)!important;text-align:center!important;pointer-events:none!important;z-index:900!important;box-shadow:0 7px 24px #000c!important}@media (orientation:landscape) and (max-height:430px){#toast.cd10690-combat{top:72px!important;font-size:12px!important;padding:7px 11px!important}}';
+ document.head.appendChild(css);
+ window.cd10690State=function(){const t=document.getElementById('toast');return {combatNotificationsClear:true,combat:combatVisible(),repositioned:!!(t&&t.classList.contains('cd10690-combat'))};};
 })();
 </script>
 
