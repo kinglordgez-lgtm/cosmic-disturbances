@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.80.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.81.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13384,7 +13384,9 @@ window.cd10514NpcLiveRefresh=true;
    log('DÉCISION MAJEURE — ANCRAGE HUMAIN : +2 SAN. Le prochain Gardien perdra 1 ATQ.');
    if(typeof toast==='function')toast('ANCRAGE HUMAIN · DOSSIER OUVERT');
   }
-  if(typeof closeModalOnly==='function')closeModalOnly();else if(typeof closeOverlays==='function')closeOverlays();
+  /* V10.81 : fermeture complète. Sur iOS, retirer seulement la classe open
+     pouvait laisser l'affichage forcé par une ancienne couche de panneau. */
+  if(typeof closeOverlays==='function')closeOverlays();else if(typeof closeModalOnly==='function')closeModalOnly();
   if(typeof render==='function')render();return true;
  };
  if(typeof window.cd10790OnDepthChanged==='function'){
