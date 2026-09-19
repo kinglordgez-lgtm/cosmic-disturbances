@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.74.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.75.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12974,8 +12974,8 @@ window.cd10514NpcLiveRefresh=true;
 })();
 </script>
 
-<script id="cd-v10720">
-/* V10.72.0 — JOURNAL TACTILE REMONTÉ
+<script id="cd-v10750">
+/* V10.75.0 — PRIORITÉ TACTILE AUX CHOIX
    L'historique possède sa propre surface de défilement. Les gestes sont captés
    au niveau du document, puis appliqués directement à cette surface : les
    couches fixes de l'interface ne peuvent donc plus intercepter le balayage. */
@@ -13004,7 +13004,7 @@ window.cd10514NpcLiveRefresh=true;
  }
  document.addEventListener('touchstart',function(ev){
    const t=ev.touches&&ev.touches[0],p=pane();
-   if(!t||!inside(p,t.clientX,t.clientY))return;
+   if(!t||!p||!p.contains(ev.target)||!inside(p,t.clientX,t.clientY))return;
    st.lastTouch=Date.now();begin(p,t.clientY,'touch');
    if(ev.cancelable)ev.preventDefault();ev.stopPropagation();
  },{passive:false,capture:true});
@@ -13021,7 +13021,7 @@ window.cd10514NpcLiveRefresh=true;
  document.addEventListener('touchcancel',finish,{passive:false,capture:true});
  document.addEventListener('pointerdown',function(ev){
    if(Date.now()-st.lastTouch<800||ev.button>0)return;
-   const p=pane();if(!inside(p,ev.clientX,ev.clientY))return;
+   const p=pane();if(!p||!p.contains(ev.target)||!inside(p,ev.clientX,ev.clientY))return;
    begin(p,ev.clientY,'pointer');
    if(ev.cancelable)ev.preventDefault();ev.stopPropagation();
  },{passive:false,capture:true});
@@ -13048,7 +13048,7 @@ window.cd10514NpcLiveRefresh=true;
  const css=document.createElement('style');
  css.textContent='#questTracker{top:112px!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;touch-action:auto!important;padding-bottom:8px!important}#questTrackerBody{display:flex!important;flex:1 1 auto!important;min-height:0!important;flex-direction:column!important;overflow:hidden!important}#questTracker .qtRecent{display:block!important;flex:1 1 92px!important;min-height:72px!important;max-height:none!important;overflow-y:scroll!important;overflow-x:hidden!important;overscroll-behavior-y:contain!important;-webkit-overflow-scrolling:touch!important;touch-action:none!important;pointer-events:auto!important;padding-right:8px!important;padding-bottom:30px!important;border-bottom:1px solid rgba(255,255,255,.16)!important;cursor:ns-resize!important;-webkit-user-select:none!important;user-select:none!important}#questTracker .qtRecent.cd10710-dragging{cursor:grabbing!important}#questTracker .cd10670-head::after{content:" · GLISSER ICI";font-size:.82em;opacity:.82}@media (orientation:landscape) and (max-height:430px){#questTracker{top:92px!important}}';
  document.head.appendChild(css);
- window.cd10710State=function(){const p=pane();return {journalZoneIndependante:true,journalRemonte:true,active:st.active,source:st.source,scrollTop:p?p.scrollTop:0,maxScroll:maximum(p),lastMovement:st.moved};};
+ window.cd10710State=function(){const p=pane();return {journalZoneIndependante:true,journalRemonte:true,prioriteAuxChoix:true,active:st.active,source:st.source,scrollTop:p?p.scrollTop:0,maxScroll:maximum(p),lastMovement:st.moved};};
 })();
 </script>
 
