@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.79.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.80.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13340,6 +13340,93 @@ window.cd10514NpcLiveRefresh=true;
    return out;
  };
  window.cd10790State=function(){return {applicationAtomique:true,armed:player&&player.cd10790Armed||null,applied:applied,last:last};};
+})();
+</script>
+
+<script id="cd-v10800">
+/* V10.80.0 — ENQUÊTE MAJEURE PROCÉDURALE
+   Une même affaire relie Lecture croisée, Rémanence et Gardien. Le choix du
+   joueur au changement d'étage produit un avantage distinct et vérifiable. */
+(function(){
+ if(typeof newRun!=='function'||typeof renderQuestTracker!=='function'||typeof log!=='function')return;
+ const CASES=[
+  {id:'cloches',title:'LES CLOCHES SOUS BLACKWATER',clue:'Le métal résonne avant même d’être frappé.',threat:'une architecture qui attire ce qui vit entre les angles'},
+  {id:'sel',title:'LE SEL DANS LES POUMONS',clue:'Des cristaux humides apparaissent dans les lieux fermés.',threat:'une procession abyssale préparée sous la ville'},
+  {id:'moisson',title:'LA MOISSON DU CIEL NOIR',clue:'Des incisions précises marquent la pierre et la chair.',threat:'des collecteurs fongiques qui classent les habitants'},
+  {id:'reflet',title:'LA RUE QUI SE SOUVIENT',clue:'Les vitrines reflètent des passants qui ne sont pas encore arrivés.',threat:'une mémoire étrangère qui reconstruit Blackwater'}
+ ];
+ function make(){const c=CASES[Math.floor((typeof rng==='function'?rng():Math.random())*CASES.length)]||CASES[0];return {caseId:c.id,title:c.title,clue:c.clue,threat:c.threat,stage:0,choice:null,resolved:false,guardianApplied:false};}
+ function state(){if(!player)return null;if(!player.cd10800)player.cd10800=make();return player.cd10800;}
+ function advanceByReading(){
+  const s=state();if(!s||s.stage!==0)return false;s.stage=1;
+  log('ENQUÊTE MAJEURE — '+s.title+' : '+s.clue);
+  log('HYPOTHÈSE ÉMERGENTE — Les indices évoquent '+s.threat+'.');
+  if(typeof toast==='function')toast('DOSSIER MAJEUR · PREMIÈRE HYPOTHÈSE');
+  return true;
+ }
+ const baseLog10800=log;
+ log=function(message){const out=baseLog10800.apply(this,arguments);if(/^EMPREINTE ARMÉE/.test(String(message||'')))advanceByReading();return out;};
+ function openDecision(){
+  const s=state();if(!s||s.stage!==2||s.choice)return false;
+  if(typeof cdOpenPanel!=='function')return false;
+  cdOpenPanel('DÉCISION D’ENQUÊTE','<h2>'+s.title+'</h2><p>'+s.clue+'</p><p>La rémanence confirme '+s.threat+'. Comment poursuivez-vous le dossier ?</p><div class="grid2"><button onclick="cd10800Choose(\'follow\')">SUIVRE L’INTERDIT<br><small>+2 XP · +1% Mythe · Gardien -3 PV</small></button><button onclick="cd10800Choose(\'resist\')">PRÉSERVER LA RAISON<br><small>+2 SAN · Gardien -1 ATQ</small></button></div>');
+  return true;
+ }
+ window.cd10800Choose=function(choice){
+  const s=state();if(!s||s.stage!==2||s.choice)return false;
+  s.choice=choice;s.stage=3;
+  if(choice==='follow'){
+   player.xp=Number(player.xp||0)+2;player.myth=Math.min(100,Number(player.myth||0)+1);
+   log('DÉCISION MAJEURE — SAVOIR INTERDIT : +2 XP, +1% Mythe. Le prochain Gardien commencera avec -3 PV.');
+   if(typeof toast==='function')toast('SAVOIR INTERDIT · DOSSIER OUVERT');
+  }else{
+   const before=Number(player.san||0);player.san=Math.min(Number(player.maxsan||before),before+2);
+   log('DÉCISION MAJEURE — ANCRAGE HUMAIN : +2 SAN. Le prochain Gardien perdra 1 ATQ.');
+   if(typeof toast==='function')toast('ANCRAGE HUMAIN · DOSSIER OUVERT');
+  }
+  if(typeof closeModalOnly==='function')closeModalOnly();else if(typeof closeOverlays==='function')closeOverlays();
+  if(typeof render==='function')render();return true;
+ };
+ if(typeof window.cd10790OnDepthChanged==='function'){
+  const baseDepth10800=window.cd10790OnDepthChanged;
+  window.cd10790OnDepthChanged=function(fromDepth,toDepth){
+   const changed=baseDepth10800.apply(this,arguments),s=state();
+   if(changed&&s&&s.stage===1){s.stage=2;log('CONVERGENCE DU DOSSIER — La rémanence confirme que l’affaire traverse les étages.');if(typeof toast==='function')toast('ENQUÊTE MAJEURE · DÉCISION À PRENDRE');setTimeout(openDecision,260);}
+   return changed;
+  };
+ }
+ function applyGuardian(){
+  const s=state();if(!s||s.stage<3||s.guardianApplied||!battle||!enemy||!enemy.cd49Guardian)return false;
+  s.guardianApplied=true;s.resolved=true;s.stage=4;
+  if(s.choice==='follow'){
+   enemy.hp=Math.max(1,Number(enemy.hp||1)-3);
+   log('DOSSIER → GARDIEN — Le savoir interdit révèle une faille : '+enemy.name+' perd 3 PV.');
+   if(typeof toast==='function')toast('HYPOTHÈSE CONFIRMÉE · -3 PV GARDIEN');
+  }else{
+   enemy.atk=Math.max(1,Number(enemy.atk||1)-1);
+   log('DOSSIER → GARDIEN — Votre ancrage brise son ascendant : '+enemy.name+' perd 1 ATQ.');
+   if(typeof toast==='function')toast('RAISON PRÉSERVÉE · -1 ATQ GARDIEN');
+  }
+  return true;
+ }
+ if(typeof cd49Spawn==='function'){
+  const baseGuardian10800=cd49Spawn;
+  cd49Spawn=function(){const out=baseGuardian10800.apply(this,arguments);if(out)applyGuardian();return out;};
+ }
+ const baseTracker10800=renderQuestTracker;
+ renderQuestTracker=function(){
+  const out=baseTracker10800.apply(this,arguments),s=state();
+  try{
+   const root=document.getElementById('questTrackerBody');if(!root||!s)return out;
+   const next=s.stage===0?'Obtenir une Lecture croisée':s.stage===1?'Descendre pour éprouver l’hypothèse':s.stage===2?'Choisir comment poursuivre':s.stage===3?'Atteindre et affronter un Gardien':'Dossier confronté au Gardien';
+   const d=document.createElement('div');d.id='cd10800-case';d.style.cssText='margin-top:8px;padding:8px 0;border-top:1px solid #8c7340;color:#d8bc78;font-size:11px';
+   d.innerHTML='<b>ENQUÊTE MAJEURE</b><br>'+s.title+'<br><span style="color:#aeb4c0">'+next+'</span>';root.appendChild(d);
+  }catch(err){}
+  return out;
+ };
+ const baseNew10800=newRun;
+ newRun=function(){const out=baseNew10800.apply(this,arguments);if(player){player.cd10800=make();log('ENQUÊTE MAJEURE OUVERTE — '+player.cd10800.title+'.');}return out;};
+ window.cd10800State=function(){const s=state();return s?Object.assign({enqueteMajeure:true},s):null;};
 })();
 </script>
 
