@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.76.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.77.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13055,13 +13055,13 @@ window.cd10514NpcLiveRefresh=true;
 </script>
 
 <script id="cd-v10740">
-/* V10.74.0 — RÉMANENCE DU TERRAIN FIABILISÉE
-   La lecture croisée d'un étage ne disparaît plus à la descente. Son résultat
-   produit une conséquence unique, favorable ou hostile, au niveau suivant. */
+/* V10.77.0 — RÉMANENCE DU TERRAIN PERSISTANTE
+   La lecture est armée dès l'écriture de son résultat, avant toute descente.
+   Le changement de profondeur est ensuite détecté par plusieurs chemins sûrs. */
 (function(){
  if(typeof resolveTile!=='function'||typeof investigate!=='function'||typeof spawnEnemy!=='function'||typeof newRun!=='function')return;
  const DANGEROUS=/eau noire|autel impossible|dispositif hostile|passage vers les profondeurs/i;
- function fresh(){return {pending:null,history:[],applied:0,last:null};}
+ function fresh(){return {armed:null,pending:null,history:[],applied:0,last:null};}
  function state(){
    if(!player)return fresh();
    if(!player.cd10730)player.cd10730=fresh();
@@ -13088,8 +13088,22 @@ window.cd10514NpcLiveRefresh=true;
      type='doubt';title='DOUTE PERSISTANT';text='l’incertitude pèsera sur votre prochaine enquête';trigger='investigate';
    }
    const echo={type:type,title:title,text:text,trigger:trigger,site:site,skill:skill,from:fromDepth,to:toDepth,used:false};
-   state().pending=echo;remember({event:'prepared',type:type,from:fromDepth,to:toDepth,site:site});
+   const s=state();s.armed=null;s.pending=echo;remember({event:'prepared',type:type,from:fromDepth,to:toDepth,site:site});
    if(typeof log==='function')log('RÉMANENCE DU TERRAIN — '+title+' : '+text+'.');
+ }
+ function armCurrentReading(){
+   try{
+     const r=typeof cd10660State==='function'?cd10660State():null;
+     if(!r||!r.done||!r.last||typeof r.last.ok!=='boolean')return;
+     const s=state(),from=Number(r.depth);
+     s.armed={reading:Object.assign({},r.last),from:Number.isFinite(from)?from:(Number(player.depth)||0)};
+     remember({event:'armed',from:s.armed.from,site:String(r.last.site||'le secteur')});
+   }catch(err){console.warn('cd10770 arm',err)}
+ }
+ function syncDepth(){
+   const s=state(),a=s.armed,current=player?Number(player.depth)||0:0;
+   if(!a||current===Number(a.from))return false;
+   prepare(a.reading,Number(a.from),current);return true;
  }
  function consumeInvestigation(){
    const s=state(),e=s.pending;
@@ -13126,26 +13140,32 @@ window.cd10514NpcLiveRefresh=true;
    remember({event:'applied',type:e.type,depth:Number(player.depth)||0,enemy:String(enemy.name||'')});
    try{if(typeof render==='function')render()}catch(err){}
  }
- const baseResolve10740=resolveTile;
- resolveTile=function(){
-   const beforeDepth=player?Number(player.depth)||0:0;
-   let reading=null;
-   try{const r=typeof cd10660State==='function'?cd10660State():null;reading=r&&r.done?r.last:null}catch(err){}
-   const out=baseResolve10740.apply(this,arguments);
-   const afterDepth=player?Number(player.depth)||0:beforeDepth;
-   if(afterDepth!==beforeDepth&&reading)prepare(reading,beforeDepth,afterDepth);
+ /* Le résultat est capturé au moment exact où Lecture croisée l'écrit. */
+ const baseLog10770=log;
+ log=function(message){
+   const out=baseLog10770.apply(this,arguments),text=String(message||'');
+   if(/^(TERRAIN DÉCHIFFRÉ|LECTURE TROMPEUSE|LECTURE INCOMPLÈTE)\s*—/.test(text))armCurrentReading();
    return out;
  };
+ const baseResolve10740=resolveTile;
+ resolveTile=function(){
+   const out=baseResolve10740.apply(this,arguments);
+   syncDepth();
+   return out;
+ };
+ const baseRender10770=render;
+ render=function(){const out=baseRender10770.apply(this,arguments);syncDepth();return out;};
  const baseInvestigate10730=investigate;
  investigate=function(){
+   syncDepth();
    if(player&&!battle)consumeInvestigation();
    return baseInvestigate10730.apply(this,arguments);
  };
  const baseSpawn10730=spawnEnemy;
- spawnEnemy=function(){const out=baseSpawn10730.apply(this,arguments);consumeCombat();return out;};
+ spawnEnemy=function(){const out=baseSpawn10730.apply(this,arguments);syncDepth();consumeCombat();return out;};
  const baseNew10730=newRun;
  newRun=function(){const out=baseNew10730.apply(this,arguments);if(player)player.cd10730=fresh();return out;};
- window.cd10730State=function(){const s=state();return {remanenceTerrain:true,sortieFiabilisee:true,pending:s.pending,applied:s.applied,history:s.history.slice()};};
+ window.cd10730State=function(){const s=state();return {remanenceTerrain:true,captureAuResultat:true,sortieFiabilisee:true,armed:s.armed,pending:s.pending,applied:s.applied,history:s.history.slice()};};
 })();
 </script>
 
