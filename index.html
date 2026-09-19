@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.75.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.76.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -9574,7 +9574,9 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    }
    log('APPROCHE DU TÉMOIN — '+title+'.');
    if(typeof toast==='function')toast(title);if(typeof closeOverlays==='function')closeOverlays();if(typeof render==='function')render();
-   setTimeout(()=>cdOpenPanel('APPROCHE DU TÉMOIN','<h2>'+title+'</h2><p>'+body+'</p><button onclick="closeOverlays();setTimeout(()=>cd18NpcPanel(),80)">POURSUIVRE L’ENTRETIEN</button>'),80);
+   /* Le résultat est déjà donné par le toast et le journal. Il n'impose plus
+      une seconde fenêtre ne proposant qu'un unique bouton de continuation. */
+   setTimeout(()=>cd18NpcPanel(),120);
  };
  const oldNpc1050=cd18NpcPanel;
  cd18NpcPanel=function(){
@@ -13144,6 +13146,28 @@ window.cd10514NpcLiveRefresh=true;
  const baseNew10730=newRun;
  newRun=function(){const out=baseNew10730.apply(this,arguments);if(player)player.cd10730=fresh();return out;};
  window.cd10730State=function(){const s=state();return {remanenceTerrain:true,sortieFiabilisee:true,pending:s.pending,applied:s.applied,history:s.history.slice()};};
+})();
+</script>
+
+<script id="cd-v10760">
+/* V10.76.0 — UNE SEULE PROPOSITION PAR ÉTAGE
+   Deux anciens observateurs de changement d'étage pouvaient programmer la même
+   fenêtre d'approche. Le premier affichage réserve désormais définitivement
+   la proposition pour la profondeur courante ; les doublons deviennent inertes. */
+(function(){
+ if(typeof cd62Offer!=='function'||typeof cd62State!=='function')return;
+ const baseOffer10760=cd62Offer;
+ cd62Offer=function(){
+   const s=cd62State(),depth=player?Number(player.depth)||0:0;
+   if(s.cd10760OfferedDepth===depth)return false;
+   const shown=baseOffer10760.apply(this,arguments);
+   if(shown!==false)s.cd10760OfferedDepth=depth;
+   return shown;
+ };
+ window.cd10760State=function(){
+   const s=cd62State(),depth=player?Number(player.depth)||0:0;
+   return {offreUniqueParEtage:true,depth:depth,offered:s.cd10760OfferedDepth===depth,transitionEntretienAutomatique:true};
+ };
 })();
 </script>
 
