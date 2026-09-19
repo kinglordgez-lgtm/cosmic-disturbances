@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.72.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.73.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13049,6 +13049,101 @@ window.cd10514NpcLiveRefresh=true;
  css.textContent='#questTracker{top:112px!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;touch-action:auto!important;padding-bottom:8px!important}#questTrackerBody{display:flex!important;flex:1 1 auto!important;min-height:0!important;flex-direction:column!important;overflow:hidden!important}#questTracker .qtRecent{display:block!important;flex:1 1 92px!important;min-height:72px!important;max-height:none!important;overflow-y:scroll!important;overflow-x:hidden!important;overscroll-behavior-y:contain!important;-webkit-overflow-scrolling:touch!important;touch-action:none!important;pointer-events:auto!important;padding-right:8px!important;padding-bottom:30px!important;border-bottom:1px solid rgba(255,255,255,.16)!important;cursor:ns-resize!important;-webkit-user-select:none!important;user-select:none!important}#questTracker .qtRecent.cd10710-dragging{cursor:grabbing!important}#questTracker .cd10670-head::after{content:" · GLISSER ICI";font-size:.82em;opacity:.82}@media (orientation:landscape) and (max-height:430px){#questTracker{top:92px!important}}';
  document.head.appendChild(css);
  window.cd10710State=function(){const p=pane();return {journalZoneIndependante:true,journalRemonte:true,active:st.active,source:st.source,scrollTop:p?p.scrollTop:0,maxScroll:maximum(p),lastMovement:st.moved};};
+})();
+</script>
+
+<script id="cd-v10730">
+/* V10.73.0 — RÉMANENCE DU TERRAIN
+   La lecture croisée d'un étage ne disparaît plus à la descente. Son résultat
+   produit une conséquence unique, favorable ou hostile, au niveau suivant. */
+(function(){
+ if(typeof move!=='function'||typeof investigate!=='function'||typeof spawnEnemy!=='function'||typeof newRun!=='function')return;
+ const DANGEROUS=/eau noire|autel impossible|dispositif hostile|passage vers les profondeurs/i;
+ function fresh(){return {pending:null,history:[],applied:0,last:null};}
+ function state(){
+   if(!player)return fresh();
+   if(!player.cd10730)player.cd10730=fresh();
+   return player.cd10730;
+ }
+ function remember(entry){
+   const s=state();s.history.unshift(entry);if(s.history.length>12)s.history.length=12;s.last=entry;
+ }
+ function prepare(reading,fromDepth,toDepth){
+   if(!reading||typeof reading.ok!=='boolean')return;
+   const skill=String(reading.skill||''),site=String(reading.site||'le secteur');
+   let type,title,text,trigger;
+   if(reading.ok){
+     if(/Investigation|Observation/.test(skill)){
+       type='lead';title='PISTE PERSISTANTE';text='les détails compris précédemment accéléreront votre prochaine enquête';trigger='investigate';
+     }else if(/Occultisme|Érudition|Psychologie/.test(skill)){
+       type='lucidity';title='ANCRAGE MENTAL';text='la logique arrachée au lieu protégera votre lucidité lors de la prochaine enquête';trigger='investigate';
+     }else{
+       type='guard';title='PRÉPARATION PHYSIQUE';text='les signes corporels reconnus affaibliront la prochaine créature';trigger='combat';
+     }
+   }else if(DANGEROUS.test(site)){
+     type='ambush';title='MENACE RÉMANENTE';text='la mauvaise lecture du lieu alertera la prochaine créature';trigger='combat';
+   }else{
+     type='doubt';title='DOUTE PERSISTANT';text='l’incertitude pèsera sur votre prochaine enquête';trigger='investigate';
+   }
+   const echo={type:type,title:title,text:text,trigger:trigger,site:site,skill:skill,from:fromDepth,to:toDepth,used:false};
+   state().pending=echo;remember({event:'prepared',type:type,from:fromDepth,to:toDepth,site:site});
+   if(typeof log==='function')log('RÉMANENCE DU TERRAIN — '+title+' : '+text+'.');
+ }
+ function consumeInvestigation(){
+   const s=state(),e=s.pending;
+   if(!e||e.used||e.trigger!=='investigate'||Number(player.depth)!==Number(e.to))return;
+   e.used=true;s.pending=null;s.applied++;
+   if(e.type==='lead'){
+     player.xp=Number(player.xp||0)+1;
+     log('CONSÉQUENCE DURABLE — PISTE PERSISTANTE : les indices de '+e.site+' éclairent cette enquête. +1 XP.');
+     if(typeof toast==='function')toast('PISTE PERSISTANTE · +1 XP');
+   }else if(e.type==='lucidity'){
+     const before=Number(player.san||0);player.san=Math.min(Number(player.maxsan||before),before+1);
+     log('CONSÉQUENCE DURABLE — ANCRAGE MENTAL : la lecture de '+e.site+' stabilise votre esprit. +1 SAN.');
+     if(typeof toast==='function')toast('ANCRAGE MENTAL · +1 SAN');
+   }else{
+     player.san=Math.max(0,Number(player.san||0)-1);
+     log('CONSÉQUENCE DURABLE — DOUTE PERSISTANT : votre ancienne erreur contamine cette enquête. -1 SAN.');
+     if(typeof toast==='function')toast('DOUTE PERSISTANT · -1 SAN');
+   }
+   remember({event:'applied',type:e.type,depth:Number(player.depth)||0});
+ }
+ function consumeCombat(){
+   const s=state(),e=s.pending;
+   if(!e||e.used||e.trigger!=='combat'||Number(player.depth)!==Number(e.to)||!battle||!enemy)return;
+   e.used=true;s.pending=null;s.applied++;
+   if(e.type==='guard'){
+     enemy.atk=Math.max(1,Number(enemy.atk||1)-1);
+     log('CONSÉQUENCE DURABLE — PRÉPARATION PHYSIQUE : '+enemy.name+' perd 1 ATQ.');
+     if(typeof toast==='function')toast('PRÉPARATION PHYSIQUE · -1 ATQ ENNEMI');
+   }else{
+     enemy.atk=Number(enemy.atk||1)+1;
+     log('CONSÉQUENCE DURABLE — MENACE RÉMANENTE : '+enemy.name+' vous attendait. +1 ATQ ennemi.');
+     if(typeof toast==='function')toast('MENACE RÉMANENTE · +1 ATQ ENNEMI');
+   }
+   remember({event:'applied',type:e.type,depth:Number(player.depth)||0,enemy:String(enemy.name||'')});
+   try{if(typeof render==='function')render()}catch(err){}
+ }
+ const baseMove10730=move;
+ move=function(dx,dy){
+   const beforeDepth=player?Number(player.depth)||0:0;
+   let reading=null;
+   try{const r=typeof cd10660State==='function'?cd10660State():null;reading=r&&r.done?r.last:null}catch(err){}
+   const out=baseMove10730.apply(this,arguments);
+   const afterDepth=player?Number(player.depth)||0:beforeDepth;
+   if(afterDepth!==beforeDepth&&reading)prepare(reading,beforeDepth,afterDepth);
+   return out;
+ };
+ const baseInvestigate10730=investigate;
+ investigate=function(){
+   if(player&&!battle)consumeInvestigation();
+   return baseInvestigate10730.apply(this,arguments);
+ };
+ const baseSpawn10730=spawnEnemy;
+ spawnEnemy=function(){const out=baseSpawn10730.apply(this,arguments);consumeCombat();return out;};
+ const baseNew10730=newRun;
+ newRun=function(){const out=baseNew10730.apply(this,arguments);if(player)player.cd10730=fresh();return out;};
+ window.cd10730State=function(){const s=state();return {remanenceTerrain:true,pending:s.pending,applied:s.applied,history:s.history.slice()};};
 })();
 </script>
 
