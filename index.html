@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.82.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.83.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13490,6 +13490,64 @@ window.cd10514NpcLiveRefresh=true;
  const baseNew10820=newRun;
  newRun=function(){floor=-1;steps=0;forced=0;closures=0;const out=baseNew10820.apply(this,arguments);ensureRewardDB();return out;};
  window.cd10820State=function(){return {conclusionDossier:true,floor:floor,steps:steps,forcedGuardians:forced,closures:closures,dossier:dossier()};};
+})();
+</script>
+
+<script id="cd-v10830">
+/* V10.83.0 — INVENTAIRE NEUTRE + DOSSIER MAJEUR PRIORITAIRE
+   L'ancien prototype V6.7 ne peut plus lancer une préparation depuis
+   l'inventaire. L'enquête majeure reste épinglée avant l'historique afin que
+   les systèmes secondaires ne puissent plus masquer sa prochaine étape. */
+(function(){
+ if(typeof openInventory==='function'){
+  const baseInventory10830=openInventory;
+  openInventory=function(){
+   /* Le wrapper V6.7 teste ce drapeau après avoir ouvert l'inventaire. Le
+      marquer terminé neutralise uniquement son ancien panneau ; la préparation
+      moderne V10.3, déclenchée par les déplacements, reste indépendante. */
+   try{if(typeof cd670State==='function')cd670State().shown=true;}catch(e){}
+   return baseInventory10830.apply(this,arguments);
+  };
+ }
+ function dossier(){return player&&player.cd10800?player.cd10800:null;}
+ function nextGuardianDepth(depth){
+  const d=Math.max(1,Number(depth)||1);
+  return d%5===0?d:Math.ceil(d/5)*5;
+ }
+ function label(s){
+  if(!s)return '';
+  if(s.resolved||s.stage>=5)return 'Affaire résolue · Relique : '+(s.reward||'obtenue');
+  if(s.stage===4)return 'Gardien rencontré · remportez le combat pour conclure';
+  if(s.stage===3)return 'Prochaine étape : Gardien garanti à la profondeur '+nextGuardianDepth(player.depth);
+  if(s.stage===2)return 'Décision d’enquête en attente';
+  if(s.stage===1)return 'Descendez pour éprouver l’hypothèse';
+  return 'Obtenez une Lecture croisée';
+ }
+ if(typeof renderQuestTracker==='function'){
+  const baseTracker10830=renderQuestTracker;
+  renderQuestTracker=function(){
+   const out=baseTracker10830.apply(this,arguments);
+   try{
+    const root=document.getElementById('questTrackerBody');
+    const card=document.getElementById('cd10800-case');
+    const recent=root&&root.querySelector?root.querySelector('.qtRecent'):null;
+    const s=dossier();
+    if(root&&card&&recent&&s){
+     card.classList.add('cd10830-major');
+     card.innerHTML='<b>'+(s.resolved?'✓ ':'')+'ENQUÊTE MAJEURE</b><br>'+s.title+'<br><span>'+label(s)+'</span>';
+     root.insertBefore(card,recent);
+    }
+   }catch(e){console.warn('cd10830 tracker',e)}
+   return out;
+  };
+ }
+ const css=document.createElement('style');
+ css.textContent='#questTrackerBody .cd10830-major{order:0!important;flex:0 0 auto!important;margin:8px 0 0!important;padding:8px 6px!important;border-top:1px solid #8c7340!important;border-bottom:1px solid #8c7340!important;background:rgba(184,154,90,.09)!important;color:#d8bc78!important;font-size:11px!important}#questTrackerBody .cd10830-major span{color:#e5e7eb!important}';
+ document.head.appendChild(css);
+ window.cd10830State=function(){
+  const root=document.getElementById('questTrackerBody'),card=document.getElementById('cd10800-case'),recent=root&&root.querySelector?root.querySelector('.qtRecent'):null;
+  return {ancienPanneauInventaireNeutralise:typeof cd670State==='function'?!!cd670State().shown:true,dossierPrioritaire:!!(card&&recent&&card.nextSibling===recent),texte:card?card.textContent:''};
+ };
 })();
 </script>
 
