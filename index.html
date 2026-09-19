@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.81.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.82.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13399,7 +13399,7 @@ window.cd10514NpcLiveRefresh=true;
  }
  function applyGuardian(){
   const s=state();if(!s||s.stage<3||s.guardianApplied||!battle||!enemy||!enemy.cd49Guardian)return false;
-  s.guardianApplied=true;s.resolved=true;s.stage=4;
+  s.guardianApplied=true;s.stage=4;
   if(s.choice==='follow'){
    enemy.hp=Math.max(1,Number(enemy.hp||1)-3);
    log('DOSSIER → GARDIEN — Le savoir interdit révèle une faille : '+enemy.name+' perd 3 PV.');
@@ -13420,7 +13420,7 @@ window.cd10514NpcLiveRefresh=true;
   const out=baseTracker10800.apply(this,arguments),s=state();
   try{
    const root=document.getElementById('questTrackerBody');if(!root||!s)return out;
-   const next=s.stage===0?'Obtenir une Lecture croisée':s.stage===1?'Descendre pour éprouver l’hypothèse':s.stage===2?'Choisir comment poursuivre':s.stage===3?'Atteindre et affronter un Gardien':'Dossier confronté au Gardien';
+   const next=s.stage===0?'Obtenir une Lecture croisée':s.stage===1?'Descendre pour éprouver l’hypothèse':s.stage===2?'Choisir comment poursuivre':s.stage===3?'Atteindre et affronter un Gardien':s.stage===4?'Vaincre le Gardien pour conclure':'Affaire résolue';
    const d=document.createElement('div');d.id='cd10800-case';d.style.cssText='margin-top:8px;padding:8px 0;border-top:1px solid #8c7340;color:#d8bc78;font-size:11px';
    d.innerHTML='<b>ENQUÊTE MAJEURE</b><br>'+s.title+'<br><span style="color:#aeb4c0">'+next+'</span>';root.appendChild(d);
   }catch(err){}
@@ -13429,6 +13429,67 @@ window.cd10514NpcLiveRefresh=true;
  const baseNew10800=newRun;
  newRun=function(){const out=baseNew10800.apply(this,arguments);if(player){player.cd10800=make();log('ENQUÊTE MAJEURE OUVERTE — '+player.cd10800.title+'.');}return out;};
  window.cd10800State=function(){const s=state();return s?Object.assign({enqueteMajeure:true},s):null;};
+})();
+</script>
+
+<script id="cd-v10820">
+/* V10.82.0 — CONCLUSION DU DOSSIER MAJEUR
+   Le Gardien de profondeur 5 devient une échéance garantie. Sa défaite conclut
+   l'affaire et remet une relique propre au mystère de la réalité courante. */
+(function(){
+ if(typeof move!=='function'||typeof win!=='function'||typeof newRun!=='function')return;
+ const REWARDS={
+  cloches:{name:'Éclat de cloche impossible',desc:'Un fragment métallique qui vibre près des angles où le temps se déchire.',tags:'tindalos, temps, son'},
+  sel:{name:'Ampoule de sel vivant',desc:'Des cristaux humides battent lentement contre le verre comme des branchies.',tags:'abyssal, sel, dagon'},
+  moisson:{name:'Spore stellaire scellée',desc:'Une spore de Mi-Go conservée dans une capsule dont la matière refuse la chaleur.',tags:'mi-go, fongique, cosmique'},
+  reflet:{name:'Vitre mémorielle',desc:'Un éclat qui conserve le reflet d’une rue ayant cessé d’exister.',tags:'mémoire, espace, anomalie'}
+ };
+ let floor=-1,steps=0,forced=0,closures=0;
+ function dossier(){try{return player&&player.cd10800?player.cd10800:(typeof window.cd10800State==='function'?window.cd10800State():null)}catch(e){return null}}
+ function ensureRewardDB(){
+  if(typeof itemDB!=='object'||!itemDB)return;
+  Object.keys(REWARDS).forEach(function(k){const r=REWARDS[k];if(!itemDB[r.name])itemDB[r.name]={type:'Relique de dossier',slot:'relique',rarity:'Unique',desc:r.desc,tags:r.tags};});
+ }
+ ensureRewardDB();
+ function guardianDue(){return player&&!battle&&Number(player.depth)>=5&&Number(player.depth)%5===0&&typeof cd49ShouldSpawn==='function'&&cd49ShouldSpawn();}
+ const baseMove10820=move;
+ move=function(dx,dy){
+  const beforeDepth=player?Number(player.depth)||0:0,out=baseMove10820.apply(this,arguments),d=player?Number(player.depth)||0:0;
+  if(d!==floor||d!==beforeDepth){floor=d;steps=0;}
+  if(!battle&&d>=5&&d%5===0)steps++;
+  if(steps>=3&&guardianDue()&&typeof cd49Spawn==='function'){forced++;cd49Spawn();}
+  return out;
+ };
+ function conclude(s,foe){
+  if(!s||s.resolved||s.stage!==4||!s.guardianApplied)return false;
+  const reward=REWARDS[s.caseId]||REWARDS.cloches;
+  s.resolved=true;s.stage=5;s.reward=reward.name;s.guardian=String(foe&&foe.name||'Gardien');closures++;
+  player.inv=Array.isArray(player.inv)?player.inv:[];
+  if(!player.inv.some(function(x){return x&&x.n===reward.name;}))player.inv.push({n:reward.name});
+  if(typeof seenItems==='object'&&seenItems)seenItems[reward.name]=true;
+  player.san=Math.min(Number(player.maxsan||player.san||0),Number(player.san||0)+2);
+  log('ENQUÊTE MAJEURE RÉSOLUE — '+s.title+' : '+s.guardian+' confirme la vérité du dossier.');
+  log('RELIQUE DE DOSSIER — '+reward.name+' obtenue · +2 SAN.');
+  if(typeof toast==='function')toast('AFFAIRE RÉSOLUE · '+reward.name.toUpperCase());
+  return true;
+ }
+ const baseWin10820=win;
+ win=function(){
+  const foe=enemy,isGuardian=!!(foe&&foe.cd49Guardian),out=baseWin10820.apply(this,arguments);
+  if(isGuardian)conclude(dossier(),foe);
+  return out;
+ };
+ if(typeof renderQuestTracker==='function'){
+  const baseTracker10820=renderQuestTracker;
+  renderQuestTracker=function(){
+   const out=baseTracker10820.apply(this,arguments),s=dossier();
+   try{if(s&&s.resolved){const d=document.getElementById('cd10800-case');if(d)d.innerHTML='<b>✓ ENQUÊTE MAJEURE RÉSOLUE</b><br>'+s.title+'<br><span style="color:#aeb4c0">Relique : '+s.reward+'</span>';}}catch(e){}
+   return out;
+  };
+ }
+ const baseNew10820=newRun;
+ newRun=function(){floor=-1;steps=0;forced=0;closures=0;const out=baseNew10820.apply(this,arguments);ensureRewardDB();return out;};
+ window.cd10820State=function(){return {conclusionDossier:true,floor:floor,steps:steps,forcedGuardians:forced,closures:closures,dossier:dossier()};};
 })();
 </script>
 
