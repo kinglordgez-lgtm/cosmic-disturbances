@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.83.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.84.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3342,11 +3342,19 @@ function cd49State(){if(!player.cd49)player.cd49={defeated:[],spawnDepth:0};retu
 function cd49ShouldSpawn(){const d=player.depth||0,s=cd49State();return d>=5&&d%5===0&&s.spawnDepth!==d&&!battle}
 function cd49Spawn(){
  if(!cd49ShouldSpawn())return false;
- const d=player.depth||0,s=cd49State(),g=CD49_GUARDIANS[(Math.floor(d/5)-1)%CD49_GUARDIANS.length];
+ const d=player.depth||0,s=cd49State();
+ let g=CD49_GUARDIANS[(Math.floor(d/5)-1)%CD49_GUARDIANS.length];
+ /* V10.84 : lorsqu'un dossier majeur a atteint son échéance, son Gardien
+    remplace la rotation générique avant l'application des choix du dossier. */
+ try{if(typeof window.cd10840GuardianProfile==='function')g=window.cd10840GuardianProfile()||g;}catch(e){}
  spawnEnemy();if(!battle||!enemy)return false;s.spawnDepth=d;
  enemy.cd49Guardian=true;enemy.cd49GuardianName=g.name;enemy.name=g.name;
  enemy.maxhp=Math.ceil(enemy.maxhp*(1.8+d*.025));enemy.hp=enemy.maxhp;
- enemy.atk=(enemy.atk||4)+2+Math.floor(d/6);enemy.def=(enemy.def||0)+2;enemy.weak=g.weak;
+ if(g.hpBonus)enemy.maxhp+=g.hpBonus;
+ enemy.hp=enemy.maxhp;
+ enemy.atk=(enemy.atk||4)+2+Math.floor(d/6)+(g.atkBonus||0);
+ enemy.def=(enemy.def||0)+2+(g.defBonus||0);
+ enemy.weak=g.engineWeak||g.weak;enemy.cd10840WeakLabel=g.weak;enemy.cd10840Case=g.caseId||null;
  log("GARDIEN — "+g.intro);toast("GARDIEN : "+g.name);render();return true
 }
 const cd49Move=move;
@@ -13548,6 +13556,136 @@ window.cd10514NpcLiveRefresh=true;
   const root=document.getElementById('questTrackerBody'),card=document.getElementById('cd10800-case'),recent=root&&root.querySelector?root.querySelector('.qtRecent'):null;
   return {ancienPanneauInventaireNeutralise:typeof cd670State==='function'?!!cd670State().shown:true,dossierPrioritaire:!!(card&&recent&&card.nextSibling===recent),texte:card?card.textContent:''};
  };
+})();
+</script>
+
+<script id="cd-v10840">
+/* V10.84.0 — GARDIENS DE DOSSIER + RELIQUES ACTIVES
+   Chaque enquête majeure possède maintenant son Gardien, une faiblesse
+   exploitable et une relique équipée dont l'effet reste volontairement limité. */
+(function(){
+ const GUARDIANS={
+  cloches:{caseId:'cloches',name:'Le Carillonneur des Angles',intro:'Une cloche sans battant résonne ; une forme articulée se déplie depuis les angles du temps.',weak:"Cartouches d'argent",engineWeak:'argent',atkBonus:1},
+  sel:{caseId:'sel',name:'L’Abbé des Noyés',intro:'Une liturgie humide monte des pierres tandis qu’une silhouette branchiale lève les mains.',weak:'Sel consacré',engineWeak:'sel',hpBonus:6},
+  moisson:{caseId:'moisson',name:'L’Archiviste Fongique de Yuggoth',intro:'Des instruments impossibles classent déjà vos organes sous une lumière venue de Yuggoth.',weak:'Flacon de kérosène',engineWeak:'feu',defBonus:1},
+  reflet:{caseId:'reflet',name:'Le Dévoreur de Reflets',intro:'Les vitrines perdent votre image ; quelque chose la porte désormais à votre place.',weak:'Craie rituelle',engineWeak:'symbole',atkBonus:1}
+ };
+ const RELICS={
+  'Éclat de cloche impossible':{desc:'Équipé : la première attaque de chaque combat gagne +4 dégâts.',power:'PREMIER COUP RÉSONANT'},
+  'Ampoule de sel vivant':{desc:'Équipée : la première attaque ennemie de chaque combat inflige 3 dégâts de moins et rend 1 SAN.',power:'GARDE SALINE'},
+  'Spore stellaire scellée':{desc:'Équipée : la première enquête de chaque étage rapporte +2 XP, mais coûte 1 SAN.',power:'SAVOIR DE YUGGOTH'},
+  'Vitre mémorielle':{desc:'Équipée : une fois par étage, la fuite est garantie et rend 1 SAN.',power:'REFLET DE FUITE'}
+ };
+ const st={sporeDepth:null,mirrorDepth:null,guardianCases:0,weaknesses:0,relicTriggers:0};
+ function dossier(){return player&&player.cd10800?player.cd10800:null;}
+ function equipped(name){return !!(player&&player.equip&&player.equip.relique===name);}
+ window.cd10840GuardianProfile=function(){
+  const s=dossier(),g=s&&GUARDIANS[s.caseId];
+  if(g&&s.stage>=3&&!s.resolved){st.guardianCases++;return Object.assign({},g);}
+  return null;
+ };
+ function syncDB(){
+  if(typeof itemDB!=='object'||!itemDB)return;
+  Object.keys(RELICS).forEach(function(name){
+   const p=RELICS[name],db=itemDB[name];if(!db)return;
+   db.desc=p.desc;
+   const tags=String(db.tags||'');db.tags=tags.indexOf('pouvoir passif')>=0?tags:(tags?tags+', pouvoir passif':'pouvoir passif');db.power=p.power;
+  });
+ }
+ syncDB();
+ if(typeof attack==='function'){
+  const baseAttack10840=attack;
+  attack=function(){
+   const foe=enemy;
+   const relic=!!(battle&&foe&&equipped('Éclat de cloche impossible')&&!foe.cd10840BellUsed);
+   const silver=!!(battle&&foe&&foe.cd49Guardian&&foe.cd10840Case==='cloches'&&player.inv&&player.inv.some(function(i){return i&&i.n==="Cartouches d'argent";}));
+   if(relic){foe.cd10840BellUsed=true;player.atk+=4;st.relicTriggers++;log('RELIQUE — PREMIER COUP RÉSONANT : +4 dégâts.');}
+   if(silver){player.atk+=3;st.weaknesses++;log('FAIBLESSE DU GARDIEN — L’argent brise la résonance : +3 dégâts.');}
+   try{return baseAttack10840.apply(this,arguments)}
+   finally{if(relic)player.atk-=4;if(silver)player.atk-=3;}
+  };
+ }
+ if(typeof enemyTurn==='function'){
+  const baseEnemy10840=enemyTurn;
+  enemyTurn=function(){
+   const foe=enemy;
+   const guard=!!(battle&&foe&&equipped('Ampoule de sel vivant')&&!foe.cd10840SaltUsed);
+   if(guard){foe.cd10840SaltUsed=true;player.def+=3;st.relicTriggers++;log('RELIQUE — GARDE SALINE : le premier choc est amorti.');}
+   let out;
+   try{out=baseEnemy10840.apply(this,arguments)}finally{if(guard)player.def-=3;}
+   if(guard&&player.hp>0){player.san=Math.min(player.maxsan||player.san,(player.san||0)+1);log('GARDE SALINE — +1 SAN.');}
+   return out;
+  };
+ }
+ if(typeof investigate==='function'){
+  const baseInvestigate10840=investigate;
+  investigate=function(){
+   const depth=player?Number(player.depth)||0:0;
+   const active=!!(player&&!battle&&equipped('Spore stellaire scellée')&&st.sporeDepth!==depth);
+   const out=baseInvestigate10840.apply(this,arguments);
+   if(active&&player){st.sporeDepth=depth;player.xp=(player.xp||0)+2;player.san=Math.max(0,(player.san||0)-1);st.relicTriggers++;log('RELIQUE — SAVOIR DE YUGGOTH : +2 XP, -1 SAN.');toast('SAVOIR DE YUGGOTH');render();}
+   return out;
+  };
+ }
+ if(typeof flee==='function'){
+  const baseFlee10840=flee;
+  flee=function(){
+   const depth=player?Number(player.depth)||0:0;
+   if(battle&&enemy&&equipped('Vitre mémorielle')&&st.mirrorDepth!==depth){
+    st.mirrorDepth=depth;st.relicTriggers++;battle=false;enemy=null;
+    player.san=Math.min(player.maxsan||player.san,(player.san||0)+1);
+    log('RELIQUE — REFLET DE FUITE : l’ennemi poursuit une image retardée. Fuite garantie · +1 SAN.');toast('REFLET DE FUITE');render();return true;
+   }
+   return baseFlee10840.apply(this,arguments);
+  };
+ }
+ if(typeof useInv==='function'){
+  const baseUse10840=useInv;
+  useInv=function(name){
+   const foe=enemy,s=dossier();
+   const expected=foe&&foe.cd10840Case==='moisson'?'Flacon de kérosène':foe&&foe.cd10840Case==='reflet'?'Craie rituelle':null;
+   if(battle&&foe&&foe.cd49Guardian&&expected===name){
+    const i=player.inv.findIndex(function(x){return x&&x.n===name;});if(i<0)return;
+    player.inv.splice(i,1);foe.hp-=12;st.weaknesses++;
+    if(name==='Flacon de kérosène')foe.def=Math.max(0,(foe.def||0)-1);else foe.atk=Math.max(1,(foe.atk||1)-1);
+    log('FAIBLESSE DU GARDIEN — '+name+' : 12 dégâts et défense brisée.');toast('FAIBLESSE EXPLOITÉE · 12 DÉGÂTS');
+    if(typeof closeOverlays==='function')closeOverlays();if(foe.hp<=0)win();else enemyTurn();render();return true;
+   }
+   return baseUse10840.apply(this,arguments);
+  };
+ }
+ if(typeof combatItem==='function'){
+  const baseCombatItem10840=combatItem;
+  combatItem=function(){
+   const special=enemy&&enemy.cd10840Case==='moisson'?'Flacon de kérosène':enemy&&enemy.cd10840Case==='reflet'?'Craie rituelle':null;
+   if(battle&&enemy&&enemy.cd49Guardian&&special&&player.inv&&player.inv.some(function(i){return i&&i.n===special;}))return useInv(special);
+   const salt=!!(battle&&enemy&&enemy.cd49Guardian&&enemy.cd10840Case==='sel'&&player.inv&&player.inv.some(function(i){return i&&i.n==='Sel consacré';}));
+   const hp=enemy?enemy.hp:0,out=baseCombatItem10840.apply(this,arguments);
+   if(salt&&(!enemy||enemy.hp<hp)){st.weaknesses++;log('FAIBLESSE DU GARDIEN — Le sel consacré dissout la liturgie noyée.');}
+   return out;
+  };
+ }
+ if(typeof renderContext==='function'){
+  const baseContext10840=renderContext;
+  renderContext=function(){
+   const out=baseContext10840.apply(this,arguments);
+   try{const box=document.getElementById('cd49Boss');if(box&&enemy&&enemy.cd10840WeakLabel)box.innerHTML='<b>☠ GARDIEN DU DOSSIER</b><br>Phase '+(enemy.cd49Phase2?'II':'I')+' · Faiblesse : '+enemy.cd10840WeakLabel; }catch(e){}
+   return out;
+  };
+ }
+ if(typeof renderQuestTracker==='function'){
+  const baseTracker10840=renderQuestTracker;
+  renderQuestTracker=function(){
+   const out=baseTracker10840.apply(this,arguments),s=dossier();
+   try{if(s&&s.resolved&&s.reward&&RELICS[s.reward]){const d=document.getElementById('cd10800-case');if(d)d.innerHTML='<b>✓ ENQUÊTE MAJEURE RÉSOLUE</b><br>'+s.title+'<br><span>Relique : '+s.reward+' · '+RELICS[s.reward].power+'</span>';}}catch(e){}
+   return out;
+  };
+ }
+ if(typeof newRun==='function'){
+  const baseNew10840=newRun;
+  newRun=function(){st.sporeDepth=null;st.mirrorDepth=null;st.guardianCases=0;st.weaknesses=0;st.relicTriggers=0;const out=baseNew10840.apply(this,arguments);syncDB();return out;};
+ }
+ window.cd10840State=function(){return {gardiensDeDossier:true,guardianCases:st.guardianCases,weaknesses:st.weaknesses,relicTriggers:st.relicTriggers,sporeDepth:st.sporeDepth,mirrorDepth:st.mirrorDepth};};
 })();
 </script>
 
