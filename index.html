@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.73.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.74.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13052,12 +13052,12 @@ window.cd10514NpcLiveRefresh=true;
 })();
 </script>
 
-<script id="cd-v10730">
-/* V10.73.0 — RÉMANENCE DU TERRAIN
+<script id="cd-v10740">
+/* V10.74.0 — RÉMANENCE DU TERRAIN FIABILISÉE
    La lecture croisée d'un étage ne disparaît plus à la descente. Son résultat
    produit une conséquence unique, favorable ou hostile, au niveau suivant. */
 (function(){
- if(typeof move!=='function'||typeof investigate!=='function'||typeof spawnEnemy!=='function'||typeof newRun!=='function')return;
+ if(typeof resolveTile!=='function'||typeof investigate!=='function'||typeof spawnEnemy!=='function'||typeof newRun!=='function')return;
  const DANGEROUS=/eau noire|autel impossible|dispositif hostile|passage vers les profondeurs/i;
  function fresh(){return {pending:null,history:[],applied:0,last:null};}
  function state(){
@@ -13124,12 +13124,12 @@ window.cd10514NpcLiveRefresh=true;
    remember({event:'applied',type:e.type,depth:Number(player.depth)||0,enemy:String(enemy.name||'')});
    try{if(typeof render==='function')render()}catch(err){}
  }
- const baseMove10730=move;
- move=function(dx,dy){
+ const baseResolve10740=resolveTile;
+ resolveTile=function(){
    const beforeDepth=player?Number(player.depth)||0:0;
    let reading=null;
    try{const r=typeof cd10660State==='function'?cd10660State():null;reading=r&&r.done?r.last:null}catch(err){}
-   const out=baseMove10730.apply(this,arguments);
+   const out=baseResolve10740.apply(this,arguments);
    const afterDepth=player?Number(player.depth)||0:beforeDepth;
    if(afterDepth!==beforeDepth&&reading)prepare(reading,beforeDepth,afterDepth);
    return out;
@@ -13143,7 +13143,7 @@ window.cd10514NpcLiveRefresh=true;
  spawnEnemy=function(){const out=baseSpawn10730.apply(this,arguments);consumeCombat();return out;};
  const baseNew10730=newRun;
  newRun=function(){const out=baseNew10730.apply(this,arguments);if(player)player.cd10730=fresh();return out;};
- window.cd10730State=function(){const s=state();return {remanenceTerrain:true,pending:s.pending,applied:s.applied,history:s.history.slice()};};
+ window.cd10730State=function(){const s=state();return {remanenceTerrain:true,sortieFiabilisee:true,pending:s.pending,applied:s.applied,history:s.history.slice()};};
 })();
 </script>
 
