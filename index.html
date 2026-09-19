@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.78.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.79.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -689,7 +689,9 @@ function resolveTile(){
    log("Autel impossible : +4% Mythe, -3 SAN.");
  }
  else if(t==="exit"){
+   const cd10790FromDepth=Number(player.depth)||0;
    player.depth++;
+   if(typeof window.cd10790OnDepthChanged==="function")window.cd10790OnDepthChanged(cd10790FromDepth,Number(player.depth)||0);
    log("Vous descendez au niveau "+player.depth+".");
    generateMap();
    if(typeof cd14GenerateGeometry==="function")cd14GenerateGeometry();
@@ -12823,6 +12825,9 @@ window.cd10514NpcLiveRefresh=true;
       tout rendu ou changement d'étage. Une copie globale empêche sa perte lors
       de la reconstruction procédurale du niveau suivant. */
    window.cd10780Seed={reading:Object.assign({},s.last),fromDepth:Number(player.depth)||0};
+   /* V10.79 : copie portée par le joueur. Elle survit à la reconstruction de
+      la carte et sera transférée par l'instruction même qui change d'étage. */
+   player.cd10790Armed={reading:Object.assign({},s.last),fromDepth:Number(player.depth)||0};
    log('LECTURE CROISÉE — '+job+' × '+trait+' · '+env[0]+' : '+j[1]+' et '+tr[1]+'.');
    if(ok){
      const gain=both?3:2;player.xp=(player.xp||0)+gain;
@@ -12834,6 +12839,7 @@ window.cd10514NpcLiveRefresh=true;
      else log('LECTURE INCOMPLÈTE — '+envSkill+' '+roll+'/'+target+' ✗ : aucune certitude exploitable.');
      if(typeof toast==='function')toast(env[2]?'LECTURE TROMPEUSE · -1 SAN':'LECTURE INCOMPLÈTE');
    }
+   log('EMPREINTE ARMÉE — Cette lecture influencera directement l’étage suivant.');
    try{if(typeof render==='function')render()}catch(e){}
  }
  const baseInvestigate10660=investigate;
@@ -13201,6 +13207,7 @@ window.cd10514NpcLiveRefresh=true;
    La source pose window.cd10780Seed. Ce module ne dépend donc plus de log(),
    du contenu du journal, ni de l'ordre des anciens wrappers de descente. */
 (function(){
+ if(true)return; /* remplacé par l'application atomique V10.79 */
  if(typeof investigate!=='function'||typeof spawnEnemy!=='function'||typeof render!=='function'||typeof newRun!=='function')return;
  const DANGEROUS=/eau noire|autel impossible|dispositif hostile|passage vers les profondeurs/i;
  let pending=null,applied=0,lastTransfer=null;
@@ -13269,6 +13276,70 @@ window.cd10514NpcLiveRefresh=true;
  const baseNew10780=newRun;
  newRun=function(){window.cd10780Seed=null;pending=null;applied=0;lastTransfer=null;return baseNew10780.apply(this,arguments);};
  window.cd10780State=function(){return {transfertDirect:true,seed:window.cd10780Seed||null,pending:pending,applied:applied,lastTransfer:lastTransfer};};
+})();
+</script>
+
+<script id="cd-v10790">
+/* V10.79.0 — RÉMANENCE ATOMIQUE AU CHANGEMENT D'ÉTAGE
+   L'effet est appliqué par la ligne qui incrémente player.depth : aucune
+   détection différée, aucun journal intermédiaire et aucun prochain événement
+   ne sont nécessaires. L'empreinte est consommée exactement une fois. */
+(function(){
+ if(typeof newRun!=='function'||typeof renderQuestTracker!=='function')return;
+ let applied=0,last=null;
+ function outcome(reading,fromDepth,toDepth){
+   const r=reading||{},skill=String(r.skill||''),site=String(r.site||'le secteur');
+   let title,text;
+   if(r.ok&&/Investigation|Observation/.test(skill)){
+     player.xp=Number(player.xp||0)+1;
+     title='PISTE PERSISTANTE';text='les indices de '+site+' éclairent la descente : +1 XP.';
+   }else if(r.ok&&/Occultisme|Érudition|Psychologie/.test(skill)){
+     const before=Number(player.san||0);player.san=Math.min(Number(player.maxsan||before),before+1);
+     title='ANCRAGE MENTAL';text='la logique arrachée à '+site+' stabilise votre esprit : +1 SAN.';
+   }else if(r.ok){
+     const before=Number(player.hp||0);player.hp=Math.min(Number(player.maxhp||before),before+1);
+     title='PRÉPARATION PHYSIQUE';text='les signes reconnus à '+site+' préparent votre corps : +1 PV.';
+   }else{
+     player.san=Math.max(0,Number(player.san||0)-1);
+     title='DOUTE PERSISTANT';text='l’incertitude née de '+site+' vous suit : -1 SAN.';
+   }
+   applied++;
+   last={from:Number(fromDepth)||0,to:Number(toDepth)||0,title:title,text:text,skill:skill,ok:!!r.ok};
+   log('RÉMANENCE DU TERRAIN — '+title+' · étage '+last.from+' → '+last.to+'.');
+   log('CONSÉQUENCE DURABLE — '+text);
+   if(typeof toast==='function')toast('RÉMANENCE APPLIQUÉE · '+title);
+ }
+ window.cd10790OnDepthChanged=function(fromDepth,toDepth){
+   if(!player)return false;
+   const armed=player.cd10790Armed;
+   if(!armed||Number(armed.fromDepth)!==Number(fromDepth))return false;
+   player.cd10790Armed=null;
+   window.cd10780Seed=null;
+   outcome(armed.reading,fromDepth,toDepth);
+   return true;
+ };
+ const baseTracker10790=renderQuestTracker;
+ renderQuestTracker=function(){
+   const out=baseTracker10790.apply(this,arguments);
+   try{
+     const root=document.getElementById('questTrackerBody');
+     if(root&&last&&Number(player.depth)===Number(last.to)){
+       const d=document.createElement('div');d.id='cd10790-applied';
+       d.style.cssText='margin-top:7px;padding:7px 0;border-top:1px solid #8c7340;color:#d8bc78;font-size:11px';
+       d.innerHTML='<b>RÉMANENCE APPLIQUÉE</b><br>'+last.title+' — '+last.text;
+       root.appendChild(d);
+     }
+   }catch(err){}
+   return out;
+ };
+ const baseNew10790=newRun;
+ newRun=function(){
+   const out=baseNew10790.apply(this,arguments);
+   applied=0;last=null;
+   if(player)player.cd10790Armed=null;
+   return out;
+ };
+ window.cd10790State=function(){return {applicationAtomique:true,armed:player&&player.cd10790Armed||null,applied:applied,last:last};};
 })();
 </script>
 
