@@ -561,7 +561,7 @@ function completeQuest(){
  player.quest.done=true;player.xp+=7;player.reputation++;
  player.inv.push({n:player.quest.reward});seenItems[player.quest.reward]=true;
  log("Quête accomplie : "+player.quest.title+". Récompense : "+player.quest.reward+". +7 XP.");toast("Quête accomplie");
- if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}
+ if(typeof cd10930ProcessXP==='function')cd10930ProcessXP();
 }
 
 function npcEncounter(){
@@ -635,8 +635,8 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.92.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
- document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
+ document.getElementById("sub").textContent=`PROTO 10.93.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
    const idx=y*13+x,d=mapCells[idx],t=map[y][x];
@@ -812,7 +812,7 @@ function win(){
  if(typeof cd24RecordEncounter==="function")cd24RecordEncounter();
  if(typeof cd23RecordKill==="function")cd23RecordKill();
  if(typeof cd22EliteReward==="function")cd22EliteReward();
- if(typeof cd16BossReward==="function")cd16BossReward();battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(player.xp>=10){player.xp-=10;player.lvl++;player.maxhp+=3;player.hp=player.maxhp;player.atk++;log("Niveau "+player.lvl+".")}}
+ if(typeof cd16BossReward==="function")cd16BossReward();battle=false;enemy=null;player.xp+=5;player.myth+=2;log("Victoire.");if(typeof cd10930ProcessXP==='function')cd10930ProcessXP()}
 function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous êtes mort. Nouvelle réalité disponible.")}
 
 
@@ -14191,6 +14191,43 @@ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.gu
  window.cd10920ShowDeath=showDeath;
  window.cd10920SyncCodex=syncCodex;
  window.cd10920State=function(){return {mortDefinitive:dead,deaths:st.deaths,actionsBloquees:st.blocked,last:st.last,bestiaireGardienUnifie:true};};
+})();
+</script>
+
+<script id="cd-v10930">
+/* V10.93.0 — PROGRESSION D'EXPÉRIENCE COHÉRENTE
+   L'XP excédentaire déclenche toutes les montées de niveau dues. Le seuil croît
+   avec le niveau afin que l'apprentissage reste lisible sans rendre les grandes
+   profondeurs triviales par accumulation mécanique de récompenses. */
+(function(){
+ const st={processed:0,levels:0,last:null};
+ function need(level){return Math.max(10,10+(Math.max(1,Number(level)||1)-1)*5);}
+ function process(){
+  if(!player||Number(player.hp)<=0)return 0;
+  player.lvl=Math.max(1,Number(player.lvl)||1);player.xp=Math.max(0,Number(player.xp)||0);
+  let gained=0,guard=0;
+  while(player.xp>=need(player.lvl)&&guard++<200){
+   const cost=need(player.lvl);player.xp-=cost;player.lvl++;
+   player.maxhp=Math.max(1,Number(player.maxhp)||1)+3;player.hp=player.maxhp;
+   player.atk=Math.max(1,Number(player.atk)||1)+1;gained++;
+   if(typeof log==='function')log('NIVEAU '+player.lvl+' — '+cost+' XP convertis · +3 PV max · +1 ATQ.');
+  }
+  st.processed++;st.levels+=gained;st.last={level:player.lvl,xp:player.xp,next:need(player.lvl),gained:gained};
+  if(gained&&typeof toast==='function')toast(gained>1?'+'+gained+' NIVEAUX':'NIVEAU '+player.lvl);
+  return gained;
+ }
+ if(typeof render==='function'){
+  const baseRender10930=render;
+  render=function(){process();return baseRender10930.apply(this,arguments);};window.render=render;
+ }
+ if(typeof newRun==='function'){
+  const baseNew10930=newRun;
+  newRun=function(){st.processed=0;st.levels=0;st.last=null;const out=baseNew10930.apply(this,arguments);process();return out;};window.newRun=newRun;
+ }
+ window.cd10930Need=need;
+ window.cd10930ProcessXP=process;
+ window.cd10930State=function(){return {seuilsProgressifs:true,traitements:st.processed,niveauxConvertis:st.levels,last:st.last};};
+ try{process();if(typeof render==='function')render()}catch(e){console.warn('cd10930 init',e)}
 })();
 </script>
 
