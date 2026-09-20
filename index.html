@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.89.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.90.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12227,25 +12227,43 @@ window.cd10514NpcLiveRefresh=true;
 .tile.cd10540-known{outline:2px solid rgba(222,190,105,.72);outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(222,190,105,.20)}
 </style>
 <script id="cd-v10540">
-/* V10.54.0 — FLUIDITÉ D'EXPLORATION
+/* V10.90.0 — FLUIDITÉ D'EXPLORATION + REPÈRES FIABLES
    Les retours automatiques de lecture du terrain deviennent non bloquants.
    Les vrais choix restent des fenêtres. Une lecture automatique marque aussi
-   un élément concret du secteur sur la carte. */
+   un élément concret, accessible et propre à l'étage courant. */
 (function(){
- const st={marks:new Set(),suppressed:0,last:''};
+ const st={marks:new Set(),suppressed:0,last:'',depth:null};
  const passiveTitles=new Set(['SENS DU TERRAIN','SENS DE L’ORIENTATION','CARTOGRAPHIE INSTINCTIVE','ÉCHO DU CHEMIN']);
+ const concrete=new Set(['chest','quest','shrine','trap','exit']);
  function plain(html){
    const d=document.createElement('div');d.innerHTML=String(html||'');return (d.textContent||'').replace(/\s+/g,' ').trim();
  }
+ function syncDepth(){
+   const d=player&&player.depth;
+   if(st.depth===null){st.depth=d;return;}
+   if(d!==st.depth){st.depth=d;st.marks.clear();}
+ }
+ function distances(){
+   const out=new Map();
+   if(!Array.isArray(map)||!map[py]||map[py][px]==='wall'||map[py][px]==='water')return out;
+   const q=[[px,py]];out.set(px+','+py,0);
+   for(let i=0;i<q.length;i++){
+     const x=q[i][0],y=q[i][1],next=out.get(x+','+y)+1;
+     [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(v){
+       const nx=x+v[0],ny=y+v[1],key=nx+','+ny,t=map[ny]&&map[ny][nx];
+       if(ny<0||ny>=map.length||!map[ny]||nx<0||nx>=map[ny].length||t==='wall'||t==='water'||out.has(key))return;
+       out.set(key,next);q.push([nx,ny]);
+     });
+   }
+   return out;
+ }
  function markNearby(){
    if(!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
+   syncDepth();const reach=distances();
    let best=null,dist=999;
-   for(let y=0;y<13;y++)for(let x=0;x<13;x++){
-     const t=map[y]&&map[y][x];if(t==='wall'||t==='water')continue;
-     const special=(t!=='floor');const d=Math.abs(x-px)+Math.abs(y-py);
-     if(d===0)continue;
-     const score=d+(special?0:20);
-     if(score<dist){dist=score;best=[x,y];}
+   for(let y=0;y<map.length;y++)for(let x=0;x<(map[y]||[]).length;x++){
+     const t=map[y][x],d=reach.get(x+','+y);if(!concrete.has(t)||d===undefined||d===0)continue;
+     if(d<dist){dist=d;best=[x,y];}
    }
    if(best){st.marks.add(best[1]*13+best[0]);}
  }
@@ -12263,10 +12281,17 @@ window.cd10514NpcLiveRefresh=true;
    return oldPanel10540.apply(this,arguments);
  };
  const oldRender10540=render;
- render=function(){const out=oldRender10540.apply(this,arguments);try{st.marks.forEach(function(i){if(mapCells[i])mapCells[i].classList.add('cd10540-known')})}catch(e){console.warn('cd10540 render',e)}return out};
+ render=function(){const out=oldRender10540.apply(this,arguments);try{
+   syncDepth();for(let i=0;i<mapCells.length;i++)mapCells[i].classList.remove('cd10540-known');
+   const reach=distances();Array.from(st.marks).forEach(function(i){
+     const x=i%13,y=Math.floor(i/13),t=map[y]&&map[y][x];
+     if(!concrete.has(t)||!reach.has(x+','+y)){st.marks.delete(i);return;}
+     if(mapCells[i])mapCells[i].classList.add('cd10540-known');
+   });
+  }catch(e){console.warn('cd10540 render',e)}return out};
  const oldNew10540=newRun;
- newRun=function(){st.marks.clear();st.suppressed=0;st.last='';return oldNew10540.apply(this,arguments)};
- window.cd10540State=function(){return {suppressed:st.suppressed,last:st.last,marks:Array.from(st.marks)};};
+ newRun=function(){st.marks.clear();st.suppressed=0;st.last='';st.depth=null;return oldNew10540.apply(this,arguments)};
+ window.cd10540State=function(){return {suppressed:st.suppressed,last:st.last,depth:st.depth,marks:Array.from(st.marks)};};
 })();
 </script>
 
