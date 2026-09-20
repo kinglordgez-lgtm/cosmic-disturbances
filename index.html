@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.86.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.87.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11485,7 +11485,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test rapide : après le premier déplacement réussi. */
 (function(){
  if(typeof move!=='function'||typeof cdOpenPanel!=='function')return;
- let st={moved:false,shown:false,resolved:false,result:null,x:null,y:null};
+ let st={moved:false,shown:false,resolved:false,result:null,x:null,y:null,depth:null};
  function nearest(kind){
    let best=null,dist=999;
    for(let y=1;y<12;y++)for(let x=1;x<12;x++){
@@ -11522,7 +11522,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  }
  window.cd10440Choose=function(mode){
    if(st.resolved){closeOverlays();return}
-   st.resolved=true;closeOverlays();
+   st.resolved=true;st.depth=Number(player&&player.depth)||1;closeOverlays();
    if(mode==='cache'){
      const t=floorTarget();
      if(t){map[t.y][t.x]='chest';st.x=t.x;st.y=t.y;st.result='CACHE BALISÉE';
@@ -11552,7 +11552,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  if(typeof newRun==='function'){
    const oldNew10440=newRun;
-   newRun=function(){st={moved:false,shown:false,resolved:false,result:null,x:null,y:null};return oldNew10440.apply(this,arguments)};
+   newRun=function(){st={moved:false,shown:false,resolved:false,result:null,x:null,y:null,depth:null};return oldNew10440.apply(this,arguments)};
  }
  window.cd10440State=function(){return Object.assign({},st)};
 })();
@@ -11659,7 +11659,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  resolveTile=function(){
    let m=null,t=null;
    try{m=typeof cd10440State==='function'?cd10440State():null;t=map&&map[py]?map[py][px]:null}catch(e){}
-   const marked=!!(m&&m.result==='CACHE BALISÉE'&&m.x===px&&m.y===py&&t==='chest');
+   const marked=!!(m&&Number(m.depth)===Number(player&&player.depth)&&m.result==='CACHE BALISÉE'&&m.x===px&&m.y===py&&t==='chest');
    const out=oldResolve10460.apply(this,arguments);
    try{if(marked)rewardCache()}catch(e){console.warn('cd10460 cache',e)}
    return out;
@@ -11671,7 +11671,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    try{
      if(bx!==null&&by!==null&&(px!==bx||py!==by)){
        const m=typeof cd10440State==='function'?cd10440State():null;
-       if(m&&m.result==='DANGER DÉTOURNÉ'&&m.x===px&&m.y===py)rewardSafe();
+       if(m&&Number(m.depth)===Number(player&&player.depth)&&m.result==='DANGER DÉTOURNÉ'&&m.x===px&&m.y===py)rewardSafe();
      }
    }catch(e){console.warn('cd10460 safe',e)}
    return out;
@@ -11776,6 +11776,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  function paint(){
    try{
      const m=mark(); if(!m||m.x==null||m.y==null||!Array.isArray(mapCells))return;
+     if(Number(m.depth)!==Number(player&&player.depth)||!map[m.y]||map[m.y][m.x]==='wall')return;
      if(px===m.x&&py===m.y)return;
      const d=mapCells[m.y*13+m.x]; if(!d)return;
      if(m.result==='CACHE BALISÉE'){
@@ -11807,7 +11808,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const r=oldMove10470.apply(this,arguments);
    try{
      const m=mark();
-     if(!st.safeCrossed&&m&&m.result==='DANGER DÉTOURNÉ'&&bx!==null&&by!==null&&(px!==bx||py!==by)&&px===m.x&&py===m.y){
+     if(!st.safeCrossed&&m&&Number(m.depth)===Number(player&&player.depth)&&m.result==='DANGER DÉTOURNÉ'&&bx!==null&&by!==null&&(px!==bx||py!==by)&&px===m.x&&py===m.y){
        st.safeCrossed=true;st.last='PASSAGE MÉMORISÉ';
        log('CARTE RÉACTIVE — passage sécurisé franchi : le lieu reste marqué ⌖ comme repère fiable.');
        toast('PASSAGE MÉMORISÉ');
@@ -13858,7 +13859,34 @@ window.cd10850State=function(){return {accessibiliteTotale:true,checks:st.checks
   newRun=function(){st.checks=0;st.relocations=0;st.last=null;const out=baseNew10860.apply(this,arguments);try{if(normalize()&&typeof render==='function')render();}catch(e){}return out;};
  }
  window.cd10860Normalize=normalize;
- window.cd10860State=function(){return {marqueursAccessibles:true,checks:st.checks,relocations:st.relocations,last:st.last};};
+window.cd10860State=function(){return {marqueursAccessibles:true,checks:st.checks,relocations:st.relocations,last:st.last};};
+})();
+</script>
+
+<script id="cd-v10870">
+/* V10.87.0 — REPÈRES STRICTEMENT LIÉS À L'ÉTAGE
+   Protection finale contre tout ancien repère tactique peint sur un mur après
+   une descente : les glyphes persistants sont retirés si leur source n'appartient
+   pas à l'étage courant ou si leur case est devenue non praticable. */
+(function(){
+ const st={checks:0,cleared:0};
+ function clean(){
+  if(!Array.isArray(mapCells)||!Array.isArray(map))return;
+  st.checks++;
+  let m=null;try{m=typeof cd10440State==='function'?cd10440State():null}catch(e){}
+  for(let i=0;i<mapCells.length;i++){
+   const d=mapCells[i];if(!d||d.textContent!=='⌖')continue;
+   const x=i%13,y=Math.floor(i/13);
+   const owned=!!(m&&Number(m.depth)===Number(player&&player.depth)&&m.x===x&&m.y===y&&map[y]&&map[y][x]!=='wall');
+   if(!owned){d.textContent='';d.classList.remove('feature');st.cleared++;}
+  }
+ }
+ if(typeof render==='function'){
+  const baseRender10870=render;
+  render=function(){const out=baseRender10870.apply(this,arguments);try{clean();}catch(e){console.warn('cd10870 render',e)}return out;};
+ }
+ window.cd10870Clean=clean;
+ window.cd10870State=function(){return {reperesLiesEtage:true,checks:st.checks,cleared:st.cleared};};
 })();
 </script>
 
