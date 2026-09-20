@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.91.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.92.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14093,6 +14093,104 @@ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.gu
  }
  window.cd10910Archive=function(){return load()};
  window.cd10910State=function(){return {archivesDurables:true,records:st.records,last:st.last,data:load()};};
+})();
+</script>
+
+<style id="cd-v10920-style">
+#modal.cd10920-death .close{display:none!important}
+#modal.cd10920-death .sheet{border-color:#a95d68;background:#171116}
+#modal.cd10920-death .cd10920-final{max-width:760px;margin:auto;padding:18px}
+#modal.cd10920-death .cd10920-final h2{color:#efc5ca;font-size:clamp(26px,4vw,50px);margin:.2em 0}
+#modal.cd10920-death .cd10920-stats{color:var(--muted);line-height:1.6;margin:20px 0}
+#modal.cd10920-death .cd10920-restart{width:100%;min-height:72px;border-color:#a95d68;background:#402028;color:#fff;font-weight:800}
+</style>
+<script id="cd-v10920">
+/* V10.92.0 — MORT RÉELLE ET BESTIAIRE COHÉRENT
+   À 0 PV, la réalité prend fin : aucune action, fermeture de fenêtre ou commande
+   de combat ne permet de continuer. Seule une nouvelle réalité rend le contrôle.
+   Les Gardiens connus disposent aussi d'une fiche générique complète afin que le
+   codex ne les présente plus simultanément comme des présences inconnues. */
+(function(){
+ let dead=false;
+ const st={deaths:0,blocked:0,last:null};
+ const PROFILES={
+  cloches:{name:'Le Carillonneur des Angles',desc:'Gardien extradimensionnel dont la résonance précède les coups.',weak:"Cartouches d’argent",resist:'Géométrie et résonance',hp:72,atk:15,def:5},
+  sel:{name:'L’Abbé des Noyés',desc:'Gardien abyssal dont la litanie régénère la chair noyée.',weak:'Sel consacré',resist:'Eau et liturgie abyssale',hp:58,atk:14,def:5},
+  moisson:{name:'L’Archiviste Fongique de Yuggoth',desc:'Gardien fongique qui transforme le combat en chambre de culture.',weak:'Flacon de kérosène',resist:'Spores et carapace fongique',hp:64,atk:14,def:6},
+  reflet:{name:'Le Dévoreur de Reflets',desc:'Gardien extradimensionnel qui reproduit la violence de son adversaire.',weak:'Craie rituelle',resist:'Mimétisme et angles',hp:58,atk:15,def:5}
+ };
+ function archive(){try{return typeof cd10910Archive==='function'?cd10910Archive():{}}catch(e){return {}}}
+ function syncCodex(){
+  if(typeof creatures!=='object'||typeof codex!=='object')return;
+  const saved=archive();
+  Object.keys(saved).forEach(function(id){
+   const p=PROFILES[id],a=saved[id];if(!p||!a)return;
+   creatures[p.name]={name:p.name,hp:p.hp,atk:p.atk,def:p.def,cat:'Gardien',desc:p.desc,weak:p.weak,resist:p.resist};
+   codex[p.name]=true;
+   if(typeof cd23Stats==='object'&&cd23Stats&&cd23Stats.seen)cd23Stats.seen[p.name]=Math.max(Number(cd23Stats.seen[p.name]||0),Number(a.victories||1));
+  });
+ }
+ function showDeath(){
+  if(!dead)return;
+  if(player)player.hp=0;
+  const depth=Number(player&&player.depth||0),lvl=Number(player&&player.lvl||1),san=Number(player&&player.san||0),myth=Number(player&&player.myth||0);
+  const html='<div class="cd10920-final"><div class="gold">FIN DE LA RÉALITÉ</div><h2>VOUS ÊTES MORT</h2><p>Blackwater conserve ce que cette existence a révélé, mais cet enquêteur ne peut plus agir.</p><div class="cd10920-stats">Profondeur '+depth+' · Niveau '+lvl+'<br>SAN '+san+' · MYTHE '+myth+'%</div><button class="cd10920-restart" onclick="newRun()">COMMENCER UNE NOUVELLE RÉALITÉ</button></div>';
+  try{
+   document.getElementById('mainMenu')?.classList.remove('open');
+   const m=document.getElementById('modal'),root=document.getElementById('sheetContent');
+   if(root)root.innerHTML=html;
+   if(m){m.classList.add('open','cd10920-death');m.style.display='';}
+  }catch(e){}
+ }
+ function stop(){st.blocked++;showDeath();return true;}
+ function guard(name){
+  if(typeof window[name]!=='function')return;
+  const base=window[name];
+  window[name]=function(){
+   if(dead)return stop();
+   const out=base.apply(this,arguments);
+   if(player&&Number(player.hp)<=0&&!dead)window.death();
+   return out;
+  };
+ }
+ if(typeof death==='function'){
+  const baseDeath10920=death;
+  death=function(){
+   if(dead)return showDeath();
+   dead=true;st.deaths++;st.last={depth:Number(player&&player.depth||0),level:Number(player&&player.lvl||1),san:Number(player&&player.san||0),myth:Number(player&&player.myth||0)};
+   if(player)player.hp=0;
+   const out=baseDeath10920.apply(this,arguments);
+   if(player)player.hp=0;
+   try{if(typeof render==='function')render()}catch(e){}
+   showDeath();return out;
+  };
+  window.death=death;
+ }
+ ['move','investigate','attack','defend','enemyTurn','combatItem','flee','useInv','equipInv','dropInv','openInventory','openCharacter','openQuest','openGuide','cd23OpenAchievements'].forEach(guard);
+ if(typeof closeOverlays==='function'){
+  const baseClose10920=closeOverlays;
+  closeOverlays=function(){const out=baseClose10920.apply(this,arguments);if(dead)showDeath();return out;};window.closeOverlays=closeOverlays;
+ }
+ if(typeof closeModalOnly==='function'){
+  const baseCloseModal10920=closeModalOnly;
+  closeModalOnly=function(){if(dead)return stop();return baseCloseModal10920.apply(this,arguments);};window.closeModalOnly=closeModalOnly;
+ }
+ if(typeof newRun==='function'){
+  const baseNew10920=newRun;
+  newRun=function(){dead=false;try{document.getElementById('modal')?.classList.remove('cd10920-death')}catch(e){}return baseNew10920.apply(this,arguments);};window.newRun=newRun;
+ }
+ if(typeof render==='function'){
+  const baseRender10920=render;
+  render=function(){if(dead&&player)player.hp=0;const out=baseRender10920.apply(this,arguments);if(dead){try{const a=document.getElementById('actionBtn');if(a){a.textContent='MORT';a.classList.remove('combatMode')}}catch(e){}showDeath()}return out;};window.render=render;
+ }
+ if(typeof cd23OpenCodex==='function'){
+  const baseCodex10920=cd23OpenCodex;
+  cd23OpenCodex=function(){syncCodex();return baseCodex10920.apply(this,arguments);};window.cd23OpenCodex=cd23OpenCodex;
+ }
+ syncCodex();
+ window.cd10920ShowDeath=showDeath;
+ window.cd10920SyncCodex=syncCodex;
+ window.cd10920State=function(){return {mortDefinitive:dead,deaths:st.deaths,actionsBloquees:st.blocked,last:st.last,bestiaireGardienUnifie:true};};
 })();
 </script>
 
