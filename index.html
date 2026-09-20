@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.87.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.88.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13886,7 +13886,121 @@ window.cd10860State=function(){return {marqueursAccessibles:true,checks:st.check
   render=function(){const out=baseRender10870.apply(this,arguments);try{clean();}catch(e){console.warn('cd10870 render',e)}return out;};
  }
  window.cd10870Clean=clean;
- window.cd10870State=function(){return {reperesLiesEtage:true,checks:st.checks,cleared:st.cleared};};
+window.cd10870State=function(){return {reperesLiesEtage:true,checks:st.checks,cleared:st.cleared};};
+})();
+</script>
+
+<style id="cd-v10880-style">
+#cd10880Signature{margin-top:6px;padding:6px 7px;border:1px solid rgba(213,178,95,.58);background:rgba(72,50,23,.38);color:#ead39c;font-size:11px;line-height:1.35}
+#cd10880Signature.ready{border-color:#b86b73;background:rgba(91,29,39,.42);color:#f0c2c7}
+#cd10880Signature.counter{border-color:#78a89a;background:rgba(27,67,59,.42);color:#bde1d6}
+</style>
+<script id="cd-v10880">
+/* V10.88.0 — DOCTRINES UNIQUES DES GARDIENS
+   Chaque Gardien annonce une capacité signature avant de l'exécuter. La faiblesse
+   révélée par le dossier interrompt cette capacité. En phase II, le cycle accélère. */
+(function(){
+ const DATA={
+  cloches:{name:'RÉSONANCE IMPOSSIBLE',warning:'La cloche compte votre prochain battement.',counter:"Cartouches d'argent",cancel:"L'argent fend l'onde avant qu'elle ne vous traverse."},
+  sel:{name:'LITANIE ABYSSALE',warning:'Une prière noyée rassemble les chairs du Gardien.',counter:'Sel consacré',cancel:'Le sel rompt la liturgie et dessèche les paroles.'},
+  moisson:{name:'SPORULATION DE YUGGOTH',warning:'Les instruments ouvrent une chambre de culture.',counter:'Flacon de kérosène',cancel:'Le feu stérilise la chambre avant la floraison.'},
+  reflet:{name:'MIROIR PRÉDATEUR',warning:'Votre reflet lève son arme une seconde avant vous.',counter:'Craie rituelle',cancel:'Le cercle de craie brise la symétrie meurtrière.'}
+ };
+ const totals={guardians:0,telegraphs:0,signatures:0,counters:0};
+ function active(e){return !!(battle&&e&&e.cd49Guardian&&DATA[e.cd10840Case]);}
+ function state(e){
+  if(!active(e))return null;
+  if(!e.cd10880){e.cd10880={turns:0,telegraph:false,counter:false,last:null};totals.guardians++;}
+  return e.cd10880;
+ }
+ function phase(e){return e&&e.cd49Phase2?2:1;}
+ function arm(e,item){
+  const s=state(e),d=e&&DATA[e.cd10840Case];if(!s||!d||d.counter!==item)return false;
+  s.counter=true;s.last='CONTRE-MESURE PRÊTE';
+  log('CONTRE-MESURE — '+item+' prépare l’interruption de '+d.name+'.');
+  return true;
+ }
+ function cancel(e,s,d){
+  s.counter=false;s.telegraph=false;s.last='SIGNATURE INTERROMPUE';totals.counters++;
+  e.def=Math.max(0,Number(e.def||0)-1);
+  log('GARDIEN INTERROMPU — '+d.cancel+' -1 DEF.');toast('SIGNATURE INTERROMPUE');
+ }
+ function execute(e,s,d){
+  const p=phase(e);s.telegraph=false;s.last=d.name;totals.signatures++;
+  if(e.cd10840Case==='cloches'){
+   const loss=p===2?4:3;player.san=Math.max(0,Number(player.san||0)-loss);
+   log(d.name+' — La résonance traverse la raison : -'+loss+' SAN.');
+  }else if(e.cd10840Case==='sel'){
+   const heal=Math.max(3,Math.ceil(Number(e.maxhp||1)*(p===2?.16:.11)));
+   e.hp=Math.min(Number(e.maxhp||e.hp),Number(e.hp||0)+heal);e.atk=Number(e.atk||1)+1;
+   log(d.name+' — Le Gardien récupère '+heal+' PV et gagne +1 ATQ.');
+  }else if(e.cd10840Case==='moisson'){
+   const gain=p===2?2:1,loss=p===2?2:1;e.def=Number(e.def||0)+gain;player.san=Math.max(0,Number(player.san||0)-loss);
+   log(d.name+' — Carapace fongique +'+gain+' DEF · -'+loss+' SAN.');
+  }else{
+   const harm=Math.max(2,Math.ceil(Number(player.atk||1)*(p===2?.50:.34)));player.hp=Math.max(0,Number(player.hp||0)-harm);
+   log(d.name+' — Votre propre violence vous précède : '+harm+' dégâts.');if(player.hp<=0&&typeof death==='function')death();
+  }
+  toast(d.name); 
+ }
+ function telegraph(e,s,d){
+  s.telegraph=true;s.last='TÉLÉGRAPHE : '+d.name;totals.telegraphs++;
+  log('ALERTE DU GARDIEN — '+d.name+' : '+d.warning+' Contre : '+d.counter+'.');
+  toast('ALERTE · '+d.name);
+ }
+ if(typeof enemyTurn==='function'){
+  const baseEnemy10880=enemyTurn;
+  enemyTurn=function(){
+   const e=enemy,s=state(e),d=e&&DATA[e.cd10840Case];
+   if(s&&s.telegraph){if(s.counter)cancel(e,s,d);else execute(e,s,d);}
+   if(!battle||!enemy||player.hp<=0){if(typeof render==='function')render();return;}
+   const out=baseEnemy10880.apply(this,arguments);
+   if(battle&&enemy===e&&player.hp>0){
+    s.turns++;const interval=phase(e)===2?2:3;
+    if(!s.telegraph&&s.turns%interval===interval-1)telegraph(e,s,d);
+   }
+   return out;
+  };
+ }
+ if(typeof attack==='function'){
+  const baseAttack10880=attack;
+  attack=function(){
+   const e=enemy,ready=!!(active(e)&&e.cd10840Case==='cloches'&&player.inv&&player.inv.some(function(i){return i&&i.n==="Cartouches d'argent";}));
+   if(ready)arm(e,"Cartouches d'argent");return baseAttack10880.apply(this,arguments);
+  };
+ }
+ if(typeof combatItem==='function'){
+  const baseItem10880=combatItem;
+  combatItem=function(){
+   const e=enemy,ready=!!(active(e)&&e.cd10840Case==='sel'&&player.inv&&player.inv.some(function(i){return i&&i.n==='Sel consacré';}));
+   if(ready)arm(e,'Sel consacré');return baseItem10880.apply(this,arguments);
+  };
+ }
+ if(typeof useInv==='function'){
+  const baseUse10880=useInv;
+  useInv=function(name){
+   const e=enemy,held=!!(player.inv&&player.inv.some(function(i){return i&&i.n===name;}));
+   if(held&&active(e)&&(name==='Flacon de kérosène'||name==='Craie rituelle'))arm(e,name);
+   return baseUse10880.apply(this,arguments);
+  };
+ }
+ if(typeof renderContext==='function'){
+  const baseContext10880=renderContext;
+  renderContext=function(){
+   const out=baseContext10880.apply(this,arguments),e=enemy,s=state(e),d=e&&DATA[e.cd10840Case];
+   try{
+    const boss=document.getElementById('cd49Boss');if(!boss||!s||!d)return out;
+    let box=document.getElementById('cd10880Signature');if(!box){box=document.createElement('div');box.id='cd10880Signature';boss.appendChild(box);}
+    box.className=s.telegraph?'ready':s.counter?'counter':'';
+    box.innerHTML=s.telegraph?'<b>ALERTE — '+d.name+'</b><br>'+d.warning+'<br>Contre : <b>'+d.counter+'</b>':s.counter?'<b>CONTRE-MESURE PRÊTE</b><br>'+d.counter+' interrompra '+d.name+'.':'<b>DOCTRINE — '+d.name+'</b><br>Capacité signature dans '+(phase(e)===2?'un cycle court':'un cycle normal')+'.';
+   }catch(err){console.warn('cd10880 context',err)}return out;
+  };
+ }
+ if(typeof newRun==='function'){
+  const baseNew10880=newRun;
+  newRun=function(){totals.guardians=0;totals.telegraphs=0;totals.signatures=0;totals.counters=0;return baseNew10880.apply(this,arguments);};
+ }
+ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.guardians,telegraphs:totals.telegraphs,signatures:totals.signatures,counters:totals.counters};};
 })();
 </script>
 
