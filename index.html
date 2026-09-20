@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.90.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.91.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14041,7 +14041,58 @@ window.cd10870State=function(){return {reperesLiesEtage:true,checks:st.checks,cl
   const baseNew10880=newRun;
   newRun=function(){totals.guardians=0;totals.telegraphs=0;totals.signatures=0;totals.counters=0;return baseNew10880.apply(this,arguments);};
  }
- window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.guardians,telegraphs:totals.telegraphs,signatures:totals.signatures,counters:totals.counters};};
+window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.guardians,telegraphs:totals.telegraphs,signatures:totals.signatures,counters:totals.counters};};
+})();
+</script>
+
+<script id="cd-v10910">
+/* V10.91.0 — ARCHIVES DURABLES DES GARDIENS
+   Un Gardien vaincu rejoint le bestiaire permanent avec sa famille, sa doctrine,
+   sa faiblesse et sa relique. Son identité canonique alimente aussi correctement
+   la mémoire des affrontements au lieu de créer une famille INCONNUE. */
+(function(){
+ const KEY='cosmic_guardian_codex_v1';
+ const DATA={
+  cloches:{name:'Le Carillonneur des Angles',family:'EXTRADIMENSIONNELLE',token:'Tindalos — Le Carillonneur des Angles',doctrine:'RÉSONANCE IMPOSSIBLE',weak:"Cartouches d’argent",relic:'Éclat de cloche impossible'},
+  sel:{name:'L’Abbé des Noyés',family:'ABYSSALE',token:'Profond — L’Abbé des Noyés',doctrine:'LITANIE ABYSSALE',weak:'Sel consacré',relic:'Ampoule de sel vivant'},
+  moisson:{name:'L’Archiviste Fongique de Yuggoth',family:'FONGIQUE',token:'Mi-Go — L’Archiviste Fongique de Yuggoth',doctrine:'SPORULATION DE YUGGOTH',weak:'Flacon de kérosène',relic:'Spore stellaire scellée'},
+  reflet:{name:'Le Dévoreur de Reflets',family:'EXTRADIMENSIONNELLE',token:'Tindalos — Le Dévoreur de Reflets',doctrine:'MIROIR PRÉDATEUR',weak:'Craie rituelle',relic:'Vitre mémorielle'}
+ };
+ const st={records:0,last:null};
+ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+ function save(v){try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){}}
+ function snapshot(e){
+  if(!e||!e.cd49Guardian||!DATA[e.cd10840Case])return null;
+  const d=DATA[e.cd10840Case];
+  e.base=d.token;e.baseName=d.token;e.cd10910Family=d.family;
+  return {caseId:e.cd10840Case,name:d.name,family:d.family,doctrine:d.doctrine,weak:d.weak,relic:d.relic};
+ }
+ function record(g){
+  if(!g)return false;
+  const all=load(),old=all[g.caseId]||{},victories=Number(old.victories||0)+1;
+  all[g.caseId]={name:g.name,family:g.family,doctrine:g.doctrine,weak:g.weak,relic:g.relic,victories:victories};save(all);
+  st.records++;st.last=g.caseId;
+  if(typeof log==='function')log('ARCHIVES DU GARDIEN — '+g.name+' · famille '+g.family+' · '+victories+' victoire'+(victories>1?'s':'')+'.');
+  if(typeof toast==='function')toast('GARDIEN ARCHIVÉ · '+g.family);
+  return true;
+ }
+ function codexHTML(){
+  const all=load(),ids=Object.keys(DATA),known=ids.filter(function(id){return all[id]});
+  let html='<div class="entry cd10910-guardians" style="border-color:#76618d"><b>GARDIENS DE DOSSIER — '+known.length+'/'+ids.length+'</b><br><span style="color:var(--muted)">Les vaincre révèle leur doctrine complète et conserve cette connaissance entre les réalités.</span></div>';
+  known.forEach(function(id){const g=all[id];html+='<div class="entry cd10910-guardian"><b>'+g.name+'</b><br><span class="gold">Famille '+g.family+' · '+g.victories+' victoire'+(g.victories>1?'s':'')+'</span><br>Doctrine : <b>'+g.doctrine+'</b><br>Faiblesse confirmée : '+g.weak+'<br>Relique associée : '+g.relic+'</div>';});
+  if(!known.length)html+='<div class="entry cd10910-guardian">Aucun Gardien vaincu. Les identités révélées par une enquête ne deviennent des connaissances certaines qu’après l’affrontement.</div>';
+  return html;
+ }
+ if(typeof win==='function'){
+  const baseWin10910=win;
+  win=function(){const g=snapshot(enemy),out=baseWin10910.apply(this,arguments);try{record(g)}catch(e){console.warn('cd10910 record',e)}return out;};
+ }
+ if(typeof cd23OpenCodex==='function'){
+  const baseCodex10910=cd23OpenCodex;
+  cd23OpenCodex=function(){const out=baseCodex10910.apply(this,arguments);try{const root=document.getElementById('sheetContent');if(root&&!root.querySelector('.cd10910-guardians'))root.insertAdjacentHTML('beforeend',codexHTML());}catch(e){console.warn('cd10910 codex',e)}return out;};
+ }
+ window.cd10910Archive=function(){return load()};
+ window.cd10910State=function(){return {archivesDurables:true,records:st.records,last:st.last,data:load()};};
 })();
 </script>
 
