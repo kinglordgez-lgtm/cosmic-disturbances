@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.88.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.89.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/10<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -12456,18 +12456,33 @@ window.cd10514NpcLiveRefresh=true;
 (function(){
  if(typeof move!=='function'||typeof render!=='function'||typeof newRun!=='function')return;
  const st={depth:null,moves:0,target:null,reveals:0};
+ function distances(){
+   const out=new Map();
+   if(!Array.isArray(map)||!map[py]||map[py][px]==='wall')return out;
+   const q=[[px,py]];out.set(px+','+py,0);
+   for(let i=0;i<q.length;i++){
+     const x=q[i][0],y=q[i][1],next=out.get(x+','+y)+1;
+     [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(v){
+       const nx=x+v[0],ny=y+v[1],key=nx+','+ny;
+       if(ny<0||ny>=map.length||!map[ny]||nx<0||nx>=map[ny].length||map[ny][nx]==='wall'||out.has(key))return;
+       out.set(key,next);q.push([nx,ny]);
+     });
+   }
+   return out;
+ }
  function validTarget(){
    if(!st.target||!Array.isArray(map))return false;
    const y=st.target.y,x=st.target.x;
-   return !!(map[y]&&['chest','quest','shrine','trap','exit'].includes(map[y][x]));
+   return !!(map[y]&&['chest','quest','shrine','trap','exit'].includes(map[y][x])&&distances().has(x+','+y));
  }
  function pickTarget(){
    if(!Array.isArray(map))return null;
+   const reach=distances();
    let best=null,bestD=999;
-   for(let y=0;y<13;y++)for(let x=0;x<13;x++){
+   for(let y=0;y<map.length;y++)for(let x=0;x<(map[y]||[]).length;x++){
      const t=map[y][x];
      if(!['chest','quest','shrine','trap','exit'].includes(t))continue;
-     const d=Math.abs(x-px)+Math.abs(y-py);
+     const d=reach.get(x+','+y);if(d===undefined)continue;
      if(d<bestD){bestD=d;best={x:x,y:y,type:t};}
    }
    return best;
@@ -13896,7 +13911,7 @@ window.cd10870State=function(){return {reperesLiesEtage:true,checks:st.checks,cl
 #cd10880Signature.counter{border-color:#78a89a;background:rgba(27,67,59,.42);color:#bde1d6}
 </style>
 <script id="cd-v10880">
-/* V10.88.0 — DOCTRINES UNIQUES DES GARDIENS
+/* V10.89.0 — DOCTRINES UNIQUES DES GARDIENS (STABILITÉ COMBAT)
    Chaque Gardien annonce une capacité signature avant de l'exécuter. La faiblesse
    révélée par le dossier interrompt cette capacité. En phase II, le cycle accélère. */
 (function(){
@@ -13952,6 +13967,7 @@ window.cd10870State=function(){return {reperesLiesEtage:true,checks:st.checks,cl
   const baseEnemy10880=enemyTurn;
   enemyTurn=function(){
    const e=enemy,s=state(e),d=e&&DATA[e.cd10840Case];
+   if(!s)return baseEnemy10880.apply(this,arguments);
    if(s&&s.telegraph){if(s.counter)cancel(e,s,d);else execute(e,s,d);}
    if(!battle||!enemy||player.hp<=0){if(typeof render==='function')render();return;}
    const out=baseEnemy10880.apply(this,arguments);
