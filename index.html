@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.95.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.96.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14461,6 +14461,73 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
  window.cd10950Resolve=resolve;window.cd10950Trigger=trigger;
  window.cd10950State=function(){return {pending:st.pending,ruptures:st.ruptures,anchors:st.anchors,revelations:st.revelations,blocked:st.blocked,anchorDisponible:anchorReady(),anchorDepths:Array.from(st.anchorDepths),last:st.last};};
  try{if(alive()&&Number(player.san)<=0)trigger('initialisation')}catch(e){console.warn('cd10950 init',e)}
+})();
+</script>
+
+<style id="cd-v10960-style">
+#sheetContent [data-cd10960-perk]{pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:4!important;min-height:70px!important}
+</style>
+<script id="cd-v10960">
+/* V10.96.0 — PROGRESSION TACTILE FIABLE
+   Les choix de niveau ne reposent plus uniquement sur un onclick en ligne.
+   Un gestionnaire tactile explicite valide exactement un choix, protège du
+   double toucher et rouvre les choix restants après une fermeture accidentelle. */
+(function(){
+ if(typeof cdOpenPanel!=='function'||typeof cd46Open!=='function')return;
+ let locked=false,lastTouch=0,reopenTimer=null;
+ const st={panels:0,commits:0,reopens:0,duplicates:0,last:null};
+ function pending(){try{return Math.max(0,Number(cd46Pending)||0)}catch(e){return 0}}
+ function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
+ function modalOpen(){const m=document.getElementById('modal');return !!(m&&m.classList&&m.classList.contains('open'))}
+ function progressionVisible(){try{return !!document.querySelector('[data-cd10960-perk]')}catch(e){return false}}
+ function scheduleReopen(delay){
+  if(reopenTimer!==null)clearTimeout(reopenTimer);
+  reopenTimer=setTimeout(function(){
+   reopenTimer=null;if(!pending()||battle||rupture()||modalOpen())return;
+   st.reopens++;try{cd46Open()}catch(e){console.warn('cd10960 reopen',e)}
+  },delay||180);
+ }
+ function select(index){
+  index=Number(index);if(locked||!Number.isInteger(index)||index<0||!pending()){st.duplicates++;return false}
+  locked=true;const before=pending();
+  try{
+   const fn=typeof window.cd46Choose==='function'?window.cd46Choose:(typeof cd46Choose==='function'?cd46Choose:null);
+   if(!fn)throw new Error('cd46Choose indisponible');
+   fn(index);
+  }catch(e){locked=false;if(typeof log==='function')log('PROGRESSION — validation impossible : '+String(e&&e.message||e)+'.');if(typeof toast==='function')toast('CHOIX NON VALIDÉ');return false}
+  const after=pending();
+  if(after>=before){locked=false;if(typeof toast==='function')toast('CHOIX NON VALIDÉ');return false}
+  st.commits++;st.last={index:index,before:before,after:after};locked=false;
+  if(after>0)scheduleReopen(150);
+  return true;
+ }
+ window.cd10960Select=select;
+ const basePanel10960=cdOpenPanel;
+ cdOpenPanel=function(title,body){
+  const t=String(title||''),b=String(body||'');
+  if(/PROGRESSION|NIVEAU/.test(t.toUpperCase())&&/cd46Choose\(\d+\)/.test(b)){
+   locked=false;st.panels++;
+   const fixed=b.replace(/<button\s+onclick=(["'])cd46Choose\((\d+)\)\1/gi,function(_,q,i){return '<button type="button" data-cd10960-perk="'+i+'"'});
+   return basePanel10960.call(this,title,fixed);
+  }
+  return basePanel10960.apply(this,arguments);
+ };
+ function target(ev){try{return ev&&ev.target&&ev.target.closest?ev.target.closest('[data-cd10960-perk]'):null}catch(e){return null}}
+ document.addEventListener('pointerup',function(ev){
+  const b=target(ev);if(!b)return;lastTouch=Date.now();if(ev.cancelable)ev.preventDefault();ev.stopPropagation();select(b.getAttribute('data-cd10960-perk'));
+ },{passive:false,capture:true});
+ document.addEventListener('click',function(ev){
+  const b=target(ev);if(!b)return;if(ev.cancelable)ev.preventDefault();ev.stopPropagation();if(Date.now()-lastTouch<700)return;select(b.getAttribute('data-cd10960-perk'));
+ },{passive:false,capture:true});
+ if(typeof closeOverlays==='function'){
+  const baseClose10960=closeOverlays;
+  closeOverlays=function(){const was=progressionVisible()&&pending()>0,out=baseClose10960.apply(this,arguments);if(was&&pending()>0)scheduleReopen(220);return out};window.closeOverlays=closeOverlays;
+ }
+ if(typeof render==='function'){
+  const baseRender10960=render;
+  render=function(){const out=baseRender10960.apply(this,arguments);if(pending()>0&&!battle&&!rupture()&&!modalOpen())scheduleReopen(180);return out};window.render=render;
+ }
+ window.cd10960State=function(){return {tactile:true,pending:pending(),locked:locked,panels:st.panels,commits:st.commits,reopens:st.reopens,duplicates:st.duplicates,last:st.last};};
 })();
 </script>
 
