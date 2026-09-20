@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.94.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.95.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14380,6 +14380,87 @@ body.cd10940-convergence #mapWrap{filter:saturate(.90) contrast(1.075);box-shado
  window.cd10940Choose=choose;window.cd10940Verify=verify;
   window.cd10940State=function(){return {mode:mode(),depth:st.depth,signals:{real:st.real,falseSignal:st.falseSignal},resolvedReal:st.resolvedReal,resolvedFalse:st.resolvedFalse,prepared:st.prepared,decisions:st.decisions,falseChecks:st.falseChecks,consumed:st.consumed};};
  try{applyVisual()}catch(e){console.warn('cd10940 init',e)}
+})();
+</script>
+
+<style id="cd-v10950-style">
+body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 0 26px rgba(185,92,112,.16)!important;filter:saturate(.62) contrast(1.12)!important}
+#modal.cd10950-rupture #sheet{border-color:rgba(185,92,112,.82);background:linear-gradient(145deg,rgba(39,18,25,.98),rgba(16,20,29,.99))}
+.cd10950-cost{color:var(--muted);font-size:.72em;display:block;margin-top:.35rem;line-height:1.25}
+.cd10950-anchor{border-color:rgba(151,180,205,.65)!important}
+.cd10950-myth{border-color:rgba(179,132,190,.72)!important}
+</style>
+<script id="cd-v10950">
+/* V10.95.0 — RUPTURE MENTALE
+   Zéro SAN n'est plus une réserve vide qui absorbe gratuitement les pertes.
+   Toute rupture suspend les commandes et impose un choix explicite : payer de
+   sa chair pour retrouver le réel, ou céder au Mythe et altérer durablement sa
+   capacité mentale. Les valeurs restent provisoires jusqu'à l'équilibrage final. */
+(function(){
+ const st={pending:false,resolving:false,ruptures:0,anchors:0,revelations:0,blocked:0,last:null,anchorDepths:new Set()};
+ function alive(){return !!player&&Number(player.hp)>0}
+ function depth(){return Number(player&&player.depth||0)}
+ function hpCost(){return Math.max(4,Math.ceil(Number(player&&player.maxhp||1)*.08))}
+ function anchorReady(){return !st.anchorDepths.has(depth())}
+ function markVisual(on){
+  try{document.body&&document.body.classList.toggle('cd10950-pending',!!on);const m=document.getElementById('modal');if(m)m.classList.toggle('cd10950-rupture',!!on)}catch(e){}
+ }
+ function panel(){
+  if(!st.pending||!alive())return;
+  const cost=hpCost(),anchor=anchorReady()
+   ?`<button class="cd10950-anchor" onclick="cd10950Resolve('anchor')"><b>S’ACCROCHER AU RÉEL</b><span class="cd10950-cost">−${cost} PV · +3 SAN · une fois par profondeur</span></button>`
+   :`<button disabled><b>ANCRAGE ÉPUISÉ</b><span class="cd10950-cost">Vous avez déjà forcé le réel à cette profondeur.</span></button>`;
+  const body=`<p>Votre esprit ne peut plus absorber l’horreur. Continuer exige désormais un prix réel.</p><div class="grid2">${anchor}<button class="cd10950-myth" onclick="cd10950Resolve('myth')"><b>ACCEPTER LA RÉVÉLATION</b><span class="cd10950-cost">+3 MYTHE · −1 SAN maximum · retour à 1 SAN</span></button></div>`;
+  markVisual(true);if(typeof cdOpenPanel==='function')cdOpenPanel('RUPTURE MENTALE · ZÉRO SAN',body);
+ }
+ function trigger(source){
+  if(!alive()||Number(player.san)>0||st.pending||st.resolving)return false;
+  player.san=0;st.pending=true;st.last={source:String(source||'effondrement'),depth:depth(),myth:Number(player.myth||0),maxsan:Number(player.maxsan||0)};
+  if(typeof log==='function')log('RUPTURE MENTALE — La SAN est épuisée. Toute action est suspendue jusqu’à votre décision.');
+  if(typeof toast==='function')toast('RUPTURE MENTALE');panel();return true;
+ }
+ function resolve(kind){
+  if(!st.pending||!alive())return;st.resolving=true;st.pending=false;st.ruptures++;
+  if(kind==='anchor'&&anchorReady()){
+   const cost=hpCost();st.anchorDepths.add(depth());st.anchors++;player.hp=Math.max(0,Number(player.hp||0)-cost);player.san=Math.min(Number(player.maxsan||1),3);
+   st.last={choice:'anchor',depth:depth(),cost:cost,san:player.san,myth:Number(player.myth||0)};
+   if(typeof log==='function')log('RUPTURE — Vous vous accrochez à la douleur. -'+cost+' PV, +3 SAN.');
+   if(typeof toast==='function')toast('ANCRAGE DOULOUREUX');
+  }else{
+   st.revelations++;player.maxsan=Math.max(10,Number(player.maxsan||1)-1);player.san=Math.min(player.maxsan,1);player.myth=Math.min(100,Number(player.myth||0)+3);
+   st.last={choice:'myth',depth:depth(),maxsan:player.maxsan,san:player.san,myth:player.myth};
+   if(typeof log==='function')log('RUPTURE — Vous laissez entrer la révélation. +3 MYTHE, -1 SAN maximum.');
+   if(typeof toast==='function')toast('RÉVÉLATION ACCEPTÉE');
+  }
+  markVisual(false);try{if(typeof closeOverlays==='function')closeOverlays()}catch(e){}st.resolving=false;
+  if(Number(player.hp)<=0){if(typeof death==='function')death();return}
+  if(typeof render==='function')render();
+ }
+ function guard(name){
+  if(typeof window[name]!=='function')return;const base=window[name];
+  window[name]=function(){if(st.pending&&alive()){st.blocked++;panel();return false}return base.apply(this,arguments)};
+  try{eval(name+'=window[name]')}catch(e){}
+ }
+ ['move','investigate','attack','defend','enemyTurn','combatItem','flee','useInv','equipInv','dropInv','openInventory','openCharacter','openQuest','openGuide','cd23OpenAchievements'].forEach(guard);
+ if(typeof closeOverlays==='function'){
+  const baseClose10950=closeOverlays;
+  closeOverlays=function(){const out=baseClose10950.apply(this,arguments);if(st.pending&&!st.resolving)setTimeout(panel,0);return out};window.closeOverlays=closeOverlays;
+ }
+ if(typeof closeModalOnly==='function'){
+  const baseCloseModal10950=closeModalOnly;
+  closeModalOnly=function(){if(st.pending&&!st.resolving){st.blocked++;panel();return false}return baseCloseModal10950.apply(this,arguments)};window.closeModalOnly=closeModalOnly;
+ }
+ if(typeof render==='function'){
+  const baseRender10950=render;
+  render=function(){const out=baseRender10950.apply(this,arguments);if(alive()&&Number(player.san)<=0)trigger('render');if(st.pending)markVisual(true);return out};window.render=render;
+ }
+ if(typeof newRun==='function'){
+  const baseNew10950=newRun;
+  newRun=function(){st.pending=false;st.resolving=false;st.ruptures=0;st.anchors=0;st.revelations=0;st.blocked=0;st.last=null;st.anchorDepths.clear();markVisual(false);const out=baseNew10950.apply(this,arguments);if(alive()&&Number(player.san)<=0)trigger('nouvelle réalité');return out};window.newRun=newRun;
+ }
+ window.cd10950Resolve=resolve;window.cd10950Trigger=trigger;
+ window.cd10950State=function(){return {pending:st.pending,ruptures:st.ruptures,anchors:st.anchors,revelations:st.revelations,blocked:st.blocked,anchorDisponible:anchorReady(),anchorDepths:Array.from(st.anchorDepths),last:st.last};};
+ try{if(alive()&&Number(player.san)<=0)trigger('initialisation')}catch(e){console.warn('cd10950 init',e)}
 })();
 </script>
 
