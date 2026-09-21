@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.01.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.02.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14205,7 +14205,7 @@ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.gu
    profondeurs triviales par accumulation mécanique de récompenses. */
 (function(){
  const st={processed:0,levels:0,last:null};
- function need(level){return Math.max(10,10+(Math.max(1,Number(level)||1)-1)*5);}
+ function need(level){return Math.max(30,30+(Math.max(1,Number(level)||1)-1)*10);}
  function process(){
   if(!player||Number(player.hp)<=0)return 0;
   player.lvl=Math.max(1,Number(player.lvl)||1);player.xp=Math.max(0,Number(player.xp)||0);
@@ -14230,7 +14230,7 @@ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.gu
  }
  window.cd10930Need=need;
  window.cd10930ProcessXP=process;
- window.cd10930State=function(){return {seuilsProgressifs:true,traitements:st.processed,niveauxConvertis:st.levels,last:st.last};};
+ window.cd10930State=function(){return {seuilsProgressifs:true,courbeRenforcee:true,traitements:st.processed,niveauxConvertis:st.levels,last:st.last};};
  try{process();if(typeof render==='function')render()}catch(e){console.warn('cd10930 init',e)}
 })();
 </script>
@@ -14791,6 +14791,16 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
   let q=0;try{q=Math.max(0,Number(cd46Pending)||0)}catch(e){}
   return {panneauContinu:true,choixEnAttente:q};
  };
+})();
+</script>
+
+<script id="cd-v11020">
+/* V11.02.0 — COURBE D'EXPÉRIENCE RENFORCÉE
+   Les seuils 10/15/20 étaient incompatibles avec les récompenses tactiques
+   cumulées. La courbe 30/40/50 puis +10 par niveau conserve tous les gains
+   mais empêche le premier combat de propulser l'enquêteur au niveau 3. */
+(function(){
+ window.cd11020State=function(){const p=typeof cd10930State==='function'?cd10930State():null;return {courbe:[30,40,50],increment:10,progression:p};};
 })();
 </script>
 
