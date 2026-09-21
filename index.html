@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.99.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.00.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3150,7 +3150,7 @@ function cd46Choose(i){
  const x=cd46Choices[i];if(!x||cd46Pending<=0)return;
  x.apply();cd46Pending--;log("NIVEAU — Aptitude acquise : "+x.name+".");toast("APTITUDE : "+x.name);
  closeOverlays();render();
- if(cd46Pending>0)setTimeout(cd46Open,120)
+ /* La file tactile V10.96 est l'unique responsable du choix suivant. */
 }
 function cd46CheckLevel(){
  if(!player)return;
@@ -7500,7 +7500,9 @@ function cd560Integrate(name){
   }
   log("INTÉGRATION D'APTITUDE — "+tag+" — "+text);
   const body=`<div class=entry><b>${tag}</b><br>${text}</div>`;
-  if(typeof cdOpenPanel==="function")setTimeout(()=>cdOpenPanel(title,body),140); else toast(tag);
+  /* Une notification intermédiaire ne doit jamais remplacer le prochain choix
+     d'une série de niveaux. Le panneau complet attend la fin de la file. */
+  if(typeof cdOpenPanel==="function"&&Number(cd46Pending||0)<=0)setTimeout(()=>cdOpenPanel(title,body),140); else toast(tag);
   return true;
 }
 const cd560Choose=cd46Choose;
@@ -14760,6 +14762,20 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
  window.cd10990Family=function(e){return normalize(e)};
  window.cd10990State=function(){return {repairs:st.repairs,last:st.last,current:enemy?{name:enemy.name,base:enemy.base,baseName:enemy.baseName,family:normalize(enemy)}:null};};
  try{normalize(enemy)}catch(e){console.warn('cd10990 init',e)}
+})();
+</script>
+
+<script id="cd-v11000">
+/* V11.00.0 — FILE DE PROGRESSION SÉQUENTIELLE
+   La progression tactile V10.96 devient l'unique ordonnanceur des choix en
+   attente. Les anciens minuteurs concurrents et le panneau d'intégration ne
+   peuvent plus remplacer le deuxième ou le troisième choix. */
+(function(){
+ window.cd11000State=function(){
+  let q=0;try{q=Math.max(0,Number(cd46Pending)||0)}catch(e){}
+  const tactile=typeof cd10960State==='function'?cd10960State():null;
+  return {fileUnique:true,choixEnAttente:q,tactile:tactile};
+ };
 })();
 </script>
 
