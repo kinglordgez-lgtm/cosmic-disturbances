@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.02.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.03.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14801,6 +14801,102 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
    mais empêche le premier combat de propulser l'enquêteur au niveau 3. */
 (function(){
  window.cd11020State=function(){const p=typeof cd10930State==='function'?cd10930State():null;return {courbe:[30,40,50],increment:10,progression:p};};
+})();
+</script>
+
+<style id="cd-v11030-style">
+#cd11030Witness{margin:9px 0;padding:9px;border:1px solid rgba(183,151,91,.48);border-radius:7px;background:rgba(183,151,91,.07)}
+#cd11030Witness b{color:#d8bc78}
+#cd11030Witness .grid2{margin-top:8px}
+#cd11030Witness small{display:block;margin-top:3px;color:var(--muted);line-height:1.25}
+</style>
+<script id="cd-v11030">
+/* V11.03.0 — TÉMOIGNAGE À DOUBLE FOND
+   Un témoin ne livre plus une vérité identique à tous les enquêteurs. La SAN
+   et le MYTHE modèlent la fiabilité de la lecture humaine, le risque de la
+   lecture interdite et la préparation transmise à la prochaine rencontre.
+   Les valeurs restent provisoires jusqu'à l'équilibrage final. */
+(function(){
+ if(typeof cd18NpcPanel!=='function'||typeof spawnEnemy!=='function')return;
+ let prep=null,last=null;
+ const totals={facts:0,myth:0,success:0,failed:0,applied:0};
+ function clamp(v){return Math.max(5,Math.min(95,Math.floor(Number(v)||0)))}
+ function mental(){
+  const ratio=Number(player&&player.san||0)/Math.max(1,Number(player&&player.maxsan||1));
+  const awake=Number(player&&player.myth||0)>=20;
+  if(ratio<.38&&awake)return {id:'convergence',label:'CONVERGENCE INTERDITE',facts:-10,myth:25};
+  if(ratio<.38)return {id:'fractured',label:'PERCEPTION FRACTURÉE',facts:-15,myth:-10};
+  if(awake)return {id:'signs',label:'SIGNES DU MYTHE',facts:0,myth:15};
+  return {id:'anchored',label:'ANCRAGE HUMAIN',facts:15,myth:-10};
+ }
+ function witness(){
+  if(!player||!player.npc)return null;
+  if(!player.npc.cd11030)player.npc.cd11030={resolved:false,choice:null,result:null};
+  return player.npc.cd11030;
+ }
+ function skill(name){return Number(player&&player.char&&player.char.skills&&player.char.skills[name]||0)}
+ function roll(target){const value=1+(typeof R==='function'?R(100):Math.floor(Math.random()*100));return {value:value,target:clamp(target),ok:value<=clamp(target)}}
+ function textFor(s){
+  if(!s||!s.resolved)return '';
+  return '<b>LECTURE CONSERVÉE — '+String(s.title||'TÉMOIGNAGE')+'</b><small>'+String(s.detail||'')+'</small>';
+ }
+ function decorate(){
+  try{
+   const n=player&&player.npc,s=witness(),root=document.getElementById('sheetContent');
+   const actions=root&&root.querySelector&&root.querySelector('.cdNpcChoices');
+   if(!n||!s||!root||!actions||root.textContent.indexOf(String(n.name||''))<0)return false;
+   let box=document.getElementById('cd11030Witness');if(box)box.remove();box=document.createElement('div');box.id='cd11030Witness';
+   if(s.resolved)box.innerHTML=textFor(s);
+   else{
+    const m=mental();
+    box.innerHTML='<b>TÉMOIGNAGE À DOUBLE FOND · '+m.label+'</b><small>Le récit possède une vérité humaine et une structure interdite. Votre état mental modifie réellement les deux lectures.</small><div class="grid2"><button onclick="cd11030Choose(\'facts\')">RECONSTRUIRE LES FAITS<br><small>Investigation · échec sans pénalité</small></button><button onclick="cd11030Choose(\'myth\')">ÉCOUTER DERRIÈRE LES MOTS<br><small>Occultisme + MYTHE · −1 SAN · échec : −1 SAN supplémentaire</small></button></div>';
+   }
+   root.insertBefore(box,actions);return true;
+  }catch(e){console.warn('cd11030 witness',e);return false}
+ }
+ window.cd11030Choose=function(choice){
+  const s=witness();if(!s||s.resolved||!player||battle)return false;
+  const m=mental();s.resolved=true;s.choice=choice;s.mental=m.id;
+  if(choice==='facts'){
+   totals.facts++;const q=roll(skill('Investigation')+m.facts);
+   if(q.ok){
+    const gain=m.id==='fractured'?2:1;player.npc.trust=Number(player.npc.trust||0)+1;player.san=Math.min(Number(player.maxsan||player.san||0),Number(player.san||0)+gain);totals.success++;
+    s.title='FAITS RECONSTRUITS';s.detail='Investigation '+q.value+'/'+q.target+' ✓ · confiance +1 · +'+gain+' SAN.';
+    log('TÉMOIGNAGE — FAITS RECONSTRUITS : confiance +1, +'+gain+' SAN.');toast('VÉRITÉ HUMAINE CONSERVÉE');
+   }else{
+    totals.failed++;s.title='RÉCIT INEXPLOITABLE';s.detail='Investigation '+q.value+'/'+q.target+' ✗ · aucune pénalité.';
+    log('TÉMOIGNAGE — Le récit humain reste inexploitable, sans pénalité.');toast('FAITS INCERTAINS');
+   }
+   last={choice:choice,mental:m.id,ok:q.ok,roll:q.value,target:q.target};
+  }else if(choice==='myth'){
+   totals.myth++;player.san=Math.max(0,Number(player.san||0)-1);
+   const q=roll(skill('Occultisme')+Number(player.myth||0)+m.myth);
+   if(q.ok){
+    const cut=m.id==='convergence'?2:1;player.myth=Math.min(100,Number(player.myth||0)+1);prep={def:cut,source:String(player.npc.name||'un témoin')};totals.success++;
+    s.title='SOUS-TEXTE INTERDIT';s.detail='Occultisme '+q.value+'/'+q.target+' ✓ · +1 MYTHE · prochain ennemi : −'+cut+' DEF.';
+    log('TÉMOIGNAGE — SOUS-TEXTE INTERDIT : +1 MYTHE. Le prochain ennemi perdra '+cut+' DEF.');toast('VÉRITÉ DU MYTHE ENTENDUE');
+   }else{
+    player.san=Math.max(0,Number(player.san||0)-1);totals.failed++;s.title='PAROLES PARASITES';s.detail='Occultisme '+q.value+'/'+q.target+' ✗ · −2 SAN au total.';
+    log('TÉMOIGNAGE — PAROLES PARASITES : la structure vous échappe. -2 SAN.');toast('LE RÉCIT VOUS REGARDE');
+   }
+   last={choice:choice,mental:m.id,ok:q.ok,roll:q.value,target:q.target};
+  }else{s.resolved=false;return false}
+  if(typeof render==='function')render();
+  if(Number(player.san)<=0&&typeof cd10950Trigger==='function'){cd10950Trigger('témoignage interdit');return true}
+  if(typeof cd18NpcPanel==='function')cd18NpcPanel();return true;
+ };
+ const basePanel11030=cd18NpcPanel;
+ cd18NpcPanel=function(){const out=basePanel11030.apply(this,arguments);decorate();return out};window.cd18NpcPanel=cd18NpcPanel;
+ const baseSpawn11030=spawnEnemy;
+ spawnEnemy=function(){
+  const out=baseSpawn11030.apply(this,arguments);
+  if(prep&&battle&&enemy){const cut=Math.min(Number(enemy.def||0),Number(prep.def||0));enemy.def=Math.max(0,Number(enemy.def||0)-cut);totals.applied++;log('TÉMOIGNAGE RECOUPÉ — '+prep.source+' avait décrit cette faiblesse : -'+cut+' DEF ennemie.');toast('VÉRITÉ APPLIQUÉE');prep=null;}
+  return out;
+ };window.spawnEnemy=spawnEnemy;
+ if(typeof newRun==='function'){
+  const baseNew11030=newRun;newRun=function(){prep=null;last=null;Object.keys(totals).forEach(function(k){totals[k]=0});return baseNew11030.apply(this,arguments)};window.newRun=newRun;
+ }
+ window.cd11030State=function(){return {temoignageDouble:true,mental:player?mental():null,prep:prep?Object.assign({},prep):null,totals:Object.assign({},totals),last:last,witness:witness()};};
 })();
 </script>
 
