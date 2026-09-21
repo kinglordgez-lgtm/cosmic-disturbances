@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.98.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.99.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14709,6 +14709,57 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
   const baseNew10980=newRun;newRun=function(){foe=null;resolved=false;totals.countered=totals.failed=totals.blocked=0;last=null;return baseNew10980.apply(this,arguments)};window.newRun=newRun;
  }
  window.cd10980State=function(){return {pressure:battle&&enemy?pressure():null,resolved:resolved,totals:Object.assign({},totals),last:last};};
+})();
+</script>
+
+<script id="cd-v10990">
+/* V10.99.0 — IDENTITÉ CANONIQUE DES VARIANTES
+   Un ennemi récurrent remplace visuellement une créature tirée au hasard.
+   L'ancien moteur conservait parfois la base de cette créature-hôte : un
+   Rejeton fongique pouvait donc recevoir une doctrine abyssale. La variante
+   hérite maintenant de l'espèce visible, puis tous les systèmes lisent la même
+   identité canonique (pression, bestiaire, mémoire et doctrines). */
+(function(){
+ const st={repairs:0,last:null};
+ function knownSpecies(name){
+  name=String(name||'');if(!name)return null;
+  const keys=(typeof creatures==='object'&&creatures)?Object.keys(creatures):[];
+  const found=keys.filter(function(k){return name===k||name.indexOf(k+' ')===0||name.indexOf('— '+k)>=0;});
+  found.sort(function(a,b){return b.length-a.length});return found[0]||null;
+ }
+ function family(name){
+  name=String(name||'');
+  if(/Mi-Go|fongique/i.test(name))return 'FONGIQUE';
+  if(/Profond|Noyé|Dagon/i.test(name))return 'ABYSSALE';
+  if(/Byakhee|Tindalos|Polype/i.test(name))return 'EXTRADIMENSIONNELLE';
+  if(/Cultiste|Veilleur/i.test(name))return 'RITUELLE';
+  if(/Goule/i.test(name))return 'NÉCROPHAGE';
+  return 'INCONNUE';
+ }
+ function normalize(e){
+  if(!e)return null;
+  if(e.cd10910Family){e.cd10990Family=e.cd10910Family;return e.cd10990Family}
+  const visible=knownSpecies(e.name),stored=knownSpecies(e.baseName)||knownSpecies(e.base);
+  const canonical=(e.cd72Veteran&&visible)||stored||visible||String(e.base||e.baseName||e.name||'');
+  if(e.cd72Veteran&&visible&&(e.base!==visible||e.baseName!==visible)){
+   const before={name:e.name,base:e.base,baseName:e.baseName};
+   e.base=visible;e.baseName=visible;st.repairs++;st.last={before:before,canonical:visible,family:family(visible)};
+   if(typeof log==='function')log('IDENTITÉ DU BESTIAIRE — '+e.name+' confirmé : famille '+family(visible)+'.');
+  }
+  e.cd10990Family=family(canonical);return e.cd10990Family;
+ }
+ if(typeof spawnEnemy==='function'){
+  const baseSpawn10990=spawnEnemy;
+  spawnEnemy=function(){const out=baseSpawn10990.apply(this,arguments);normalize(enemy);if(typeof renderContext==='function')renderContext();return out};window.spawnEnemy=spawnEnemy;
+ }
+ if(typeof renderContext==='function'){
+  const baseContext10990=renderContext;
+  renderContext=function(){normalize(enemy);return baseContext10990.apply(this,arguments)};window.renderContext=renderContext;
+ }
+ window.cd10990Normalize=normalize;
+ window.cd10990Family=function(e){return normalize(e)};
+ window.cd10990State=function(){return {repairs:st.repairs,last:st.last,current:enemy?{name:enemy.name,base:enemy.base,baseName:enemy.baseName,family:normalize(enemy)}:null};};
+ try{normalize(enemy)}catch(e){console.warn('cd10990 init',e)}
 })();
 </script>
 
