@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 10.96.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 10.97.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14528,6 +14528,75 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
   render=function(){const out=baseRender10960.apply(this,arguments);if(pending()>0&&!battle&&!rupture()&&!modalOpen())scheduleReopen(180);return out};window.render=render;
  }
  window.cd10960State=function(){return {tactile:true,pending:pending(),locked:locked,panels:st.panels,commits:st.commits,reopens:st.reopens,duplicates:st.duplicates,last:st.last};};
+})();
+</script>
+
+<style id="cd-v10970-style">
+#cd10970Mental{margin-top:7px;padding-top:6px;border-top:1px solid rgba(179,132,190,.34);font-size:clamp(9px,.78vw,12px);line-height:1.35;color:var(--muted)}
+#cd10970Mental b{color:#c9a6d2}
+</style>
+<script id="cd-v10970">
+/* V10.97.0 — DOCTRINE MENTALE ACTIVE
+   La combinaison SAN × MYTHE modifie désormais la bonne décision de combat.
+   Chaque état annonce une manoeuvre exploitable une fois par affrontement :
+   la puissance interdite reste volontairement liée à un coût mental réel. */
+(function(){
+ if(typeof defend!=='function'||typeof cd15StudyEnemy!=='function')return;
+ let foe=null,used=false;
+ const totals={anchored:0,signs:0,fractured:0,convergence:0,blocked:0};
+ let last=null;
+ function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
+ function mode(){
+  const ratio=Number(player&&player.san||0)/Math.max(1,Number(player&&player.maxsan||1)),awake=Number(player&&player.myth||0)>=20;
+  if(ratio<.38&&awake)return {id:'convergence',label:'CONVERGENCE INTERDITE',action:'ÉTUDIER',desc:'−10 % PV ennemi · +1 MYTHE · −1 SAN'};
+  if(ratio<.38)return {id:'fractured',label:'PERCEPTION FRACTURÉE',action:'DÉFENDRE',desc:'+2 DEF pour cet assaut'};
+  if(awake)return {id:'signs',label:'SIGNES DU MYTHE',action:'ÉTUDIER',desc:'−1 DEF ennemi · −1 SAN'};
+  return {id:'anchored',label:'ANCRAGE HUMAIN',action:'DÉFENDRE',desc:'+1 SAN'};
+ }
+ function sync(){if(enemy!==foe){foe=enemy;used=false}}
+ function note(m,text){used=true;totals[m.id]++;last={mode:m.id,action:m.action,depth:Number(player&&player.depth||0),enemy:String(enemy&&enemy.name||'')};if(typeof log==='function')log('DOCTRINE MENTALE — '+m.label+' : '+text);if(typeof toast==='function')toast(m.label)}
+ const baseDefend10970=defend;
+ defend=function(){
+  if(rupture()){totals.blocked++;return false}sync();const m=mode();
+  if(battle&&enemy&&!used&&m.action==='DÉFENDRE'){
+   if(m.id==='anchored'){
+    player.san=Math.min(Number(player.maxsan||0),Number(player.san||0)+1);note(m,'vous vous accrochez aux gestes appris. +1 SAN.');
+    return baseDefend10970.apply(this,arguments);
+   }
+   const d=Number(player.def||0);player.def=d+2;note(m,'la peur devient un réflexe de survie. +2 DEF pour cet assaut.');
+   try{return baseDefend10970.apply(this,arguments)}finally{player.def=Math.max(0,Number(player.def||0)-2);if(typeof render==='function')render()}
+  }
+  return baseDefend10970.apply(this,arguments);
+ };window.defend=defend;
+ const baseStudy10970=cd15StudyEnemy;
+ cd15StudyEnemy=function(){
+  if(rupture()){totals.blocked++;return false}sync();const m=mode();
+  if(battle&&enemy&&!used&&m.action==='ÉTUDIER'){
+   if(m.id==='signs'){
+    enemy.def=Math.max(0,Number(enemy.def||0)-1);player.san=Math.max(0,Number(player.san||0)-1);note(m,'les signes révèlent une faille. -1 DEF ennemi, -1 SAN.');
+   }else{
+    const wound=Math.max(3,Math.ceil(Number(enemy.maxhp||enemy.hp||1)*.10));enemy.hp=Math.max(1,Number(enemy.hp||1)-wound);player.myth=Math.min(100,Number(player.myth||0)+1);player.san=Math.max(0,Number(player.san||0)-1);note(m,'vous regardez derrière la forme. -'+wound+' PV ennemi, +1 MYTHE, -1 SAN.');
+   }
+  }
+  const out=baseStudy10970.apply(this,arguments);if(typeof render==='function')render();return out;
+ };window.cd15StudyEnemy=cd15StudyEnemy;
+ if(typeof renderContext==='function'){
+  const baseContext10970=renderContext;
+  renderContext=function(){
+   const out=baseContext10970.apply(this,arguments);sync();
+   try{if(battle&&enemy){const root=document.getElementById('context'),m=mode();if(root){let d=document.getElementById('cd10970Mental');if(!d){d=document.createElement('div');d.id='cd10970Mental';root.appendChild(d)}d.innerHTML='<b>ÉTAT MENTAL — '+m.label+'</b><br>'+(used?'Manœuvre mentale déjà employée.':'1er '+m.action+' : '+m.desc+'.')}}}catch(e){console.warn('cd10970 context',e)}
+   return out;
+  };window.renderContext=renderContext;
+ }
+ if(typeof spawnEnemy==='function'){
+  const baseSpawn10970=spawnEnemy;
+  spawnEnemy=function(){const out=baseSpawn10970.apply(this,arguments);foe=enemy;used=false;return out};window.spawnEnemy=spawnEnemy;
+ }
+ if(typeof newRun==='function'){
+  const baseNew10970=newRun;
+  newRun=function(){foe=null;used=false;Object.keys(totals).forEach(function(k){totals[k]=0});last=null;return baseNew10970.apply(this,arguments)};window.newRun=newRun;
+ }
+ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assign({},totals),last:last};};
 })();
 </script>
 
