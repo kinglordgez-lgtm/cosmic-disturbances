@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.04.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.05.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14925,6 +14925,73 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
   };
  });
  window.cd11040State=function(){return {prioriteAuxDecisions:true,decisionOpen:decisionOpen(),suppressed:suppressed,shown:shown,last:last};};
+})();
+</script>
+
+<script id="cd-v11050">
+/* V11.05.0 — VERROU ANTI-SUPERPOSITION RENFORCÉ
+   Corrige les anciens modules qui conservaient une référence directe à leur
+   bandeau : interception de la liaison elle-même, puis nettoyage à l'ouverture
+   de toute fenêtre proposant un choix. Les effets de jeu et le journal restent
+   inchangés. */
+(function(){
+ const bindings=[
+  ['cd312Banner',function(v){cd312Banner=v}],['cd320Banner',function(v){cd320Banner=v}],
+  ['cd330Banner',function(v){cd330Banner=v}],['cd340Banner',function(v){cd340Banner=v}],
+  ['cd350Banner',function(v){cd350Banner=v}],['cd360Banner',function(v){cd360Banner=v}],
+  ['cd370Banner',function(v){cd370Banner=v}],['cd380Banner',function(v){cd380Banner=v}],
+  ['cd390Banner',function(v){cd390Banner=v}],['cd410Banner',function(v){cd410Banner=v}],
+  ['cd420Banner',function(v){cd420Banner=v}],['cd430Banner',function(v){cd430Banner=v}],
+  ['cd440Banner',function(v){cd440Banner=v}],['cd450Banner',function(v){cd450Banner=v}],
+  ['cd800Banner',function(v){cd800Banner=v}]
+ ];
+ let suppressed=0,shown=0,purged=0,last=null;
+ function decisionOpen(){
+  try{
+   const m=document.getElementById('modal'),c=document.getElementById('sheetContent');
+   return !!(m&&m.classList&&m.classList.contains('open')&&c&&c.querySelector&&c.querySelector('button'));
+  }catch(e){return false}
+ }
+ function purge(){
+  if(!decisionOpen()||!document.querySelectorAll)return 0;
+  let n=0;
+  document.querySelectorAll('[data-cd-legacy-banner="1"],#cd312Banner').forEach(function(el){
+   if(el&&el.parentNode){el.remove();n++;}
+  });
+  purged+=n;if(n)last={reason:'interactive-panel-open',purged:n};return n;
+ }
+ function guarded(name,original){
+  return function(title,detail){
+   if(decisionOpen()){
+    suppressed++;last={name:name,title:String(title||''),detail:String(detail||''),reason:'decision-open'};
+    purge();return false;
+   }
+   const before=document.body&&document.body.lastElementChild;
+   const out=original.apply(this,arguments);
+   const node=document.body&&document.body.lastElementChild;
+   if(node&&node!==before&&node.setAttribute)node.setAttribute('data-cd-legacy-banner','1');
+   shown++;last={name:name,title:String(title||''),reason:'shown'};return out;
+  };
+ }
+ bindings.forEach(function(entry){
+  const name=entry[0],set=entry[1],original=window[name];
+  if(typeof original==='function'){const next=guarded(name,original);set(next);window[name]=next;}
+ });
+ if(typeof cdOpenPanel==='function'){
+  const basePanel11050=cdOpenPanel;
+  cdOpenPanel=function(){const out=basePanel11050.apply(this,arguments);purge();return out};window.cdOpenPanel=cdOpenPanel;
+ }
+ if(typeof modal==='function'){
+  const baseModal11050=modal;
+  modal=function(){const out=baseModal11050.apply(this,arguments);purge();return out};window.modal=modal;
+ }
+ if(typeof MutationObserver==='function'){
+  const m=document.getElementById('modal'),c=document.getElementById('sheetContent');
+  const observer=new MutationObserver(function(){purge()});
+  if(m)observer.observe(m,{attributes:true,attributeFilter:['class','style']});
+  if(c)observer.observe(c,{childList:true,subtree:true});
+ }
+ window.cd11050State=function(){return {verrouRenforce:true,decisionOpen:decisionOpen(),suppressed:suppressed,shown:shown,purged:purged,last:last};};
 })();
 </script>
 
