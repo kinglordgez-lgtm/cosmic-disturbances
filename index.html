@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.03.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.04.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14897,6 +14897,34 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
   const baseNew11030=newRun;newRun=function(){prep=null;last=null;Object.keys(totals).forEach(function(k){totals[k]=0});return baseNew11030.apply(this,arguments)};window.newRun=newRun;
  }
  window.cd11030State=function(){return {temoignageDouble:true,mental:player?mental():null,prep:prep?Object.assign({},prep):null,totals:Object.assign({},totals),last:last,witness:witness()};};
+})();
+</script>
+
+<script id="cd-v11040">
+/* V11.04.0 — PRIORITÉ VISUELLE AUX DÉCISIONS
+   Les anciens bandeaux flottants conservent leurs effets, leur journal et leur
+   toast, mais ne peuvent plus recouvrir une fenêtre contenant un choix tactile. */
+(function(){
+ const names=['cd312Banner','cd320Banner','cd330Banner','cd340Banner','cd350Banner','cd360Banner','cd370Banner','cd380Banner','cd390Banner','cd410Banner','cd420Banner','cd430Banner','cd440Banner','cd450Banner','cd800Banner'];
+ let suppressed=0,shown=0,last=null;
+ function decisionOpen(){
+  try{
+   const modal=document.getElementById('modal'),content=document.getElementById('sheetContent');
+   return !!(modal&&modal.classList&&modal.classList.contains('open')&&content&&content.querySelector&&content.querySelector('button'));
+  }catch(e){return false}
+ }
+ names.forEach(function(name){
+  const original=window[name];if(typeof original!=='function')return;
+  window[name]=function(title,detail){
+   if(decisionOpen()){
+    suppressed++;last={name:name,title:String(title||''),detail:String(detail||''),reason:'decision-open'};
+    return false;
+   }
+   shown++;last={name:name,title:String(title||''),reason:'shown'};
+   return original.apply(this,arguments);
+  };
+ });
+ window.cd11040State=function(){return {prioriteAuxDecisions:true,decisionOpen:decisionOpen(),suppressed:suppressed,shown:shown,last:last};};
 })();
 </script>
 
