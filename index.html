@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.08.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.09.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15278,6 +15278,126 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  }
  window.cd11080BindNpc=bind;
  window.cd11080State=function(){return {identitesParCase:true,activeKey:activeKey,count:player&&player.cd11080Npcs?Object.keys(player.cd11080Npcs).length:0,totals:Object.assign({},totals)};};
+})();
+</script>
+
+<style id="cd-v11090-style">
+#cd11090Network{margin:9px 0;padding:9px;border-left:3px solid #9c7bc0;background:rgba(156,123,192,.09);font-size:13px}
+#cd11090Network b{color:#c9a8e5}#cd11090Network small{display:block;margin-top:3px;color:var(--muted);line-height:1.3}
+#cd11090Network button{margin-top:8px;width:100%}
+#sheetContent [data-cd11090-action]{pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:9!important}
+</style>
+<script id="cd-v11090">
+/* V11.09.0 — RÉSEAU DE TÉMOIGNAGES
+   Les habitants persistants deviennent des sources distinctes. Deux récits
+   obtenus sur deux cases différentes forment un recoupement dont la nature
+   dépend de SAN + MYTHE. Le joueur peut alors réorienter l'étape courante de
+   l'enquête vers une vérification humaine ou une anomalie, sans modifier les
+   gains, les seuils d'expérience ni la difficulté. */
+(function(){
+ if(typeof cd18Talk!=='function'||typeof cd18NpcPanel!=='function')return;
+ let choiceLocked=false,lastTouch=0;
+ const totals={sources:0,links:0,resolved:0,duplicates:0,last:null};
+ function state(){
+  if(!player.cd11090)player.cd11090={sources:{},order:[],link:null,resolution:null};
+  return player.cd11090;
+ }
+ function sourceKey(n){return String(n&&n.cd11080Key||n&&n.name||'').trim()}
+ function mental(){
+  const ratio=Number(player&&player.san||0)/Math.max(1,Number(player&&player.maxsan||1)),myth=Number(player&&player.myth||0);
+  if(ratio<.38&&myth>=20)return {id:'convergence',label:'ÉCHO IMPOSSIBLE',detail:'Les deux récits emploient la même phrase, mais inversent la cause et la conséquence.'};
+  if(ratio<.38)return {id:'fractured',label:'CONTRADICTION INSTABLE',detail:'Les lieux concordent tandis que l’ordre des événements refuse de rester fixe.'};
+  if(myth>=20)return {id:'signs',label:'MOTIF INTERDIT',detail:'Deux témoins sans lien décrivent le même signe dissimulé derrière les faits.'};
+  return {id:'anchored',label:'CONCORDANCE HUMAINE',detail:'Les horaires et les lieux se recoupent assez pour dégager une piste vérifiable.'};
+ }
+ function buildLink(){
+  const s=state();if(s.link||s.order.length<2)return s.link;
+  const a=s.sources[s.order[s.order.length-2]],b=s.sources[s.order[s.order.length-1]],m=mental();
+  if(!a||!b||a.key===b.key)return null;
+  s.link={a:a.key,b:b.key,names:[a.name,b.name],mental:m.id,label:m.label,detail:m.detail,resolved:false,choice:null};
+  choiceLocked=false;
+  totals.links++;totals.last={kind:'link',names:s.link.names.slice(),mental:m.id};
+  if(typeof log==='function')log('RECOUPEMENT — '+a.name+' et '+b.name+' : '+m.label+'.');
+  if(typeof toast==='function')toast('DEUX TÉMOIGNAGES SE RECOUPENT');
+  return s.link;
+ }
+ function collect(origin){
+  const n=player&&player.npc,key=sourceKey(n);if(!n||!key)return false;
+  const s=state();if(s.sources[key]){totals.duplicates++;return false}
+  const src={key:key,name:String(n.name||'Témoin'),role:String(n.role||'Habitant'),text:String(n.rumor||'Un détail demeure dans son récit.'),origin:String(origin||'social')};
+  s.sources[key]=src;s.order.push(key);totals.sources++;totals.last={kind:'source',key:key,name:src.name,origin:src.origin};
+  if(typeof log==='function')log('TÉMOIGNAGE CONSIGNÉ — '+src.name+' : « '+src.text+' »');
+  if(typeof toast==='function')toast('SOURCE AJOUTÉE AU DOSSIER');
+  buildLink();return true;
+ }
+ function activeQuest(){return !!(player&&player.quest&&!player.quest.done&&player.quest.steps&&player.quest.steps[player.quest.step||0])}
+ function openNetwork(){
+  const s=state(),l=s.link;if(!l)return false;choiceLocked=false;
+  if(l.resolved){if(typeof cd18NpcPanel==='function')cd18NpcPanel();return true}
+  const wait=activeQuest()?'':'<p class="small">Le recoupement restera disponible dès qu’une enquête sera active.</p>';
+  const disabled=activeQuest()?'':' disabled';
+  cdOpenPanel('RÉSEAU DE TÉMOIGNAGES','<h2 style="margin-top:0">'+l.label+'</h2><p>'+l.names.join(' · ')+'</p><p>'+l.detail+'</p>'+wait+'<div class="grid2"><button data-cd11090-action="facts"'+disabled+'>VÉRIFIER LES FAITS<br><small>Oriente la piste vers un lieu</small></button><button data-cd11090-action="echo"'+disabled+'>SUIVRE L’ÉCHO<br><small>Oriente la piste vers une anomalie</small></button></div>');
+  return true;
+ }
+ function resolve(choice){
+  const s=state(),l=s.link;if(choiceLocked||!l||l.resolved||!activeQuest()||(choice!=='facts'&&choice!=='echo'))return false;
+  choiceLocked=true;
+  try{
+   const q=player.quest,idx=q.step||0,step=q.steps[idx],old=String(step.objective||'piste précédente');q.history=q.history||[];
+   q.history.push('Recoupement de '+l.names.join(' et ')+' : '+l.label+'.');
+   q.history.push('Piste réorientée : '+old+'.');
+   if(choice==='facts')Object.assign(step,{objective:'Vérifier le lieu recoupé !',skill:'Investigation',target:'quest',branch:true,cd11090:'facts'});
+   else Object.assign(step,{objective:'Éprouver l’écho commun ✦',skill:'Occultisme',target:'shrine',branch:true,cd11090:'echo'});
+   l.resolved=true;l.choice=choice;s.resolution={choice:choice,quest:q.title||'',step:idx,objective:step.objective};totals.resolved++;totals.last={kind:'resolved',choice:choice,objective:step.objective};
+   if(typeof log==='function')log('PISTE RECOUPÉE — '+step.objective);
+   if(typeof toast==='function')toast(choice==='facts'?'LIEU À VÉRIFIER':'ANOMALIE À ÉPROUVER');
+   if(typeof closeOverlays==='function')closeOverlays();
+   if(typeof render==='function')render();
+   if(typeof cd18NpcPanel==='function')setTimeout(function(){cd18NpcPanel()},0);
+   return true;
+  }catch(e){choiceLocked=false;console.warn('cd11090 resolve',e);return false}
+ }
+ const baseTalk11090=cd18Talk;
+ cd18Talk=function(mode){
+  const n=player&&player.npc,before=n?Number(n.trust||0):0;let out=baseTalk11090.apply(this,arguments),after=n?Number(n.trust||0):before;
+  if(n&&after>=before)collect('social-'+String(mode||''));
+  if(!battle)setTimeout(function(){try{cd18NpcPanel()}catch(e){}},0);
+  return out;
+ };window.cd18Talk=cd18Talk;
+ if(typeof cd11030Choose==='function'){
+  const baseWitness11090=cd11030Choose;
+  cd11030Choose=function(choice){
+   const out=baseWitness11090.apply(this,arguments),last=typeof cd11030State==='function'?cd11030State().last:null;
+   if(out&&choice==='facts'&&last&&last.ok)collect('faits-reconstruits');
+   return out;
+  };window.cd11030Choose=cd11030Choose;
+ }
+ function decorate(){
+  try{
+   const root=document.getElementById('sheetContent'),n=player&&player.npc,actions=root&&root.querySelector&&root.querySelector('.cdNpcChoices');if(!root||!n||!actions)return false;
+   let box=document.getElementById('cd11090Network');if(box)box.remove();box=document.createElement('div');box.id='cd11090Network';
+   const s=state(),count=s.order.length,l=s.link;
+   if(!l)box.innerHTML='<b>DOSSIER DES TÉMOINS · '+count+'/2</b><small>'+(count?'Cette déclaration est conservée. Un second témoin permettra un recoupement.':'Obtenez une déclaration exploitable pour ouvrir un recoupement.')+'</small>';
+   else if(!l.resolved)box.innerHTML='<b>'+l.label+' · '+l.names.join(' / ')+'</b><small>'+l.detail+'</small><button data-cd11090-action="open">RECOUPER LES RÉCITS</button>';
+   else box.innerHTML='<b>PISTE RECOUPÉE · '+(l.choice==='facts'?'VÉRIFICATION HUMAINE':'ÉCHO INTERDIT')+'</b><small>'+String(s.resolution&&s.resolution.objective||l.detail)+'</small>';
+   actions.parentNode.insertBefore(box,actions);return true;
+  }catch(e){console.warn('cd11090 decorate',e);return false}
+ }
+ const basePanel11090=cd18NpcPanel;
+ cd18NpcPanel=function(){const out=basePanel11090.apply(this,arguments);decorate();return out};window.cd18NpcPanel=cd18NpcPanel;
+ function actionFrom(ev){const b=ev.target&&ev.target.closest?ev.target.closest('[data-cd11090-action]'):null;return b?String(b.getAttribute('data-cd11090-action')||''):''}
+ function act(ev){const a=actionFrom(ev);if(!a)return false;ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return a==='open'?openNetwork():resolve(a)}
+ const root=document.getElementById('sheetContent');
+ if(root){
+  root.addEventListener('pointerup',function(ev){lastTouch=Date.now();act(ev)},true);
+  root.addEventListener('touchend',function(ev){lastTouch=Date.now();act(ev)},{capture:true,passive:false});
+  root.addEventListener('click',function(ev){if(Date.now()-lastTouch<700&&actionFrom(ev)){ev.preventDefault();ev.stopPropagation();return}act(ev)},true);
+ }
+ if(typeof newRun==='function'){
+  const baseNew11090=newRun;newRun=function(){choiceLocked=false;const out=baseNew11090.apply(this,arguments);if(player)player.cd11090={sources:{},order:[],link:null,resolution:null};return out};window.newRun=newRun;
+ }
+ window.cd11090Collect=collect;window.cd11090Open=openNetwork;window.cd11090Resolve=resolve;
+ window.cd11090State=function(){const s=state();return {reseauDeTemoins:true,sources:s.order.length,link:s.link?Object.assign({},s.link):null,resolution:s.resolution?Object.assign({},s.resolution):null,totals:Object.assign({},totals)};};
 })();
 </script>
 
