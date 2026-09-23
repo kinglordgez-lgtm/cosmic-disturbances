@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.06.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.07.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15078,6 +15078,146 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
  const basePanel11060=cd18NpcPanel;
  cd18NpcPanel=function(){const out=basePanel11060.apply(this,arguments);decorate();return out};window.cd18NpcPanel=cd18NpcPanel;
  window.cd11060State=function(){return {memoireSociale:true,reputation:Object.assign({},state()),profile:profile(),mental:mental(),reception:player&&player.npc?player.npc.cd11060Reception||null:null};};
+})();
+</script>
+
+<style id="cd-v11070-style">
+/* La mémoire sociale V11.06 est désormais l'unique réputation montrée en dialogue. */
+#sheetContent #cd41RepNpc{display:none!important}
+#cd11070Temperament{margin:9px 0;padding:9px;border-left:3px solid #c7a96b;background:rgba(199,169,107,.08);font-size:13px}
+#cd11070Temperament b{color:#dbc27e}#cd11070Temperament small{display:block;margin-top:3px;color:var(--muted);line-height:1.3}
+#sheetContent [data-cd11070-lead]{pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:8!important}
+</style>
+<script id="cd-v11070">
+/* V11.07.0 — TÉMOINS DISTINCTS + LIEU CORRÉLÉ TACTILE
+   Chaque habitant possède un tempérament, des formulations, une approche
+   favorisée, une résistance et un détail personnel. Deux rencontres
+   consécutives ne tirent plus immédiatement la même identité.
+   Le lieu corrélé est validé par délégation tactile directe : aucune
+   réécriture fragile de l'attribut onclick n'est nécessaire. */
+(function(){
+ if(typeof cd18NPC!=='function'||typeof cd18Talk!=='function'||typeof cd18NpcPanel!=='function')return;
+ const profiles={
+  'Abigail Crane':{kind:'ARCHIVISTE MÉTICULEUSE',intro:'Elle classe déjà vos gestes comme des pièces à conviction.',fav:'questionner',resist:'menacer',approach:'facts',threshold:1,
+   labels:['RECOUPER LES REGISTRES','RESPECTER SES SILENCES','BRANDIR UNE SAISIE'],secret:'Abigail reconnaît dans les ratures la main du greffier municipal.'},
+  'Jonas Reed':{kind:'OUVRIER À BOUT DE FORCES',intro:'Il répond mieux à la patience qu’à une nouvelle pression.',fav:'rassurer',resist:'menacer',approach:'calm',threshold:1,
+   labels:['REFAIRE LA CHRONOLOGIE','LUI LAISSER REPRENDRE SOUFFLE','LE COINCER SUR LE QUAI'],secret:'Jonas situe la caisse respirante juste avant la marée de minuit.'},
+  'Martha Bell':{kind:'VEUVE TERRIFIÉE',intro:'La brusquer fermerait un témoin qui lutte déjà contre la panique.',fav:'rassurer',resist:'menacer',approach:'read',threshold:1,
+   labels:['DÉMÊLER SON RÉCIT','RASSURER SANS PROMETTRE','FORCER L’AVEU'],secret:'Martha révèle que son mari évite tous les miroirs depuis son retour.'},
+  'Isaac Webb':{kind:'POLICIER SUR SES GARDES',intro:'Il évalue votre méthode avant de partager la sienne.',fav:'questionner',resist:'rassurer',approach:'facts',threshold:2,
+   labels:['COMPARER LES RAPPORTS','PARLER ENTRE COLLÈGUES','CONTESTER SON AUTORITÉ'],secret:'Isaac admet qu’un rapport disparaît chaque nuit du poste central.'},
+  'Eleanor Shaw':{kind:'MÉDECIN CLINIQUE',intro:'Elle accorde plus de valeur aux symptômes précis qu’aux impressions.',fav:'questionner',resist:'menacer',approach:'facts',threshold:1,
+   labels:['ISOLER LES SYMPTÔMES','ÉVOQUER LES VICTIMES','EXIGER LE DOSSIER'],secret:'Eleanor a conservé un prélèvement qui réagit au son des cloches.'},
+  'Caleb Price':{kind:'PÊCHEUR TACITURNE',intro:'Ses pauses disent davantage que ses phrases courtes.',fav:'rassurer',resist:'questionner',approach:'read',threshold:2,
+   labels:['SUIVRE LES CONTRADICTIONS','PARTAGER LE SILENCE','MENACER SON BATEAU'],secret:'Caleb connaît une entrée du phare visible seulement à marée descendante.'},
+  'Ruth Harker':{kind:'INFIRMIÈRE NERVEUSE',intro:'Elle observe la porte à chaque question trop directe.',fav:'rassurer',resist:'menacer',approach:'calm',threshold:1,
+   labels:['RECONSTRUIRE LA GARDE','CALMER SA CRAINTE','LA METTRE EN CAUSE'],secret:'Ruth a noté votre nom dans le registre avant même votre arrivée.'},
+  'Silas Cole':{kind:'SACRISTAIN HOSTILE',intro:'Il respecte la fermeté, mais repère immédiatement la fausse assurance.',fav:'menacer',resist:'rassurer',approach:'facts',threshold:2,
+   labels:['DÉCHIFFRER SON SERMON','OFFRIR UNE TRÊVE','LUI TENIR TÊTE'],secret:'Silas confirme que le symbole ouvre quelque chose sous la sacristie.'}
+ };
+ const fallback={kind:'TÉMOIN IMPRÉVISIBLE',intro:'Son attitude exige une lecture attentive.',fav:'questionner',resist:'menacer',approach:'read',threshold:1,
+  labels:['QUESTIONNER','RASSURER','MENACER'],secret:'Le témoin laisse échapper un détail qu’il voulait taire.'};
+ let lastName='',lastLeadTouch=0,leadLocked=false;
+ const stats={generated:0,repeatsAvoided:0,preferred:0,resisted:0,secrets:0,leadChoices:0,last:null};
+ function spec(n){return profiles[String(n&&n.name||'')]||fallback}
+ function ensure(n){if(n&&!n.cd11070)n.cd11070={secret:false,attempts:0};return n&&n.cd11070}
+ function skillFor(mode){return mode==='questionner'?'Investigation':mode==='rassurer'?'Psychologie':'Armes'}
+ function approachSkill(mode){return mode==='read'?'Psychologie':mode==='facts'?'Investigation':'Endurance'}
+
+ const baseNpc11070=cd18NPC;
+ cd18NPC=function(){
+  let n=baseNpc11070.apply(this,arguments);
+  try{
+   if(n&&lastName&&n.name===lastName&&typeof CD20_NPCS!=='undefined'&&CD20_NPCS.length>1){
+    const pool=CD20_NPCS.filter(function(x){return x.name!==lastName});
+    const alt=pool[(typeof R==='function'?R(pool.length):Math.floor(Math.random()*pool.length))];
+    if(alt){Object.keys(alt).forEach(function(k){n[k]=alt[k]});stats.repeatsAvoided++;}
+   }
+   if(n){lastName=n.name;ensure(n);stats.generated++;stats.last={kind:'generated',name:n.name,temperament:spec(n).kind};}
+  }catch(e){console.warn('cd11070 npc',e)}
+  return n;
+ };window.cd18NPC=cd18NPC;
+
+ const baseTalk11070=cd18Talk;
+ cd18Talk=function(mode){
+  const n=player&&player.npc,p=spec(n),skill=skillFor(mode),skills=player&&player.char&&player.char.skills;
+  const old=skills?Number(skills[skill]||0):0,bonus=mode===p.fav?15:mode===p.resist?-15:0,before=n?Number(n.trust||0):0;
+  if(skills)skills[skill]=old+bonus;
+  let out;try{out=baseTalk11070.apply(this,arguments)}finally{if(skills)skills[skill]=old}
+  if(n){
+   const mem=ensure(n),after=Number(n.trust||0),ok=after>=before;mem.attempts++;
+   if(mode===p.fav)stats.preferred++;if(mode===p.resist)stats.resisted++;
+   if(ok&&mode===p.fav&&!mem.secret&&after>=p.threshold){mem.secret=true;stats.secrets++;log('CONFIDENCE PERSONNELLE — '+p.secret);toast('DÉTAIL PROPRE AU TÉMOIN');}
+   else if(!ok&&mode===p.resist)log('TEMPÉRAMENT — '+n.name+' résiste particulièrement à cette approche.');
+   stats.last={kind:'social',name:n.name,mode:mode,modifier:bonus,ok:ok,trust:after};
+   if(!battle)setTimeout(function(){try{cd18NpcPanel()}catch(e){}},0);
+  }
+  return out;
+ };window.cd18Talk=cd18Talk;
+
+ if(typeof window.cd1050Choose==='function'){
+  const baseApproach11070=window.cd1050Choose;
+  window.cd1050Choose=function(mode){
+   const n=player&&player.npc,p=spec(n),skill=approachSkill(mode),skills=player&&player.char&&player.char.skills;
+   const old=skills?Number(skills[skill]||0):0,bonus=mode===p.approach?12:-4;
+   if(skills)skills[skill]=old+bonus;
+   try{return baseApproach11070.apply(this,arguments)}finally{if(skills)skills[skill]=old}
+  };
+ }
+
+ function decorateNpc(){
+  try{
+   const root=document.getElementById('sheetContent'),n=player&&player.npc,actions=root&&root.querySelector&&root.querySelector('.cdNpcChoices');
+   if(!root||!n||!actions||root.textContent.indexOf(String(n.name||''))<0)return false;
+   const oldRep=document.getElementById('cd41RepNpc');if(oldRep)oldRep.remove();
+   const p=spec(n),mem=ensure(n);let box=document.getElementById('cd11070Temperament');if(box)box.remove();
+   box=document.createElement('div');box.id='cd11070Temperament';
+   box.innerHTML='<b>'+p.kind+'</b><small>'+p.intro+(mem.secret?'<br>Information obtenue : '+p.secret:'')+'</small>';
+   actions.parentNode.insertBefore(box,actions);
+   const buttons=actions.querySelectorAll('button');
+   if(buttons[0])buttons[0].textContent=p.labels[0];if(buttons[1])buttons[1].textContent=p.labels[1];if(buttons[2])buttons[2].textContent=p.labels[2];
+   return true;
+  }catch(e){console.warn('cd11070 decorate',e);return false}
+ }
+ const basePanel11070=cd18NpcPanel;
+ cd18NpcPanel=function(){const out=basePanel11070.apply(this,arguments);decorateNpc();return out};window.cd18NpcPanel=cd18NpcPanel;
+
+ function isLeadPanel(root){return !!(root&&/PISTE EN CHAÎNE/.test(root.textContent||'')&&/LIEU CORRÉLÉ/.test(root.textContent||''))}
+ function leadMode(btn){const t=String(btn&&btn.textContent||'').toUpperCase();return /RECHERCHER UNE PREUVE/.test(t)?'proof':/PRÉPARER LA MENACE/.test(t)?'threat':''}
+ function commitLead(mode){
+  if(leadLocked||(mode!=='proof'&&mode!=='threat'))return false;leadLocked=true;
+  try{
+   if(typeof window.cd10500Choose!=='function')throw new Error('choix de piste indisponible');
+   window.cd10500Choose(mode);stats.leadChoices++;stats.last={kind:'lieu-correle',choice:mode};
+   if(typeof closeOverlays==='function')closeOverlays();else if(typeof closeModalOnly==='function')closeModalOnly();
+   return true;
+  }catch(e){leadLocked=false;console.warn('cd11070 lead',e);if(typeof toast==='function')toast('CHOIX NON VALIDÉ');return false}
+ }
+ window.cd11070SelectLead=commitLead;
+ function handleLead(ev){
+  const root=document.getElementById('sheetContent'),btn=ev.target&&ev.target.closest?ev.target.closest('button'):null,mode=leadMode(btn);
+  if(!mode||!isLeadPanel(root))return;
+  ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();commitLead(mode);
+ }
+ const root=document.getElementById('sheetContent');
+ if(root){
+  root.addEventListener('pointerup',function(ev){lastLeadTouch=Date.now();handleLead(ev)},true);
+  root.addEventListener('touchend',function(ev){lastLeadTouch=Date.now();handleLead(ev)},{capture:true,passive:false});
+  root.addEventListener('click',function(ev){if(Date.now()-lastLeadTouch<700){if(leadMode(ev.target&&ev.target.closest?ev.target.closest('button'):null)){ev.preventDefault();ev.stopPropagation()}return}handleLead(ev)},true);
+ }
+ if(typeof cdOpenPanel==='function'){
+  const baseOpen11070=cdOpenPanel;
+  cdOpenPanel=function(title,body){
+   let b=String(body||'');
+   if(String(title||'')==='PISTE EN CHAÎNE'&&/LIEU CORRÉLÉ/.test(b)){leadLocked=false;b=b.replace(/<button(?=\s)/g,'<button data-cd11070-lead="1"');}
+   if(String(title||'')==='APPROCHE DU TÉMOIN'&&player&&player.npc){const p=spec(player.npc);b=b.replace('Avant de poser votre première question, vous choisissez comment installer le rapport de force.',p.intro);}
+   return baseOpen11070.call(this,title,b);
+  };window.cdOpenPanel=cdOpenPanel;
+ }
+ if(typeof newRun==='function'){
+  const baseNew11070=newRun;newRun=function(){lastName='';leadLocked=false;return baseNew11070.apply(this,arguments)};window.newRun=newRun;
+ }
+ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,statistiques:Object.assign({},stats),lieuCorreleTactile:true,leadLocked:leadLocked};};
 })();
 </script>
 
