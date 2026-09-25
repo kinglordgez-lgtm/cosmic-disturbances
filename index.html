@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.10.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.11.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15286,6 +15286,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
 #cd11090Network b{color:#c9a8e5}#cd11090Network small{display:block;margin-top:3px;color:var(--muted);line-height:1.3}
 #cd11090Network button{margin-top:8px;width:100%}
 #sheetContent [data-cd11090-action]{pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:9!important}
+.tile.cd11090-target{outline:3px solid #bda2db!important;outline-offset:-4px;box-shadow:inset 0 0 0 2px #31213d!important}
 </style>
 <script id="cd-v11090">
 /* V11.09.0 — RÉSEAU DE TÉMOIGNAGES
@@ -15331,6 +15332,31 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   buildLink();return true;
  }
  function activeQuest(){return !!(player&&player.quest&&!player.quest.done&&player.quest.steps&&player.quest.steps[player.quest.step||0])}
+ function chooseSite(type){
+  if(typeof map==='undefined'||typeof px==='undefined'||typeof py==='undefined'||!Array.isArray(map)||!map[py])return null;
+  const seen=new Set([px+','+py]),queue=[{x:px,y:py,d:0}],sites=[],floors=[];
+  for(let i=0;i<queue.length;i++){
+   const p=queue[i],tile=map[p.y]&&map[p.y][p.x];
+   if(tile===type&&p.d>0)sites.push(p);
+   if(tile==='floor'&&p.d>1)floors.push(p);
+   for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){
+    const x=p.x+dx,y=p.y+dy,k=x+','+y,t=map[y]&&map[y][x];
+    if(!seen.has(k)&&t&&t!=='wall'&&t!=='water'){seen.add(k);queue.push({x:x,y:y,d:p.d+1})}
+   }
+  }
+  const site=sites[0]||floors[floors.length-1];
+  if(!site)return null;
+  if(!sites.length){map[site.y][site.x]=type;if(typeof log==='function')log('RECOUPEMENT — Une nouvelle trace apparaît sur la carte.');}
+  return {x:site.x,y:site.y,depth:Number(player.depth)||0,target:type};
+ }
+ function ensureSite(){
+  if(typeof map==='undefined')return null;
+  const s=state(),r=s.resolution,q=player&&player.quest,step=q&&q.steps&&q.steps[q.step||0];
+  if(!r||!q||q.done||!step||q.title!==r.quest||(q.step||0)!==r.step||step.objective!==r.objective)return null;
+  const site=r.site;
+  if(site&&site.depth===(Number(player.depth)||0)&&map[site.y]&&map[site.y][site.x]===step.target)return site;
+  r.site=chooseSite(step.target);return r.site;
+ }
  function openNetwork(){
   const s=state(),l=s.link;if(!l)return false;choiceLocked=false;
   if(l.resolved){if(typeof cd18NpcPanel==='function')cd18NpcPanel();return true}
@@ -15348,12 +15374,12 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
    q.history.push('Piste réorientée : '+old+'.');
    if(choice==='facts')Object.assign(step,{objective:'Vérifier le lieu recoupé !',skill:'Investigation',target:'quest',branch:true,cd11090:'facts'});
    else Object.assign(step,{objective:'Éprouver l’écho commun ✦',skill:'Occultisme',target:'shrine',branch:true,cd11090:'echo'});
-   l.resolved=true;l.choice=choice;s.resolution={choice:choice,quest:q.title||'',step:idx,objective:step.objective};totals.resolved++;totals.last={kind:'resolved',choice:choice,objective:step.objective};
+   const site=chooseSite(step.target);
+   l.resolved=true;l.choice=choice;s.resolution={choice:choice,quest:q.title||'',step:idx,objective:step.objective,site:site};totals.resolved++;totals.last={kind:'resolved',choice:choice,objective:step.objective};
    if(typeof log==='function')log('PISTE RECOUPÉE — '+step.objective);
    if(typeof toast==='function')toast(choice==='facts'?'LIEU À VÉRIFIER':'ANOMALIE À ÉPROUVER');
    if(typeof closeOverlays==='function')closeOverlays();
    if(typeof render==='function')render();
-   if(typeof cd18NpcPanel==='function')setTimeout(function(){cd18NpcPanel()},0);
    return true;
   }catch(e){choiceLocked=false;console.warn('cd11090 resolve',e);return false}
  }
@@ -15361,7 +15387,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  cd18Talk=function(mode){
   const n=player&&player.npc,before=n?Number(n.trust||0):0;let out=baseTalk11090.apply(this,arguments),after=n?Number(n.trust||0):before;
   if(n&&after>=before)collect('social-'+String(mode||''));
-  if(!battle)setTimeout(function(){try{cd18NpcPanel()}catch(e){}},0);
+  if(!battle)setTimeout(function(){try{const root=document.getElementById('sheetContent');if(root&&root.querySelector&&root.querySelector('[data-cd11090-action="facts"], [data-cd11090-action="echo"]'))return;cd18NpcPanel()}catch(e){}},0);
   return out;
  };window.cd18Talk=cd18Talk;
  if(typeof cd11030Choose==='function'){
@@ -15384,19 +15410,26 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   }catch(e){console.warn('cd11090 decorate',e);return false}
  }
  const basePanel11090=cd18NpcPanel;
- cd18NpcPanel=function(){const out=basePanel11090.apply(this,arguments);decorate();return out};window.cd18NpcPanel=cd18NpcPanel;
+ cd18NpcPanel=function(){const root=document.getElementById('sheetContent');if(root&&root.querySelector&&root.querySelector('[data-cd11090-action="facts"], [data-cd11090-action="echo"]'))return true;const out=basePanel11090.apply(this,arguments);decorate();return out};window.cd18NpcPanel=cd18NpcPanel;
  function actionFrom(ev){const b=ev.target&&ev.target.closest?ev.target.closest('[data-cd11090-action]'):null;return b?String(b.getAttribute('data-cd11090-action')||''):''}
  function act(ev){const a=actionFrom(ev);if(!a)return false;ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();return a==='open'?openNetwork():resolve(a)}
  const root=document.getElementById('sheetContent');
  if(root){
-  root.addEventListener('pointerup',function(ev){lastTouch=Date.now();act(ev)},true);
-  root.addEventListener('touchend',function(ev){lastTouch=Date.now();act(ev)},{capture:true,passive:false});
+  root.addEventListener('pointerup',function(ev){if(actionFrom(ev)){lastTouch=Date.now();act(ev)}},true);
+  root.addEventListener('touchend',function(ev){if(actionFrom(ev)){lastTouch=Date.now();act(ev)}},{capture:true,passive:false});
   root.addEventListener('click',function(ev){if(Date.now()-lastTouch<700&&actionFrom(ev)){ev.preventDefault();ev.stopPropagation();return}act(ev)},true);
  }
  if(typeof newRun==='function'){
   const baseNew11090=newRun;newRun=function(){choiceLocked=false;const out=baseNew11090.apply(this,arguments);if(player)player.cd11090={sources:{},order:[],link:null,resolution:null};return out};window.newRun=newRun;
  }
- window.cd11090Collect=collect;window.cd11090Open=openNetwork;window.cd11090Resolve=resolve;
+ if(typeof render==='function'){
+  const baseRender11090=render;
+  render=function(){const site=ensureSite(),out=baseRender11090.apply(this,arguments);if(typeof mapCells!=='undefined'&&Array.isArray(mapCells)){
+   for(const cell of mapCells)if(cell&&cell.classList)cell.classList.remove('cd11090-target');
+   if(site&&mapCells[site.y*13+site.x])mapCells[site.y*13+site.x].classList.add('cd11090-target');
+  }return out};window.render=render;
+ }
+ window.cd11090Collect=collect;window.cd11090Open=openNetwork;window.cd11090Resolve=resolve;window.cd11090EnsureSite=ensureSite;
  window.cd11090State=function(){const s=state();return {reseauDeTemoins:true,sources:s.order.length,link:s.link?Object.assign({},s.link):null,resolution:s.resolution?Object.assign({},s.resolution):null,totals:Object.assign({},totals)};};
 })();
 </script>
@@ -15412,13 +15445,15 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   const idx=Number(q.step)||0,step=q.steps[idx];
   if(!step||idx!==r.step||q.title!==r.quest||step.objective!==r.objective||step.cd11090!==r.choice)return null;
   if(!map||!map[py]||map[py][px]!==step.target)return null;
+  const site=r.site;
+  if(site&&(site.depth!==(Number(player.depth)||0)||site.x!==px||site.y!==py))return null;
   return {s:s,r:r,q:q,step:step};
  }
  function panel(){
   const p=pending();if(!p||locked||battle||Number(player.hp)<=0)return false;
   const echo=p.r.choice==='echo',a=p.s.sources[p.s.link.a],b=p.s.sources[p.s.link.b];
   if(!a||!b)return false;
-  const clue=echo?'Les deux voix répètent le même fragment, alors que leurs souvenirs divergent.':'Les deux dépositions situent la trace au même endroit, malgré des détails incompatibles.';
+  const clue=echo?'Une anomalie apparaît ici. Les deux témoignages permettent de chercher ce qui échappe à une lecture ordinaire.':'Une trace apparaît ici. Comparez les deux dépositions à ce que révèle le terrain.';
   const proper=echo?'SUIVRE LE FRAGMENT COMMUN':'CONFRONTER LES DEUX DÉPOSITIONS';
   const falseLead=echo?'RETENIR UNE SEULE VOIX':'ÉCARTER LA SECONDE DÉPOSITION';
   cdOpenPanel('VÉRIFICATION DU RECOUPEMENT','<p>'+clue+'</p><div class="questBox"><b>'+a.name+'</b> : '+a.text+'</div><div class="questBox"><b>'+b.name+'</b> : '+b.text+'</div><p>Quelle méthode permet de vérifier la piste ?</p><div class="grid2"><button data-cd11100-action="verify">'+proper+'</button><button data-cd11100-action="discard">'+falseLead+'</button></div>');
