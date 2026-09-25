@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.09.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.10.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15398,6 +15398,65 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  }
  window.cd11090Collect=collect;window.cd11090Open=openNetwork;window.cd11090Resolve=resolve;
  window.cd11090State=function(){const s=state();return {reseauDeTemoins:true,sources:s.order.length,link:s.link?Object.assign({},s.link):null,resolution:s.resolution?Object.assign({},s.resolution):null,totals:Object.assign({},totals)};};
+})();
+</script>
+
+<script id="cd-v11100">
+/* V11.10 — Une piste recoupée se vérifie réellement sur le terrain. */
+(function(){
+ if(typeof investigate!=='function'||typeof cdOpenPanel!=='function')return;
+ let locked=false,lastTouch=0;
+ function pending(){
+  const s=player&&player.cd11090,r=s&&s.resolution,q=player&&player.quest;
+  if(!r||!q||q.done||!q.steps||!s.link||!s.link.resolved||s.verification)return null;
+  const idx=Number(q.step)||0,step=q.steps[idx];
+  if(!step||idx!==r.step||q.title!==r.quest||step.objective!==r.objective||step.cd11090!==r.choice)return null;
+  if(!map||!map[py]||map[py][px]!==step.target)return null;
+  return {s:s,r:r,q:q,step:step};
+ }
+ function panel(){
+  const p=pending();if(!p||locked||battle||Number(player.hp)<=0)return false;
+  const echo=p.r.choice==='echo',a=p.s.sources[p.s.link.a],b=p.s.sources[p.s.link.b];
+  if(!a||!b)return false;
+  const clue=echo?'Les deux voix répètent le même fragment, alors que leurs souvenirs divergent.':'Les deux dépositions situent la trace au même endroit, malgré des détails incompatibles.';
+  const proper=echo?'SUIVRE LE FRAGMENT COMMUN':'CONFRONTER LES DEUX DÉPOSITIONS';
+  const falseLead=echo?'RETENIR UNE SEULE VOIX':'ÉCARTER LA SECONDE DÉPOSITION';
+  cdOpenPanel('VÉRIFICATION DU RECOUPEMENT','<p>'+clue+'</p><div class="questBox"><b>'+a.name+'</b> : '+a.text+'</div><div class="questBox"><b>'+b.name+'</b> : '+b.text+'</div><p>Quelle méthode permet de vérifier la piste ?</p><div class="grid2"><button data-cd11100-action="verify">'+proper+'</button><button data-cd11100-action="discard">'+falseLead+'</button></div>');
+  return true;
+ }
+ function choose(action){
+  const p=pending();if(!p||locked||(action!=='verify'&&action!=='discard'))return false;
+  locked=true;
+  try{
+   if(typeof closeOverlays==='function')closeOverlays();
+   p.q.history=p.q.history||[];
+   if(action==='discard'){
+    p.q.history.push('Recoupement écarté : une seule déposition a été retenue.');
+    if(typeof changeQuest==='function')changeQuest('les témoignages ne suffisent plus');
+   }else{
+    const ok=typeof skillCheck==='function'&&skillCheck(p.step.skill,10);
+    p.q.history.push((ok?'Vérification confirmée':'Vérification incertaine')+' : '+p.s.link.names.join(' et ')+'.');
+    if(ok&&typeof advanceQuest==='function')advanceQuest();
+    else if(!ok&&typeof changeQuest==='function')changeQuest('le recoupement reste impossible à prouver');
+   }
+   p.s.verification={choice:action,quest:p.q.title,step:p.r.step};
+   if(typeof render==='function')render();
+   return true;
+  }finally{locked=false}
+ }
+ const previous=investigate;
+ investigate=function(){if(panel())return true;return previous.apply(this,arguments)};window.investigate=investigate;
+ const root=document.getElementById('sheetContent');
+ if(root){
+  function action(ev){const btn=ev.target&&ev.target.closest&&ev.target.closest('[data-cd11100-action]');if(!btn)return false;ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();choose(btn.getAttribute('data-cd11100-action'));return true}
+  root.addEventListener('pointerup',function(ev){if(action(ev))lastTouch=Date.now()},true);
+  root.addEventListener('touchend',function(ev){if(action(ev))lastTouch=Date.now()},{capture:true,passive:false});
+  root.addEventListener('click',function(ev){if(Date.now()-lastTouch<700&&ev.target&&ev.target.closest&&ev.target.closest('[data-cd11100-action]')){ev.preventDefault();ev.stopPropagation();return}action(ev)},true);
+ }
+ if(typeof newRun==='function'){
+  const base=newRun;newRun=function(){locked=false;return base.apply(this,arguments)};window.newRun=newRun;
+ }
+ window.cd11100Panel=panel;window.cd11100Choose=choose;
 })();
 </script>
 
