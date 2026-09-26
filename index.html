@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.11.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.12.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15492,6 +15492,112 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   const base=newRun;newRun=function(){locked=false;return base.apply(this,arguments)};window.newRun=newRun;
  }
  window.cd11100Panel=panel;window.cd11100Choose=choose;
+})();
+</script>
+
+<style id="cd-v11120-style">
+#cd11120Instinct{margin:5px 0 0;padding:5px 7px;border:1px solid rgba(128,156,181,.38);border-radius:6px;background:rgba(87,116,143,.07);font-size:clamp(9px,.78vw,12px);line-height:1.3;color:var(--muted)}
+#cd11120Instinct b{color:#b8d0e3}
+#cd11120Instinct.cd11120-alert{border-color:rgba(184,107,115,.62);background:rgba(91,29,39,.18)}
+#cd11120Instinct.cd11120-alert b{color:#efbcc2}
+#cd11120Instinct.cd11120-resolved{border-color:rgba(116,156,132,.42);background:rgba(116,156,132,.07)}
+#cd11120Instinct.cd11120-resolved b{color:#a9c7b1}
+@media (orientation:landscape) and (max-height:430px){#cd11120Instinct{font-size:8px!important;line-height:1.2!important;padding:3px 5px!important;margin-top:3px!important}}
+</style>
+<script id="cd-v11120">
+/* V11.12 — INSTINCTS D'ESPÈCE
+   Une créature ordinaire révèle après son premier assaut une capacité propre à
+   sa nature. Elle est annoncée avant exécution et possède une réponse lisible.
+   Les Gardiens conservent exclusivement leurs doctrines uniques. */
+(function(){
+ if(typeof enemyTurn!=='function'||typeof attack!=='function'||typeof defend!=='function'||typeof cd15StudyEnemy!=='function')return;
+ const totals={armed:0,countered:0,executed:0,blocked:0};let foe=null,last=null;
+ function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
+ function guardian(e){return !!(e&&(e.cd49Guardian||e.cd10840Case))}
+ function family(n){
+  n=String(n||'');
+  if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';
+  if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';
+  if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';
+  if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';
+  if(/Goule/i.test(n))return 'NÉCROPHAGE';
+  return 'INCONNUE';
+ }
+ function profile(e){
+  const f=family(e&&(e.base||e.baseName||e.name));
+  return ({
+   ABYSSALE:{family:f,label:'RESSAC INTÉRIEUR',counter:'DÉFENDRE',risk:'−1 SAN',text:'Son souffle se cale sur une marée que vous ne voyez pas.'},
+   FONGIQUE:{family:f,label:'GREFFE DE SECOURS',counter:'ÉTUDIER',risk:'régénération',text:'Ses tissus cherchent déjà une nouvelle manière de tenir.'},
+   EXTRADIMENSIONNELLE:{family:f,label:'ANGLE DE CHASSE',counter:'ÉTUDIER',risk:'+2 ATQ pour l’assaut',text:'Sa silhouette prépare un mouvement qui refuse la perspective.'},
+   RITUELLE:{family:f,label:'FORMULE PARASITE',counter:'ATTAQUER',risk:'−1 SAN · +1 MYTHE',text:'Une syllabe étrangère se forme derrière ses dents.'},
+   NÉCROPHAGE:{family:f,label:'RUÉE DE CHARNIER',counter:'ATTAQUER',risk:'−2 PV avant l’assaut',text:'La faim remplace soudain toute prudence.'},
+   INCONNUE:{family:f,label:'IMITATION HOSTILE',counter:'DÉFENDRE',risk:'−1 SAN',text:'La chose apprend votre peur en vous regardant.'}
+  })[f];
+ }
+ function state(e){
+  if(!battle||!e||guardian(e))return null;
+  if(!e.cd11120)e.cd11120={turns:0,armed:false,resolved:false,result:null};
+  return e.cd11120;
+ }
+ function sync(){if(enemy!==foe)foe=enemy;return state(enemy)}
+ function arm(e,s,p){
+  if(!s||s.resolved||s.armed)return;
+  s.armed=true;totals.armed++;last={result:'armed',enemy:String(e.name||''),family:p.family,instinct:p.label};
+  if(typeof log==='function')log('ALERTE D’ESPÈCE — '+p.label+' : '+p.text+' Contre : '+p.counter+'.');
+  if(typeof toast==='function')toast('INSTINCT · '+p.label);
+ }
+ function counter(action){
+  const e=enemy,s=sync();if(!s||!s.armed||s.resolved||rupture())return true;
+  const p=profile(e);if(action!==p.counter)return true;
+  s.armed=false;s.resolved=true;s.result='countered';totals.countered++;last={result:'countered',enemy:String(e.name||''),family:p.family,instinct:p.label,action:action};
+  if(typeof log==='function')log('INSTINCT CONTENU — '+p.label+' interrompu par '+action+'.');
+  if(typeof toast==='function')toast('INSTINCT CONTENU');
+  return true;
+ }
+ function execute(e,s,p){
+  s.armed=false;s.resolved=true;s.result='executed';totals.executed++;
+  let bonus=0;
+  if(p.family==='ABYSSALE')player.san=Math.max(0,Number(player.san||0)-1);
+  else if(p.family==='FONGIQUE'){const heal=Math.max(2,Math.ceil(Number(e.maxhp||e.hp||1)*.08));e.hp=Math.min(Number(e.maxhp||e.hp),Number(e.hp||0)+heal)}
+  else if(p.family==='EXTRADIMENSIONNELLE'){bonus=2;e.atk=Number(e.atk||1)+bonus}
+  else if(p.family==='RITUELLE'){player.san=Math.max(0,Number(player.san||0)-1);player.myth=Math.min(100,Number(player.myth||0)+1)}
+  else if(p.family==='NÉCROPHAGE')player.hp=Math.max(0,Number(player.hp||0)-2);
+  else player.san=Math.max(0,Number(player.san||0)-1);
+  last={result:'executed',enemy:String(e.name||''),family:p.family,instinct:p.label,risk:p.risk};
+  if(typeof log==='function')log('INSTINCT D’ESPÈCE — '+p.label+' : '+p.risk+'.');
+  if(typeof toast==='function')toast(p.label);
+  return bonus;
+ }
+ const baseEnemy11120=enemyTurn;
+ enemyTurn=function(){
+  const e=enemy,s=sync();if(!s)return baseEnemy11120.apply(this,arguments);
+  const p=profile(e);let bonus=0;
+  if(s.armed&&!s.resolved)bonus=execute(e,s,p);
+  if(Number(player.hp)<=0){if(typeof death==='function')death();return false}
+  if(Number(player.san)<=0&&typeof cd10950Trigger==='function'){cd10950Trigger('instinct hostile');return false}
+  let out;try{out=baseEnemy11120.apply(this,arguments)}finally{if(bonus&&enemy===e)e.atk=Math.max(1,Number(e.atk||1)-bonus)}
+  if(battle&&enemy===e&&Number(player.hp)>0){s.turns++;if(s.turns===1&&!s.resolved)arm(e,s,p)}
+  return out;
+ };window.enemyTurn=enemyTurn;
+ const baseAttack11120=attack;attack=function(){counter('ATTAQUER');return baseAttack11120.apply(this,arguments)};window.attack=attack;
+ const baseDefend11120=defend;defend=function(){counter('DÉFENDRE');return baseDefend11120.apply(this,arguments)};window.defend=defend;
+ const baseStudy11120=cd15StudyEnemy;cd15StudyEnemy=function(){counter('ÉTUDIER');return baseStudy11120.apply(this,arguments)};window.cd15StudyEnemy=cd15StudyEnemy;
+ function decorate(){
+  try{
+   const e=enemy,s=sync(),root=document.getElementById('context'),actions=root&&root.querySelector&&root.querySelector('.actions');if(!e||!s||!root||!actions)return;
+   let line=document.getElementById('cd11120Instinct');if(!line){line=document.createElement('div');line.id='cd11120Instinct'}
+   const p=profile(e);line.className=s.armed?'cd11120-alert':s.resolved?'cd11120-resolved':'';
+   line.innerHTML=s.armed?'<b>ALERTE D’ESPÈCE — '+p.label+'</b><br>Prochain '+p.counter+' : annule '+p.risk+'.':s.resolved?'<b>INSTINCT D’ESPÈCE — '+(s.result==='countered'?'CONTENU':'SUBI')+'</b><br>'+p.label+' ne se déclenchera plus dans ce combat.':'<b>INSTINCT '+p.family+' — '+p.label+'</b><br>La créature se dévoilera après son premier assaut.';
+   root.insertBefore(line,actions);
+  }catch(e){console.warn('cd11120 context',e)}
+ }
+ if(typeof renderContext==='function'){
+  const baseContext11120=renderContext;renderContext=function(){const out=baseContext11120.apply(this,arguments);decorate();return out};window.renderContext=renderContext;
+ }
+ if(typeof newRun==='function'){
+  const baseNew11120=newRun;newRun=function(){foe=null;Object.keys(totals).forEach(function(k){totals[k]=0});last=null;return baseNew11120.apply(this,arguments)};window.newRun=newRun;
+ }
+ window.cd11120State=function(){const s=battle&&enemy?state(enemy):null;return {instinctsEspece:true,current:s?{profile:profile(enemy),state:Object.assign({},s)}:null,totals:Object.assign({},totals),last:last};};
 })();
 </script>
 
