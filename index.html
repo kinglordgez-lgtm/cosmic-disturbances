@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.12.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.13.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15598,6 +15598,90 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   const baseNew11120=newRun;newRun=function(){foe=null;Object.keys(totals).forEach(function(k){totals[k]=0});last=null;return baseNew11120.apply(this,arguments)};window.newRun=newRun;
  }
  window.cd11120State=function(){const s=battle&&enemy?state(enemy):null;return {instinctsEspece:true,current:s?{profile:profile(enemy),state:Object.assign({},s)}:null,totals:Object.assign({},totals),last:last};};
+})();
+</script>
+
+<style id="cd-v11130-style">
+#cd11130Choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+#cd11130Choices button{min-height:70px;padding:8px 10px}
+#cd11130Choices button:last-child:nth-child(odd){grid-column:1/-1;min-height:54px}
+@media (orientation:landscape) and (max-height:430px){#cd11130Choices{gap:5px;margin-top:6px}#cd11130Choices button{min-height:52px;padding:5px 7px;font-size:12px}#cd11130Choices small{font-size:9px}}
+</style>
+<script id="cd-v11130">
+/* V11.13 — ASSAUT TACTIQUE UNIFIÉ
+   Les anciennes couches Réflexe / Doctrine / Lecture ne se déclenchent plus
+   en cascade. Lorsqu'elles sont disponibles, un seul panneau les rassemble
+   et une seule approche peut modifier l'attaque. Les résolutions et la
+   progression historiques restent confiées à leurs fonctions d'origine. */
+(function(){
+ if(typeof attack!=='function'||typeof cdOpenPanel!=='function')return;
+ const MEMORY='cosmic_combat_memory_v1',EXPERTISE='cosmic_bestiary_expertise_v1';
+ const totals={panels:0,reflex:0,guard:0,doctrine:0,tactical:0,normal:0};let locked=false,last=null;
+ function load(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){return {}}}
+ function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
+ function baseName(){return String(enemy&&(enemy.base||enemy.baseName||enemy.name)||'')}
+ function rank(n){return n>=6?3:n>=3?2:n>=1?1:0}
+ function reflex(){
+  if(!battle||!enemy||enemy.cd10350Resolved||enemy.cd10350Offered)return null;
+  const f=family(baseName()),count=Number(load(MEMORY)[f]||0),r=rank(count);
+  return r>=2?{f:f,count:count,r:r}:null;
+ }
+ function doctrine(){
+  if(!battle||!enemy||enemy.cd10320Resolved||enemy.cd10320Offered)return null;
+  const f=family(baseName()),r=rank(Number(load(EXPERTISE)[f]||0));
+  return r>0?{f:f,r:r}:null;
+ }
+ function tactical(){
+  if(!battle||!enemy||typeof cd880State!=='function')return false;
+  const t=cd880State(),s=player&&player.cd10260,b=baseName();
+  if(s&&s.enemy===b&&s.resolved)return false;
+  return !!(t&&t.applied&&t.prepared===b);
+ }
+ function available(){
+  if(!battle||!enemy||enemy.cd11130Resolved)return null;
+  const r=reflex(),d=doctrine(),t=tactical();return (r||d||t)?{r:r,d:d,t:t}:null;
+ }
+ function skipLegacy(keep){
+  if(!enemy)return;
+  if(keep!=='reflex'){enemy.cd10350Offered=true;enemy.cd10350Resolved=true}
+  if(keep!=='doctrine'){enemy.cd10320Offered=true;enemy.cd10320Resolved=true}
+  if(keep!=='tactical'&&player){player.cd10260={enemy:baseName(),offered:true,resolved:true}}
+ }
+ function labelFor(mode){return ({reflex:'RÉFLEXE EXPLOITÉ',guard:'GARDE MÉMORISÉE',doctrine:'DOCTRINE APPLIQUÉE',tactical:'FRAPPE CIBLÉE',normal:'ATTAQUE NORMALE'})[mode]||mode}
+ const baseAttack11130=attack;
+ window.cd11130Choose=function(mode){
+  if(locked||!battle||!enemy)return false;
+  if(!/^(reflex|guard|doctrine|tactical|normal)$/.test(String(mode)))return false;
+  locked=true;const e=enemy;e.cd11130Resolved=true;e.cd11130Offered=true;skipLegacy(mode==='guard'?'reflex':mode);
+  totals[mode]++;last={mode:mode,enemy:String(e.name||''),family:family(baseName())};
+  if(typeof closeOverlays==='function')closeOverlays();
+  if(typeof log==='function')log('ASSAUT TACTIQUE — '+labelFor(mode)+' : une seule approche est engagée.');
+  try{
+   if(mode==='reflex'&&typeof cd10350Choose==='function')return cd10350Choose('precision');
+   if(mode==='guard'&&typeof cd10350Choose==='function')return cd10350Choose('garde');
+   if(mode==='doctrine'&&typeof cd10320Choose==='function')return cd10320Choose('apply');
+   if(mode==='tactical'&&typeof cd10260Commit==='function')return cd10260Commit('ciblee');
+   return baseAttack11130();
+  }finally{locked=false}
+ };
+ function panel(x){
+  const buttons=[];
+  if(x.r){buttons.push('<button onclick="cd11130Choose(\'reflex\')">EXPLOITER LE RÉFLEXE<br><small>test · dégâts et +1 XP</small></button>');buttons.push('<button onclick="cd11130Choose(\'guard\')">GARDE MÉMORISÉE<br><small>ATQ ennemie −1 · garanti</small></button>')}
+  if(x.d)buttons.push('<button onclick="cd11130Choose(\'doctrine\')">APPLIQUER LA DOCTRINE<br><small>test · bonus de maîtrise</small></button>');
+  if(x.t)buttons.push('<button onclick="cd11130Choose(\'tactical\')">FRAPPE CIBLÉE<br><small>test · −3 PV et +1 XP</small></button>');
+  buttons.push('<button onclick="cd11130Choose(\'normal\')">ATTAQUE NORMALE<br><small>aucun risque · aucun bonus tactique</small></button>');
+  enemy.cd11130Offered=true;totals.panels++;
+  cdOpenPanel('ASSAUT TACTIQUE','<h2>UNE SEULE OUVERTURE</h2><p>Plusieurs lectures convergent. Choisissez celle qui guidera cet assaut ; les autres restent en réserve.</p><div id="cd11130Choices">'+buttons.join('')+'</div>');
+  return true;
+ }
+ attack=function(){const x=available();if(x)return panel(x);return baseAttack11130.apply(this,arguments)};window.attack=attack;
+ if(typeof spawnEnemy==='function'){
+  const baseSpawn11130=spawnEnemy;spawnEnemy=function(){locked=false;const out=baseSpawn11130.apply(this,arguments);if(enemy){enemy.cd11130Resolved=false;enemy.cd11130Offered=false}return out};window.spawnEnemy=spawnEnemy;
+ }
+ if(typeof newRun==='function'){
+  const baseNew11130=newRun;newRun=function(){locked=false;last=null;Object.keys(totals).forEach(function(k){totals[k]=0});return baseNew11130.apply(this,arguments)};window.newRun=newRun;
+ }
+ window.cd11130State=function(){return {assautTactiqueUnifie:true,locked:locked,totals:Object.assign({},totals),last:last,current:battle&&enemy?{offered:!!enemy.cd11130Offered,resolved:!!enemy.cd11130Resolved}:null};};
 })();
 </script>
 
