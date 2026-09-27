@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.15.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.16.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15529,6 +15529,9 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   if(/Noyé de Blackwater/i.test(n))return {family:f,id:'noye',label:'CLOCHE IMMERGÉE',counter:'ÉTUDIER',risk:'−2 SAN · +1 MYTHE',text:'Une cloche muette bat sous l’eau de ses poumons. Cherchez sa cadence.'};
   if(/Byakhee/i.test(n))return {family:f,id:'byakhee',label:'PIQUÉ DES HAUTEURS',counter:'DÉFENDRE',risk:'+2 ATQ pour l’assaut',text:'Ses ailes se figent un instant avant un piqué brutal.'};
   if(/Veilleur sans visage/i.test(n))return {family:f,id:'veilleur',label:'VISAGE EMPRUNTÉ',counter:'ÉTUDIER',risk:'−1 SAN · +1 MYTHE',text:'L’absence de traits tente d’adopter les vôtres. Fixez ce changement.'};
+  if(/Mi-Go/i.test(n))return {family:f,id:'migo',label:'PRÉLÈVEMENT NEURAL',counter:'ÉTUDIER',risk:'−3 SAN',text:'Ses pinces cessent de frapper et cherchent un point derrière votre crâne.'};
+  if(/Goule/i.test(n))return {family:f,id:'goule',label:'SAUT DE CHARNIER',counter:'DÉFENDRE',risk:'−3 PV · Infection',text:'Elle s’aplatit dans l’ombre, prête à bondir dents en avant.'};
+  if(/Cultiste de Dagon/i.test(n))return {family:f,id:'dagon',label:'LITANIE DES PROFONDEURS',counter:'ATTAQUER',risk:'+4 PV ennemi · −1 SAN',text:'Il suspend son geste pour achever un nom prononcé sous l’eau.'};
   return ({
    ABYSSALE:{family:f,label:'RESSAC INTÉRIEUR',counter:'DÉFENDRE',risk:'−1 SAN',text:'Son souffle se cale sur une marée que vous ne voyez pas.'},
    FONGIQUE:{family:f,label:'GREFFE DE SECOURS',counter:'ÉTUDIER',risk:'régénération',text:'Ses tissus cherchent déjà une nouvelle manière de tenir.'},
@@ -15563,6 +15566,9 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   let bonus=0;
   if(p.id==='noye'){player.san=Math.max(0,Number(player.san||0)-2);player.myth=Math.min(100,Number(player.myth||0)+1)}
   else if(p.id==='veilleur'){player.san=Math.max(0,Number(player.san||0)-1);player.myth=Math.min(100,Number(player.myth||0)+1)}
+  else if(p.id==='migo')player.san=Math.max(0,Number(player.san||0)-3);
+  else if(p.id==='goule'){player.hp=Math.max(0,Number(player.hp||0)-3);if(typeof cd12AddStatus==='function')cd12AddStatus('Infection')}
+  else if(p.id==='dagon'){e.hp=Math.min(Number(e.maxhp||e.hp),Number(e.hp||0)+4);player.san=Math.max(0,Number(player.san||0)-1)}
   else if(p.family==='ABYSSALE')player.san=Math.max(0,Number(player.san||0)-1);
   else if(p.family==='FONGIQUE'){const heal=Math.max(2,Math.ceil(Number(e.maxhp||e.hp||1)*.08));e.hp=Math.min(Number(e.maxhp||e.hp),Number(e.hp||0)+heal)}
   else if(p.family==='EXTRADIMENSIONNELLE'){bonus=2;e.atk=Number(e.atk||1)+bonus}
