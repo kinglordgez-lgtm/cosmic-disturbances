@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.20.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.21.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -8964,7 +8964,7 @@ function cd890Ambush(){
   cd890ConsumePrepared();
   log('EMBUSCADE PRÉPARÉE — '+target+' reconnu : -2 PV initiaux. La piste est consommée.');
   toast('EMBUSCADE PRÉPARÉE');
-  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('EMBUSCADE PRÉPARÉE',`<h2>${target}</h2><p>Vous reconnaissez les signes observés sur le terrain et anticipez la rencontre.</p><p><b>-2 PV ennemi.</b> La piste identifiée est maintenant <b>consommée</b>.</p>`)},190);
+  setTimeout(()=>{if(typeof cdOpenPanel==='function')cdOpenPanel('EMBUSCADE PRÉPARÉE',`<h2>${target} — </h2><p>Vous reconnaissez les signes observés sur le terrain et anticipez la rencontre.</p><p><b>-2 PV ennemi.</b> La piste identifiée est maintenant <b>consommée</b>.</p>`)},190);
 }
 const cd890SpawnEnemy=spawnEnemy;
 spawnEnemy=function(){
@@ -15930,6 +15930,112 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   const data=migrate(),current=enemy?canonical(enemy):'';
   return {dossiers:data,current:current?{species:current,evidence:record(current),stage:stage(record(current)).name}:null};
  };
+})();
+</script>
+
+<script id="cd-v11210">
+/* V11.21 — BESTIAIRE UNIFIÉ
+   Remplace les anciennes listes superposées par une fiche unique par entité.
+   Les anciennes éliminations sont reprises comme victoires documentées. */
+(function(){
+ const STORE='cosmic_encyclopedia_evidence_v1';
+ const ABILITIES={
+  'Cultiste':'RITUEL NOIR — peut récupérer des PV',
+  'Profond':'CHANT ABYSSAL — attaque directement la SAN',
+  'Goule':'LACÉRATION — peut provoquer Hémorragie',
+  'Mi-Go':'ANALYSE MI-GO — renforce sa DEF',
+  'Noyé de Blackwater':'CLOCHE IMMERGÉE — trouble la SAN et nourrit le MYTHE',
+  'Byakhee':'CRI STRIDENT — augmente son ATQ',
+  'Rejeton fongique':'SPORES — peuvent provoquer Infection et perte de SAN',
+  'Veilleur sans visage':'ANTICIPATION — réduit votre DEF',
+  'Chien de Tindalos':'ANGLE IMPOSSIBLE — attaque soudaine',
+  'Polype rampant':'PRESSION PSYCHIQUE — attaque la SAN',
+  'Cultiste de Dagon':'RITUEL NOIR — peut récupérer des PV'
+ };
+ function load(){try{return JSON.parse(localStorage.getItem(STORE)||'{}')||{}}catch(e){return {}}}
+ function save(v){try{localStorage.setItem(STORE,JSON.stringify(v))}catch(e){}}
+ function canonical(x){
+  const n=String(x||'');
+  if(/Noyé de Blackwater/i.test(n))return 'Noyé de Blackwater';
+  if(/Cultiste de Dagon/i.test(n))return 'Cultiste de Dagon';
+  if(/Chien de Tindalos/i.test(n))return 'Chien de Tindalos';
+  if(/Polype rampant/i.test(n))return 'Polype rampant';
+  if(/Rejeton fongique/i.test(n))return 'Rejeton fongique';
+  if(/Veilleur sans visage/i.test(n))return 'Veilleur sans visage';
+  if(/Mi-Go/i.test(n))return 'Mi-Go';
+  if(/Byakhee/i.test(n))return 'Byakhee';
+  if(/Profond/i.test(n))return 'Profond';
+  if(/Goule/i.test(n))return 'Goule';
+  if(/Cultiste/i.test(n))return 'Cultiste';
+  return n;
+ }
+ function empty(){return {encounters:0,studies:0,victories:0}}
+ function merge(dst,src){
+  dst.encounters=Math.max(Number(dst.encounters||0),Number(src.encounters||0));
+  dst.studies=Math.max(Number(dst.studies||0),Number(src.studies||0));
+  dst.victories=Math.max(Number(dst.victories||0),Number(src.victories||0));return dst;
+ }
+ function sync(){
+  const raw=load(),data={};
+  Object.keys(raw).forEach(function(k){const n=canonical(k);if(n)data[n]=merge(data[n]||empty(),raw[k]||{})});
+  if(typeof codex==='object'&&codex)Object.keys(codex).forEach(function(k){if(!codex[k])return;const n=canonical(k);data[n]=data[n]||empty();data[n].encounters=Math.max(1,data[n].encounters)});
+  if(typeof cd23Stats==='object'&&cd23Stats&&cd23Stats.seen)Object.keys(cd23Stats.seen).forEach(function(k){
+   const n=canonical(k),wins=Math.max(0,Number(cd23Stats.seen[k]||0));if(!n||!wins)return;
+   data[n]=data[n]||empty();data[n].victories=Math.max(data[n].victories,wins);data[n].encounters=Math.max(data[n].encounters,wins);
+  });
+  try{if(typeof cd10910Archive==='function'){const a=cd10910Archive()||{};Object.keys(a).forEach(function(id){const g=a[id];if(!g||!g.name)return;const n=canonical(g.name),wins=Math.max(0,Number(g.victories||0));data[n]=data[n]||empty();data[n].victories=Math.max(data[n].victories,wins);data[n].encounters=Math.max(data[n].encounters,wins)})}}catch(e){}
+  save(data);return data;
+ }
+ function stage(r){
+  if(r.studies>=3&&r.victories>=2)return {rank:5,name:'CONNAISSANCE CONFIRMÉE'};
+  if(r.studies>=2&&r.victories>=1)return {rank:4,name:'CORRÉLATION'};
+  if(r.studies>=1)return {rank:3,name:'OBSERVATION'};
+  if(r.victories>=1)return {rank:2,name:'INDICE'};
+  if(r.encounters>=1)return {rank:1,name:'RUMEUR'};
+  return {rank:0,name:'INCONNU'};
+ }
+ function esc(s){return String(s).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}
+ function profile(name){
+  if(typeof creatures!=='object'||!creatures)return {};
+  if(creatures[name])return creatures[name];
+  const k=Object.keys(creatures).find(function(x){return canonical(x)===name});return k?creatures[k]:{};
+ }
+ function guardian(name){
+  try{if(typeof cd10910Archive!=='function')return null;const a=cd10910Archive()||{},id=Object.keys(a).find(function(k){return canonical(a[k]&&a[k].name)===name});return id?a[id]:null}catch(e){return null}
+ }
+ function card(name,r){
+  const s=stage(r),p=profile(name),g=guardian(name);
+  let body='<div class="entry cd11210-entry"><b>'+esc(name)+' — '+esc(s.name)+'</b><br><span style="color:var(--muted)">Rencontres : '+r.encounters+' · Études réussies : '+r.studies+' · Victoires : '+r.victories+'</span>';
+  if(s.rank===1)body+='<br><span style="color:var(--muted)">Signalement encore instable : description, comportement et vulnérabilités non vérifiés.</span>';
+  if(s.rank===2)body+='<br>'+(p.desc?esc(p.desc):'Présence attestée, nature encore incertaine.')+'<br><span style="color:var(--muted)">Comportement et vulnérabilités encore incertains.</span>';
+  if(s.rank>=3){
+   body+='<br>'+(p.desc?esc(p.desc):'Présence documentée par l’enquête.')+'<br>Comportement : <b>'+esc(ABILITIES[name]||'données partielles')+'</b>';
+   body+='<br>Faiblesse : <b>'+esc(p.weak||'?')+'</b> · Résistance : <b>'+esc(p.resist||'?')+'</b>';
+  }
+  if(s.rank>=4)body+='<br><span class="gold">Lecture croisée : traces, études et résultats de combat concordent.</span>';
+  if(s.rank>=5)body+='<br><span class="gold">Statut confirmé : les données disponibles forment une connaissance stable.</span>';
+  if(g&&s.rank>=3)body+='<br>Doctrine : <b>'+esc(g.doctrine||'?')+'</b> · Relique : <b>'+esc(g.relic||'?')+'</b>';
+  return body+'</div>';
+ }
+ function unified(){
+  const data=sync(),names=Object.keys(data).filter(function(n){return stage(data[n]).rank>0});
+  names.sort(function(a,b){const d=stage(data[b]).rank-stage(data[a]).rank;return d||a.localeCompare(b,'fr')});
+  const confirmed=names.filter(function(n){return stage(data[n]).rank===5}).length;
+  let html='<div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossiers ouverts · '+confirmed+' connaissances confirmées';
+  if(typeof cd23Stats==='object'&&cd23Stats)html+=' · '+Number(cd23Stats.kills||0)+' éliminations';
+  html+='</div><div class="entry"><b>NIVEAUX DE PREUVE</b><br>Rumeur → Indice → Observation → Corrélation → Connaissance confirmée</div>';
+  return html+(names.length?names.map(function(n){return card(n,data[n])}).join(''):'<div class="entry">Aucun dossier ouvert.</div>');
+ }
+ cd23CodexProgress=unified;window.cd23CodexProgress=cd23CodexProgress;
+ if(typeof cd23OpenCodex==='function'){
+  const baseOpen11210=cd23OpenCodex;
+  cd23OpenCodex=function(){
+   const out=baseOpen11210.apply(this,arguments);
+   try{const root=document.getElementById('sheetContent');if(root){const prep=root.querySelector('.cd10201-bestiary,.cd10200-bestiary');root.innerHTML='<h2>📖 BESTIAIRE — DOSSIERS</h2>'+(prep?prep.outerHTML:'')+unified();root.scrollTop=0}}catch(e){console.warn('cd11210 bestiaire',e)}
+   return out;
+  };window.cd23OpenCodex=cd23OpenCodex;
+ }
+ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
 })();
 </script>
 </body>
