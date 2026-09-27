@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.16.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.17.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15702,5 +15702,42 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
 #cd400Panel{z-index:150000!important}
 #modal.open,#mainMenu.open{z-index:200000!important}
 </style>
+
+<script id="cd-v11170">
+/* V11.17 — MÉMOIRE DES ÉTUDES TACTIQUES
+   La fiche TACTIQUE reposait encore sur l'ancien registre seenBestiary, qui
+   n'est plus alimenté. Une étude réussie possède désormais sa mémoire propre,
+   persistante et immédiatement reflétée dans le panneau de combat. */
+(function(){
+ if(typeof cd15StudyEnemy!=='function'||typeof renderContext!=='function')return;
+ const STORE='cosmic_tactical_studies_v1';
+ function load(){try{return JSON.parse(localStorage.getItem(STORE)||'{}')||{}}catch(e){return {}}}
+ function save(v){try{localStorage.setItem(STORE,JSON.stringify(v))}catch(e){}}
+ function key(e){
+  if(!e)return '';
+  try{if(typeof cd32EnemyKey==='function'&&e===enemy)return String(cd32EnemyKey()||'')}catch(x){}
+  return String(e.base||e.baseName||e.name||'');
+ }
+ function mark(k){if(!k)return;const m=load();m[k]=true;save(m)}
+ function known(e){const k=key(e),m=load();return !!(k&&m[k])}
+ function decorate(){
+  try{
+   if(!battle||!enemy)return;
+   const d=document.getElementById('cd35Tactics');if(!d)return;
+   const p=typeof cd35Profile==='function'?cd35Profile():null;if(!p)return;
+   d.innerHTML='<b>TACTIQUE</b><div>'+(known(enemy)?'⚔ Faiblesse : <b>'+p.weak+'</b><br>🛡 Résistance : <b>'+p.resist+'</b><br><span class="small">'+p.hint+'</span>':'❓ Étudiez cette créature pour révéler ses vulnérabilités.')+'</div>';
+  }catch(e){console.warn('cd11170 tactique',e)}
+ }
+ const baseStudy11170=cd15StudyEnemy;
+ cd15StudyEnemy=function(){
+  const e=enemy,k=key(e),before=Number(player&&player.xp||0),out=baseStudy11170.apply(this,arguments);
+  if(e&&Number(player&&player.xp||0)>before){mark(k);decorate();if(typeof log==='function')log('MÉMOIRE TACTIQUE — Profil de '+k+' désormais révélé.')}
+  return out;
+ };window.cd15StudyEnemy=cd15StudyEnemy;
+ const baseContext11170=renderContext;
+ renderContext=function(){const out=baseContext11170.apply(this,arguments);decorate();return out};window.renderContext=renderContext;
+ window.cd11170State=function(){return {memoireEtudesTactiques:true,current:enemy?{key:key(enemy),known:known(enemy)}:null,studied:load()}};
+})();
+</script>
 </body>
 </html>
