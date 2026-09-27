@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.19.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.20.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15818,6 +15818,118 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   return out;
  };window.renderContext=renderContext;
  window.cd11190State=function(){return {memoireComportement:true,current:enemy?{species:canonical(enemy),known:known(enemy)}:null,studied:load(STORE)};};
+})();
+</script>
+
+<script id="cd-v11200">
+/* V11.20 — DOSSIER ENCYCLOPÉDIQUE À NIVEAUX DE PREUVE
+   Rencontres, études réussies et victoires constituent trois sources
+   distinctes : la connaissance progresse de la rumeur à la confirmation. */
+(function(){
+ const STORE='cosmic_encyclopedia_evidence_v1';
+ const BEHAVIOR='cosmic_behavior_studies_v1',TACTICAL='cosmic_tactical_studies_v1';
+ function load(k){try{return JSON.parse(localStorage.getItem(k)||'{}')||{}}catch(e){return {}}}
+ function save(v){try{localStorage.setItem(STORE,JSON.stringify(v))}catch(e){}}
+ function canonical(x){
+  const n=String(x&&typeof x==='object'?(x.base||x.baseName||x.name||''):(x||''));
+  if(/Noyé de Blackwater/i.test(n))return 'Noyé de Blackwater';
+  if(/Cultiste de Dagon/i.test(n))return 'Cultiste de Dagon';
+  if(/Chien de Tindalos/i.test(n))return 'Chien de Tindalos';
+  if(/Polype rampant/i.test(n))return 'Polype rampant';
+  if(/Rejeton fongique/i.test(n))return 'Rejeton fongique';
+  if(/Veilleur sans visage/i.test(n))return 'Veilleur sans visage';
+  if(/Mi-Go/i.test(n))return 'Mi-Go';
+  if(/Byakhee/i.test(n))return 'Byakhee';
+  if(/Profond/i.test(n))return 'Profond';
+  if(/Goule/i.test(n))return 'Goule';
+  if(/Cultiste/i.test(n))return 'Cultiste';
+  return n;
+ }
+ function migrate(){
+  const data=load(STORE),sources=[load(BEHAVIOR),load(TACTICAL)];let changed=false;
+  sources.forEach(function(src){Object.keys(src).forEach(function(raw){
+   if(!src[raw])return;const k=canonical(raw);if(!k)return;
+   const r=data[k]||{encounters:0,studies:0,victories:0};
+   if(r.encounters<1){r.encounters=1;changed=true}
+   if(r.studies<1){r.studies=1;changed=true}
+   data[k]=r;
+  })});
+  if(changed)save(data);return data;
+ }
+ function record(k){
+  const data=migrate(),r=data[canonical(k)]||{};
+  return {encounters:Number(r.encounters||0),studies:Number(r.studies||0),victories:Number(r.victories||0)};
+ }
+ function stage(r){
+  if(r.studies>=3&&r.victories>=2)return {rank:5,name:'CONNAISSANCE CONFIRMÉE'};
+  if(r.studies>=2&&r.victories>=1)return {rank:4,name:'CORRÉLATION'};
+  if(r.studies>=1)return {rank:3,name:'OBSERVATION'};
+  if(r.victories>=1)return {rank:2,name:'INDICE'};
+  if(r.encounters>=1)return {rank:1,name:'RUMEUR'};
+  return {rank:0,name:'INCONNU'};
+ }
+ function add(k,field){
+  k=canonical(k);if(!k)return {encounters:0,studies:0,victories:0};
+  const data=migrate(),r=data[k]||{encounters:0,studies:0,victories:0},before=stage(r);
+  r[field]=Number(r[field]||0)+1;data[k]=r;save(data);
+  const after=stage(r);
+  if(after.rank>before.rank){
+   if(typeof log==='function')log('DOSSIER ENCYCLOPÉDIQUE — '+k+' : '+after.name+'.');
+   if(typeof toast==='function')toast('DOSSIER : '+after.name);
+  }
+  return r;
+ }
+ function esc(s){return String(s).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}
+ function evidencePanel(){
+  try{
+   if(!battle||!enemy)return;
+   const root=document.getElementById('cd34CombatInfo')||document.getElementById('context');if(!root)return;
+   let el=document.getElementById('cd11200Evidence');
+   if(!el){el=document.createElement('div');el.id='cd11200Evidence';el.className='cd34-status';root.appendChild(el)}
+   const k=canonical(enemy),r=record(k),s=stage(r);
+   el.innerHTML='<b>DOSSIER — '+esc(s.name)+'</b><br><span class="small">Rencontres '+r.encounters+' · Études '+r.studies+' · Victoires '+r.victories+'</span>';
+  }catch(e){console.warn('cd11200 panneau',e)}
+ }
+ migrate();
+ if(typeof spawnEnemy==='function'){
+  const baseSpawn11200=spawnEnemy;
+  spawnEnemy=function(){
+   const out=baseSpawn11200.apply(this,arguments),e=enemy;
+   if(e&&!e.cd11200Encounter){e.cd11200Encounter=true;add(e,'encounters')}
+   if(typeof renderContext==='function')renderContext();return out;
+  };window.spawnEnemy=spawnEnemy;
+ }
+ if(typeof cd15StudyEnemy==='function'){
+  const baseStudy11200=cd15StudyEnemy;
+  cd15StudyEnemy=function(){
+   const e=enemy,before=Number(player&&player.xp||0),out=baseStudy11200.apply(this,arguments);
+   if(e&&Number(player&&player.xp||0)>before)add(e,'studies');
+   evidencePanel();return out;
+  };window.cd15StudyEnemy=cd15StudyEnemy;
+ }
+ if(typeof win==='function'){
+  const baseWin11200=win;
+  win=function(){
+   const e=enemy,should=!!(e&&!e.cd11200Victory);if(should)e.cd11200Victory=true;
+   const out=baseWin11200.apply(this,arguments);if(should)add(e,'victories');return out;
+  };window.win=win;
+ }
+ if(typeof renderContext==='function'){
+  const baseContext11200=renderContext;
+  renderContext=function(){const out=baseContext11200.apply(this,arguments);evidencePanel();return out};window.renderContext=renderContext;
+ }
+ if(typeof cd23CodexProgress==='function'){
+  const baseCodex11200=cd23CodexProgress;
+  cd23CodexProgress=function(){
+   const base=baseCodex11200.apply(this,arguments),data=migrate(),keys=Object.keys(data).filter(function(k){return stage(record(k)).rank>0}).sort();
+   const rows=keys.map(function(k){const r=record(k),s=stage(r);return '<div class="entry"><b>'+esc(k)+' — '+esc(s.name)+'</b><br><span style="color:var(--muted)">Rencontres : '+r.encounters+' · Études réussies : '+r.studies+' · Victoires : '+r.victories+'</span></div>'}).join('');
+   return base+'<div class="entry"><b>NIVEAUX DE PREUVE</b><br>Rumeur → Indice → Observation → Corrélation → Connaissance confirmée</div>'+rows;
+  };window.cd23CodexProgress=cd23CodexProgress;
+ }
+ window.cd11200State=function(){
+  const data=migrate(),current=enemy?canonical(enemy):'';
+  return {dossiers:data,current:current?{species:current,evidence:record(current),stage:stage(record(current)).name}:null};
+ };
 })();
 </script>
 </body>
