@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.18.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.19.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15743,6 +15743,81 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  const baseContext11170=renderContext;
  renderContext=function(){const out=baseContext11170.apply(this,arguments);decorate();return out};window.renderContext=renderContext;
  window.cd11170State=function(){return {memoireEtudesTactiques:true,current:enemy?{key:key(enemy),known:known(enemy)}:null,studied:load()}};
+})();
+</script>
+
+<script id="cd-v11190">
+/* V11.19 — MÉMOIRE DU COMPORTEMENT + OUVERTURE DU PANNEAU
+   La ligne CAPACITÉ utilisait encore une table V0.34 incomplète : les espèces
+   ajoutées ensuite restaient « inconnues » même après une étude réussie.
+   Elle dispose désormais d'une mémoire persistante, normalisée par espèce.
+   Les études tactiques V11.17 déjà conservées sont reprises automatiquement.
+   À chaque nouvelle créature, le panneau de combat revient aussi en tête. */
+(function(){
+ if(typeof cd15StudyEnemy!=='function'||typeof renderContext!=='function')return;
+ const STORE='cosmic_behavior_studies_v1',TACTICAL='cosmic_tactical_studies_v1';
+ const ABILITIES={
+  'Cultiste':'✦ RITUEL NOIR — peut récupérer des PV',
+  'Profond':'🧠 CHANT ABYSSAL — attaque directement la SAN',
+  'Goule':'🩸 LACÉRATION — peut provoquer Hémorragie',
+  'Mi-Go':'⌬ ANALYSE MI-GO — renforce sa DEF',
+  'Noyé de Blackwater':'♒ CLOCHE IMMERGÉE — trouble la SAN et nourrit le MYTHE',
+  'Byakhee':'⚡ CRI STRIDENT — augmente son ATQ',
+  'Rejeton fongique':'☣ SPORES — peuvent provoquer Infection et perte de SAN',
+  'Veilleur sans visage':'👁 ANTICIPATION — réduit votre DEF',
+  'Chien de Tindalos':'◈ ANGLE IMPOSSIBLE — attaque soudaine',
+  'Polype rampant':'🧠 PRESSION PSYCHIQUE — attaque la SAN',
+  'Cultiste de Dagon':'✦ RITUEL NOIR — peut récupérer des PV'
+ };
+ function load(k){try{return JSON.parse(localStorage.getItem(k)||'{}')||{}}catch(e){return {}}}
+ function save(v){try{localStorage.setItem(STORE,JSON.stringify(v))}catch(e){}}
+ function canonical(x){
+  const n=String(x&&typeof x==='object'?(x.base||x.baseName||x.name||''):(x||''));
+  if(/Noyé de Blackwater/i.test(n))return 'Noyé de Blackwater';
+  if(/Cultiste de Dagon/i.test(n))return 'Cultiste de Dagon';
+  if(/Chien de Tindalos/i.test(n))return 'Chien de Tindalos';
+  if(/Polype rampant/i.test(n))return 'Polype rampant';
+  if(/Rejeton fongique/i.test(n))return 'Rejeton fongique';
+  if(/Veilleur sans visage/i.test(n))return 'Veilleur sans visage';
+  if(/Mi-Go/i.test(n))return 'Mi-Go';
+  if(/Byakhee/i.test(n))return 'Byakhee';
+  if(/Profond/i.test(n))return 'Profond';
+  if(/Goule/i.test(n))return 'Goule';
+  if(/Cultiste/i.test(n))return 'Cultiste';
+  return n;
+ }
+ function mark(k){k=canonical(k);if(!k)return;const m=load(STORE);m[k]=true;save(m)}
+ function known(e){
+  const k=canonical(e);if(!k)return false;
+  const m=load(STORE);if(m[k])return true;
+  const old=load(TACTICAL),found=Object.keys(old).some(function(x){return old[x]&&canonical(x)===k});
+  if(found){mark(k);return true}
+  return false;
+ }
+ function decorate(){
+  try{
+   if(!battle||!enemy)return;
+   const el=document.querySelector('#cd34CombatInfo .cd34-ability');if(!el)return;
+   const k=canonical(enemy);
+   el.textContent=known(enemy)?(ABILITIES[k]||'COMPORTEMENT ÉTUDIÉ — données partielles'):'☠ COMPORTEMENT INCONNU — étudiez la créature';
+  }catch(e){console.warn('cd11190 comportement',e)}
+ }
+ const baseStudy11190=cd15StudyEnemy;
+ cd15StudyEnemy=function(){
+  const e=enemy,k=canonical(e),before=Number(player&&player.xp||0),out=baseStudy11190.apply(this,arguments);
+  if(e&&Number(player&&player.xp||0)>before){mark(k);decorate();if(typeof log==='function')log('COMPORTEMENT MÉMORISÉ — '+k+' : '+(ABILITIES[k]||'données partielles')+'.')}
+  return out;
+ };window.cd15StudyEnemy=cd15StudyEnemy;
+ let displayedEnemy=null;
+ const baseContext11190=renderContext;
+ renderContext=function(){
+  const changed=!!(battle&&enemy&&enemy!==displayedEnemy),out=baseContext11190.apply(this,arguments);
+  decorate();
+  if(changed){displayedEnemy=enemy;const root=document.getElementById('context');if(root)root.scrollTop=0}
+  if(!battle)displayedEnemy=null;
+  return out;
+ };window.renderContext=renderContext;
+ window.cd11190State=function(){return {memoireComportement:true,current:enemy?{species:canonical(enemy),known:known(enemy)}:null,studied:load(STORE)};};
 })();
 </script>
 </body>
