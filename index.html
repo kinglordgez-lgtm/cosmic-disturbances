@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.22.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.23.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15969,11 +15969,12 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   if(/Cultiste/i.test(n))return 'Cultiste';
   return n;
  }
- function empty(){return {encounters:0,studies:0,victories:0}}
+ function empty(){return {encounters:0,studies:0,victories:0,correlations:0}}
  function merge(dst,src){
   dst.encounters=Math.max(Number(dst.encounters||0),Number(src.encounters||0));
   dst.studies=Math.max(Number(dst.studies||0),Number(src.studies||0));
-  dst.victories=Math.max(Number(dst.victories||0),Number(src.victories||0));return dst;
+  dst.victories=Math.max(Number(dst.victories||0),Number(src.victories||0));
+  dst.correlations=Math.max(Number(dst.correlations||0),Number(src.correlations||0));return dst;
  }
  function sync(){
   const raw=load(),data={};
@@ -15987,8 +15988,8 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   save(data);return data;
  }
  function stage(r){
-  if(r.studies>=3&&r.victories>=2)return {rank:5,name:'CONNAISSANCE CONFIRMÉE'};
-  if(r.studies>=2&&r.victories>=1)return {rank:4,name:'CORRÉLATION'};
+  if(r.studies>=3&&(r.victories>=2||r.correlations>=3))return {rank:5,name:'CONNAISSANCE CONFIRMÉE'};
+  if(r.studies>=2&&(r.victories>=1||r.correlations>=2))return {rank:4,name:'CORRÉLATION'};
   if(r.studies>=1)return {rank:3,name:'OBSERVATION'};
   if(r.victories>=1)return {rank:2,name:'INDICE'};
   if(r.encounters>=1)return {rank:1,name:'RUMEUR'};
@@ -16005,12 +16006,15 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  }
  function card(name,r){
   const s=stage(r),p=profile(name),g=guardian(name);
-  let body='<div class="entry cd11210-entry"><b>'+esc(name)+' — '+esc(s.name)+'</b><br><span style="color:var(--muted)">Rencontres : '+r.encounters+' · Études réussies : '+r.studies+' · Victoires : '+r.victories+'</span>';
+  const provenance=typeof cd11230Provenance==='function'?cd11230Provenance(name):null;
+  let body='<div class="entry cd11210-entry"><b>'+esc(name)+' — '+esc(s.name)+'</b><br><span style="color:var(--muted)">Rencontres : '+r.encounters+' · Études réussies : '+r.studies+' · Victoires : '+r.victories+(r.correlations?' · Recoupements : '+r.correlations:'')+'</span>';
+  if(provenance&&provenance.channels&&provenance.channels.length)body+='<br><span style="color:var(--muted)">Voies de preuve : '+esc(provenance.channels.join(' · '))+'</span>';
   if(s.rank===1)body+='<br><span style="color:var(--muted)">Signalement encore instable : description, comportement et vulnérabilités non vérifiés.</span>';
   if(s.rank===2)body+='<br>'+(p.desc?esc(p.desc):'Présence attestée, nature encore incertaine.')+'<br><span style="color:var(--muted)">Comportement et vulnérabilités encore incertains.</span>';
   if(s.rank>=3){
-   body+='<br>'+(p.desc?esc(p.desc):'Présence documentée par l’enquête.')+'<br>Comportement : <b>'+esc(ABILITIES[name]||(g&&g.doctrine?'DOCTRINE — '+g.doctrine:'données partielles'))+'</b>';
+   body+='<br>'+(p.desc?esc(p.desc):'Présence documentée par l’enquête.')+'<br>Comportement : <b>'+esc(p.behavior||ABILITIES[name]||(g&&g.doctrine?'DOCTRINE — '+g.doctrine:'données partielles'))+'</b>';
    body+='<br>Faiblesse : <b>'+esc(p.weak||'?')+'</b> · Résistance : <b>'+esc(p.resist||'?')+'</b>';
+   if(p.source)body+='<br><span class="gold">Source : '+esc(p.source)+(p.lineage?' · '+esc(p.lineage):'')+'</span>';
   }
   if(s.rank>=4)body+='<br><span class="gold">Lecture croisée : traces, études et résultats de combat concordent.</span>';
   if(s.rank>=5)body+='<br><span class="gold">Statut confirmé : les données disponibles forment une connaissance stable.</span>';
@@ -16022,7 +16026,8 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   names.sort(function(a,b){const d=stage(data[b]).rank-stage(data[a]).rank;return d||a.localeCompare(b,'fr')});
   const confirmed=names.filter(function(n){return stage(data[n]).rank===5}).length;
   const victories=names.reduce(function(total,n){return total+Math.max(0,Number(data[n].victories||0))},0);
-  let html='<div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossier'+(names.length>1?'s':'')+' ouvert'+(names.length>1?'s':'')+' · '+confirmed+' connaissance'+(confirmed>1?'s':'')+' confirmée'+(confirmed>1?'s':'')+' · '+victories+' victoire'+(victories>1?'s':'')+' documentée'+(victories>1?'s':'');
+  const corpus=typeof CD1123_CORPUS==='object'&&CD1123_CORPUS?Object.keys(CD1123_CORPUS).length:0;
+  let html='<div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossier'+(names.length>1?'s':'')+' ouvert'+(names.length>1?'s':'')+' · '+confirmed+' connaissance'+(confirmed>1?'s':'')+' confirmée'+(confirmed>1?'s':'')+' · '+victories+' victoire'+(victories>1?'s':'')+' documentée'+(victories>1?'s':'')+(corpus?' · '+corpus+' entrées dans le corpus':'');
   html+='</div><div class="entry"><b>NIVEAUX DE PREUVE</b><br>Rumeur → Indice → Observation → Corrélation → Connaissance confirmée</div>';
   return html+(names.length?names.map(function(n){return card(n,data[n])}).join(''):'<div class="entry">Aucun dossier ouvert.</div>');
  }
@@ -16050,6 +16055,107 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   const victories=Object.keys(dossiers).reduce(function(total,n){return total+Math.max(0,Number(dossiers[n].victories||0))},0);
   return {victoiresDocumentees:victories,gardiensArchivesCommeObservation:true};
  };
+})();
+</script>
+
+<script id="cd-v11230">
+/* V11.23 — CORPUS ENCYCLOPÉDIQUE ET DÉCOUVERTES INDIRECTES
+   Les entrées sourcées peuvent être ouvertes par des preuves de terrain,
+   archives, objets, rêves, hallucinations, seuils et morts. Une vision isolée
+   ne vaut jamais confirmation : plusieurs voies indépendantes sont requises. */
+(function(){
+ const EVIDENCE='cosmic_encyclopedia_evidence_v1',PROVENANCE='cosmic_encyclopedia_provenance_v1';
+ const L='Lovecraft — texte primaire',C='Cercle de Lovecraft — texte primaire',T='Tradition post-lovecraftienne',O='Cosmic Disturbances — création originale';
+ const corpus={
+  'Cthulhu':{source:'The Call of Cthulhu (1928)',lineage:L,desc:'Grand Ancien assoupi à R’lyeh, dont l’influence atteint les rêves et les cultes.',behavior:'INFLUENCE ONIRIQUE — agit à distance avant toute manifestation',weak:'non établie',resist:'hors échelle humaine',routes:['rêve','culte','archive','portail'],combat:false},
+  'Profond':{source:'The Shadow over Innsmouth (1931)',lineage:L,desc:'Être amphibie immortel lié aux communautés côtières et à Y’ha-nthlei.',behavior:'APPEL DES PROFONDEURS — contamine lignées, rêves et fidélités',weak:'feu',resist:'eau',routes:['trace','témoignage','objet','rêve'],combat:true},
+  'Dagon':{source:'Dagon (1917) ; The Shadow over Innsmouth (1931)',lineage:L,desc:'Puissance marine colossale associée aux cultes océaniques.',behavior:'ÉMERGENCE ABYSSALE — sa présence précède les rites de la mer',weak:'non établie',resist:'profondeurs',routes:['culte','rêve','archive','mort'],combat:false},
+  'Hydra':{source:'The Shadow over Innsmouth (1931)',lineage:L,desc:'Figure souveraine invoquée avec Dagon par l’Ordre Ésotérique.',behavior:'MATERNITÉ ABYSSALE — influence les lignées et les pactes',weak:'non établie',resist:'profondeurs',routes:['culte','témoignage','rêve'],combat:false},
+  'Shoggoth':{source:'At the Mountains of Madness (1931) ; The Shadow over Innsmouth (1931)',lineage:L,desc:'Masse protoplasmique artificielle capable d’imiter organes, voix et fonctions.',behavior:'PLASTICITÉ SERVILE — remodèle sa forme et reproduit des sons',weak:'chaleur extrême, hypothèse',resist:'anatomie conventionnelle',routes:['trace','archive','rêve','mort'],combat:false},
+  'Ancien antarctique':{source:'At the Mountains of Madness (1931)',lineage:L,desc:'Espèce extraterrestre savante antérieure à l’humanité, bâtisseuse de cités polaires.',behavior:'SCIENCE PRÉHUMAINE — transforme le vivant et l’environnement',weak:'non établie',resist:'froid et temps profond',routes:['archive','objet','rêve','portail'],combat:false},
+  'Mi-Go':{source:'The Whisperer in Darkness (1930)',lineage:L,desc:'Espèce fongoïde interplanétaire maîtrisant chirurgie, transport et communication impossibles.',behavior:'SCIENCE MI-GO — observe, prélève et conserve la conscience',weak:'électricité',resist:'froid',routes:['trace','objet','témoignage','archive'],combat:true},
+  'Grande Race de Yith':{source:'The Shadow Out of Time (1934)',lineage:L,desc:'Intelligences voyageant dans le temps par échange de consciences.',behavior:'TRANSLATION MENTALE — remplace l’esprit sans déplacer le corps',weak:'non applicable',resist:'continuité temporelle',routes:['rêve','archive','portail','hallucination'],combat:false},
+  'Polype rampant':{source:'The Shadow Out of Time (1934)',lineage:L,desc:'Vestige préhumain invisible par intermittence, associé aux vents souterrains.',behavior:'PRESSION PSYCHIQUE — attaque la SAN et brouille sa présence',weak:'occultisme',resist:'physique',routes:['trace','rêve','portail','mort'],combat:true},
+  'Couleur tombée du ciel':{source:'The Colour Out of Space (1927)',lineage:L,desc:'Phénomène extraterrestre chromatique qui altère sols, êtres vivants et perception.',behavior:'DRAINAGE CHROMATIQUE — contamine lentement un territoire',weak:'non établie',resist:'spectre connu',routes:['trace','objet','témoignage','hallucination'],combat:false},
+  'Horreur de Dunwich':{source:'The Dunwich Horror (1928)',lineage:L,desc:'Descendance partiellement invisible dont l’anatomie échappe aux catégories terrestres.',behavior:'CROISSANCE INVISIBLE — dévore, grandit et laisse des empreintes impossibles',weak:'formule rituelle documentée',resist:'armes ordinaires',routes:['trace','archive','témoignage','mort'],combat:false},
+  'Yog-Sothoth':{source:'The Dunwich Horror (1928)',lineage:L,desc:'Présence coextensive au temps et à l’espace, liée aux seuils et aux passages.',behavior:'OMNIPRÉSENCE LIMINALE — ouvre ou confond les frontières',weak:'non applicable',resist:'temps et espace',routes:['portail','culte','archive','hallucination'],combat:false},
+  'Nyarlathotep':{source:'Nyarlathotep (1920) ; The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Messager aux multiples formes qui manipule directement individus, foules et rêves.',behavior:'MILLE MASQUES — adapte discours, apparence et cruauté',weak:'non établie',resist:'identité fixe',routes:['rêve','témoignage','culte','hallucination'],combat:false},
+  'Azathoth':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Centre aveugle et chaotique évoqué au-delà des mondes ordonnés.',behavior:'CHAOS NUCLÉAIRE — sa proximité détruit toute lecture cohérente',weak:'non applicable',resist:'causalité',routes:['rêve','portail','hallucination','mort'],combat:false},
+  'Shub-Niggurath':{source:'The Dunwich Horror (1928) ; The Whisperer in Darkness (1930)',lineage:L,desc:'Nom rituel associé à une fécondité cosmique monstrueuse et à ses cultes.',behavior:'FÉCONDITÉ NOIRE — prolifère par cultes, rejetons et transformations',weak:'non établie',resist:'biologie ordinaire',routes:['culte','trace','rêve','archive'],combat:false},
+  'Goule':{source:'Pickman’s Model (1926) ; The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Humanoïde nécrophage des cimetières et des passages souterrains.',behavior:'LACÉRATION — chasse en meute et exploite les morts',weak:'lumière',resist:'peur',routes:['trace','mort','témoignage','rêve'],combat:true},
+  'Zoog':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Petit peuple forestier des Contrées du Rêve, curieux et dangereux en groupe.',behavior:'CURIOSITÉ PRÉDATRICE — observe, négocie puis encercle',weak:'feu',resist:'forêt onirique',routes:['rêve','portail','témoignage'],combat:false},
+  'Gug':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Géant des profondeurs oniriques, relégué sous les Contrées du Rêve.',behavior:'CHASSE SOUTERRAINE — poursuit par l’odeur et la vibration',weak:'lumière du jour, hypothèse',resist:'force humaine',routes:['rêve','portail','trace'],combat:false},
+  'Ghast':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Prédateur des cavernes du rêve, mobile dans l’obscurité.',behavior:'BONDISSEMENT — attaque depuis les gouffres sans lumière',weak:'lumière',resist:'obscurité',routes:['rêve','trace','portail'],combat:false},
+  'Maigre bête de la nuit':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Créature noire, cornue et sans visage, servante des puissances du rêve.',behavior:'ENLÈVEMENT SILENCIEUX — emporte ses victimes sans parole',weak:'non établie',resist:'terreur',routes:['rêve','portail','hallucination'],combat:false},
+  'Bête lunaire':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Entité pâle et sans yeux liée aux galères de la face cachée de la lune.',behavior:'SERVITUDE LUNAIRE — capture, transporte et sacrifie',weak:'non établie',resist:'vide onirique',routes:['rêve','portail','objet'],combat:false},
+  'Araignée de Leng':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Arachnide gigantesque des plateaux interdits de Leng.',behavior:'TOILE DES HAUTEURS — ferme les routes et isole les voyageurs',weak:'feu',resist:'froid',routes:['rêve','trace','portail'],combat:false},
+  'Prêtre masqué de Leng':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Intermédiaire énigmatique des puissances du plateau de Leng.',behavior:'AUDIENCE MASQUÉE — guide les voyageurs vers de faux seuils',weak:'non établie',resist:'lecture humaine',routes:['rêve','témoignage','portail'],combat:false},
+  'Celui qui hante les ténèbres':{source:'The Haunter of the Dark (1935)',lineage:L,desc:'Présence ailée liée à un artefact lumineux et à l’obscurité totale.',behavior:'MANIFESTATION NOCTURNE — dépend d’un lien rituel et fuit la lumière',weak:'lumière',resist:'obscurité',routes:['objet','archive','hallucination','culte'],combat:false},
+  'Brown Jenkin':{source:'The Dreams in the Witch House (1932)',lineage:L,desc:'Familier ratiforme au visage humain associé à Keziah Mason.',behavior:'INFILTRATION ONIRIQUE — traverse rêves, murs et géométries',weak:'non établie',resist:'espaces clos',routes:['rêve','trace','archive'],combat:false},
+  'Keziah Mason':{source:'The Dreams in the Witch House (1932)',lineage:L,desc:'Sorcière d’Arkham dont la géométrie ouvre des passages hors de l’espace ordinaire.',behavior:'GÉOMÉTRIE DE SEUIL — voyage par angles et pactes',weak:'non établie',resist:'enfermement',routes:['archive','rêve','portail','culte'],combat:false},
+  'Chose sur le seuil':{source:'The Thing on the Doorstep (1933)',lineage:L,desc:'Dossier d’échanges d’identité et de possession mentale plutôt qu’espèce stable.',behavior:'USURPATION — déplace la conscience entre les corps',weak:'preuve d’identité',resist:'mort corporelle',routes:['témoignage','archive','mort','hallucination'],combat:false},
+  'Présence au-delà de la fenêtre':{source:'The Music of Erich Zann (1921)',lineage:L,desc:'Phénomène non identifié perçu au-delà d’une fenêtre donnant sur un dehors impossible.',behavior:'RÉSONANCE — répond à la musique et à l’ouverture du seuil',weak:'non établie',resist:'observation directe',routes:['objet','rêve','portail','hallucination'],combat:false},
+  'Entité de la Maison maudite':{source:'The Shunned House (1924)',lineage:L,desc:'Influence souterraine vampirique reconstruite par archives, maladies et restes humains.',behavior:'ABSORPTION — persiste sous le lieu et épuise ses habitants',weak:'destruction chimique documentée',resist:'temps',routes:['archive','trace','mort','objet'],combat:false},
+  'Résidu de Joseph Curwen':{source:'The Case of Charles Dexter Ward (1927)',lineage:L,desc:'Identité reconstruite par nécromancie, sels essentiels et substitution.',behavior:'RECONSTITUTION — revient par matière, formule et mémoire',weak:'contre-formule',resist:'mort ordinaire',routes:['archive','objet','culte','mort'],combat:false},
+  'Yig':{source:'The Curse of Yig (1928), H. P. Lovecraft et Zealia Bishop',lineage:L,desc:'Divinité ophidienne dont le culte associe serpents, malédiction et métamorphose.',behavior:'MALÉDICTION OPHIDIENNE — punit l’offense par la lignée',weak:'non établie',resist:'venin et serpents',routes:['culte','témoignage','rêve','trace'],combat:false},
+  'Chien de Tindalos':{source:'The Hounds of Tindalos (1929), Frank Belknap Long',lineage:C,desc:'Prédateur venu des angles du temps, attiré par certaines explorations mentales.',behavior:'ANGLE IMPOSSIBLE — surgit par les géométries aiguës',weak:'symbole',resist:'balles',routes:['portail','hallucination','trace','archive'],combat:true},
+  'Tsathoggua':{source:'The Tale of Satampra Zeiros (1931), Clark Ashton Smith',lineage:C,desc:'Entité ancienne associée à Hyperborée et aux sanctuaires souterrains.',behavior:'IMMOBILITÉ VIGILANTE — agit par cultes et rejetons',weak:'non établie',resist:'temps profond',routes:['archive','culte','objet','rêve'],combat:false},
+  'Peuple-serpent':{source:'The Shadow Kingdom (1929), Robert E. Howard',lineage:C,desc:'Civilisation reptilienne survivant par déguisement, infiltration et sorcellerie.',behavior:'IMITATION HUMAINE — remplace et infiltre',weak:'révélation du masque',resist:'infiltration',routes:['témoignage','archive','culte','trace'],combat:false},
+  'Byakhee':{source:'Tradition mythique postérieure ; nomenclature ludique',lineage:T,desc:'Créature ailée famélique servant parfois de monture aux cultes.',behavior:'CRI STRIDENT — augmente son ATQ',weak:'feu',resist:'fuite',routes:['culte','rêve','trace'],combat:true},
+  'Rejeton fongique':{source:'Corpus de Blackwater',lineage:O,desc:'Masse parasitaire dont les spores réagissent à la chaleur.',behavior:'SPORES — provoquent infection et perte de SAN',weak:'feu',resist:'toxique',routes:['trace','objet','mort'],combat:true},
+  'Noyé de Blackwater':{source:'Corpus de Blackwater',lineage:O,desc:'Cadavre gonflé d’eau salée qui marche encore.',behavior:'CLOCHE IMMERGÉE — trouble la SAN et nourrit le MYTHE',weak:'sel',resist:'peur',routes:['trace','mort','témoignage'],combat:true},
+  'Veilleur sans visage':{source:'Corpus de Blackwater',lineage:O,desc:'Humanoïde qui semble exister seulement lorsqu’on détourne les yeux.',behavior:'ANTICIPATION — réduit votre DEF',weak:'observation',resist:'métal',routes:['hallucination','trace','rêve'],combat:true},
+  'Cultiste de Dagon':{source:'Corpus de Blackwater, inspiré de The Shadow over Innsmouth',lineage:O,desc:'Adepte des rites marins de l’Ordre Ésotérique.',behavior:'RITUEL NOIR — peut récupérer des PV',weak:'psychologie',resist:'occulte',routes:['culte','témoignage','trace'],combat:true},
+  'Le Carillonneur des Angles':{source:'Corpus de Blackwater',lineage:O,desc:'Gardien extradimensionnel dont la résonance précède les coups.',behavior:'DOCTRINE — RÉSONANCE IMPOSSIBLE',weak:'cartouches d’argent',resist:'géométrie et résonance',routes:['portail','objet','rêve'],combat:true},
+  'L’Abbé des Noyés':{source:'Corpus de Blackwater',lineage:O,desc:'Gardien abyssal dont la litanie régénère la chair noyée.',behavior:'DOCTRINE — LITANIE ABYSSALE',weak:'sel consacré',resist:'eau et liturgie abyssale',routes:['culte','mort','témoignage'],combat:true},
+  'Cultiste':{source:'Archétype humain transversal',lineage:O,desc:'Fanatique humain lié à un culte local.',behavior:'RITUEL NOIR — peut récupérer des PV',weak:'psychologie',resist:'aucune',routes:['culte','témoignage'],combat:true}
+ };
+ window.CD1123_CORPUS=corpus;
+ function load(k){try{return JSON.parse(localStorage.getItem(k)||'{}')||{}}catch(e){return {}}}
+ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+ function label(channel){return ({trace:'TRACES',témoignage:'TÉMOIGNAGES',objet:'OBJETS',rêve:'RÊVES',hallucination:'HALLUCINATIONS',portail:'PORTAILS',mort:'MORTS',culte:'CULTES',archive:'ARCHIVES'})[channel]||String(channel).toUpperCase()}
+ function provenance(name){const p=load(PROVENANCE)[name]||{};return {channels:(p.channels||[]).map(label),raw:p.channels||[],notes:p.notes||[]}}
+ window.cd11230Provenance=provenance;
+ function evidence(name,channel){
+  const c=corpus[name];if(!c)return null;
+  const all=load(EVIDENCE),prov=load(PROVENANCE),r=all[name]||{encounters:0,studies:0,victories:0,correlations:0},p=prov[name]||{channels:[],notes:[]};
+  if(p.channels.includes(channel))return r;
+  const first=p.channels.length===0;p.channels.push(channel);p.lastDepth=Number(player&&player.depth||0);
+  r.encounters=Math.max(1,Number(r.encounters||0));r.correlations=Math.max(Number(r.correlations||0),Math.max(0,p.channels.length-1));
+  if(!first&&!['hallucination','rêve','mort'].includes(channel))r.studies=Number(r.studies||0)+1;
+  p.notes.push(label(channel)+' · profondeur '+p.lastDepth);p.notes=p.notes.slice(-8);all[name]=r;prov[name]=p;save(EVIDENCE,all);save(PROVENANCE,prov);
+  if(typeof log==='function')log('DOSSIER INDIRECT — '+name+' : '+label(channel)+(first?' ouvre une rumeur.':' recoupe les preuves.'));
+  if(typeof toast==='function')toast(first?'NOUVEAU DOSSIER':'PREUVE RECOUPÉE');return r;
+ }
+ function pick(channel){
+  const prov=load(PROVENANCE),eligible=Object.keys(corpus).filter(function(n){return corpus[n].routes.includes(channel)&&!(prov[n]&&prov[n].channels||[]).includes(channel)});
+  if(!eligible.length)return null;const unopened=eligible.filter(function(n){return !prov[n]||!(prov[n].channels||[]).length}),pool=unopened.length?unopened:eligible;
+  return pool[Math.floor((typeof rng==='function'?rng():Math.random())*pool.length)];
+ }
+ function attempt(channel,chance){const roll=typeof rng==='function'?rng():Math.random();if(roll>=chance)return null;const n=pick(channel);return n?evidence(n,channel):null}
+ Object.keys(corpus).forEach(function(name){const c=corpus[name],base=typeof creatures==='object'&&creatures?creatures[name]:null;if(base)Object.assign(base,{source:c.source,lineage:c.lineage,behavior:c.behavior});else if(typeof creatures==='object'&&creatures)creatures[name]={hp:0,atk:0,cat:c.combat?'Mythe':'Dossier indirect',desc:c.desc,weak:c.weak,resist:c.resist,source:c.source,lineage:c.lineage,behavior:c.behavior,nonCombat:!c.combat}});
+ if(typeof investigate==='function'){
+  const baseInvestigate11230=investigate;
+  investigate=function(){const tile=map&&map[py]?map[py][px]:null,first=Object.keys(load(PROVENANCE)).length===0;if(first){const n=pick(tile==='shrine'?'culte':'trace');if(n)evidence(n,tile==='shrine'?'culte':'trace')}const out=baseInvestigate11230.apply(this,arguments);if(first||battle)return out;if(tile==='shrine')attempt('culte',.55);else if(player&&player.san<=Math.max(8,(player.maxsan||34)*.35))attempt('hallucination',.18);else if(player&&(player.myth||0)>=20&&(player.depth||0)>=4)attempt('portail',.10);else attempt('trace',.07);return out};window.investigate=investigate;
+ }
+ if(typeof loot==='function'){
+  const baseLoot11230=loot;
+  loot=function(){const before=player&&player.inv?player.inv.length:0,out=baseLoot11230.apply(this,arguments);if(player&&player.inv&&player.inv.length>before)attempt('objet',.12);return out};window.loot=loot;
+ }
+ if(typeof move==='function'){
+  const baseMove11230=move;
+  move=function(){const d=Number(player&&player.depth||0),out=baseMove11230.apply(this,arguments),after=Number(player&&player.depth||0);if(after>d)attempt('rêve',.32);return out};window.move=move;
+ }
+ if(typeof cd18NpcPanel==='function'){
+  const baseNpc11230=cd18NpcPanel;
+  cd18NpcPanel=function(){const out=baseNpc11230.apply(this,arguments);attempt('témoignage',.09);return out};window.cd18NpcPanel=cd18NpcPanel;
+ }
+ if(typeof death==='function'){
+  const baseDeath11230=death;
+  death=function(){attempt('mort',.65);return baseDeath11230.apply(this,arguments)};window.death=death;
+ }
+ window.cd11230Discover=function(name,channel){return evidence(name,channel)};
+ window.cd11230State=function(){const p=load(PROVENANCE);return {corpus:Object.keys(corpus).length,dossiersIndirects:Object.keys(p).length,provenance:p};};
 })();
 </script>
 </body>
