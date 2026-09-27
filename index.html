@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.23.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.24.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16014,6 +16014,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   if(s.rank>=3){
    body+='<br>'+(p.desc?esc(p.desc):'Présence documentée par l’enquête.')+'<br>Comportement : <b>'+esc(p.behavior||ABILITIES[name]||(g&&g.doctrine?'DOCTRINE — '+g.doctrine:'données partielles'))+'</b>';
    body+='<br>Faiblesse : <b>'+esc(p.weak||'?')+'</b> · Résistance : <b>'+esc(p.resist||'?')+'</b>';
+   if(p.family||p.rarity)body+='<br><span style="color:var(--muted)">Famille : '+esc(p.family||'non classée')+' · Rareté d’observation : '+esc(p.rarity||'indéterminée')+'</span>';
    if(p.source)body+='<br><span class="gold">Source : '+esc(p.source)+(p.lineage?' · '+esc(p.lineage):'')+'</span>';
   }
   if(s.rank>=4)body+='<br><span class="gold">Lecture croisée : traces, études et résultats de combat concordent.</span>';
@@ -16027,7 +16028,8 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   const confirmed=names.filter(function(n){return stage(data[n]).rank===5}).length;
   const victories=names.reduce(function(total,n){return total+Math.max(0,Number(data[n].victories||0))},0);
   const corpus=typeof CD1123_CORPUS==='object'&&CD1123_CORPUS?Object.keys(CD1123_CORPUS).length:0;
-  let html='<div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossier'+(names.length>1?'s':'')+' ouvert'+(names.length>1?'s':'')+' · '+confirmed+' connaissance'+(confirmed>1?'s':'')+' confirmée'+(confirmed>1?'s':'')+' · '+victories+' victoire'+(victories>1?'s':'')+' documentée'+(victories>1?'s':'')+(corpus?' · '+corpus+' entrées dans le corpus':'');
+  const families=typeof CD1123_CORPUS==='object'&&CD1123_CORPUS?[...new Set(Object.keys(CD1123_CORPUS).map(function(n){return CD1123_CORPUS[n].family}).filter(Boolean))].length:0;
+  let html='<div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossier'+(names.length>1?'s':'')+' ouvert'+(names.length>1?'s':'')+' · '+confirmed+' connaissance'+(confirmed>1?'s':'')+' confirmée'+(confirmed>1?'s':'')+' · '+victories+' victoire'+(victories>1?'s':'')+' documentée'+(victories>1?'s':'')+(corpus?' · '+corpus+' entrées dans le corpus':'')+(families?' · '+families+' familles':'');
   html+='</div><div class="entry"><b>NIVEAUX DE PREUVE</b><br>Rumeur → Indice → Observation → Corrélation → Connaissance confirmée</div>';
   return html+(names.length?names.map(function(n){return card(n,data[n])}).join(''):'<div class="entry">Aucun dossier ouvert.</div>');
  }
@@ -16156,6 +16158,54 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
  }
  window.cd11230Discover=function(name,channel){return evidence(name,channel)};
  window.cd11230State=function(){const p=load(PROVENANCE);return {corpus:Object.keys(corpus).length,dossiersIndirects:Object.keys(p).length,provenance:p};};
+})();
+</script>
+<script id="cd-v11240">
+/* V11.24 — DEUXIÈME VAGUE ENCYCLOPÉDIQUE
+   Dix-huit dossiers documentaires rejoignent le corpus. Chaque entrée reçoit
+   une famille et une rareté d'observation propre à Blackwater : cette rareté
+   est une règle de jeu, jamais une affirmation silencieuse sur le canon. */
+(function(){
+ if(typeof CD1123_CORPUS!=='object'||!CD1123_CORPUS)return;
+ const L='Lovecraft — texte primaire',C='Cercle de Lovecraft — texte primaire';
+ const added={
+  'Grands Dieux de la Terre':{source:'The Other Gods (1921) ; The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Puissances du rêve autrefois liées aux hautes montagnes terrestres, désormais retirées à Kadath.',behavior:'RETRAIT DIVIN — répondent rarement sans l’intercession de puissances extérieures',weak:'non applicable',resist:'atteinte humaine',routes:['rêve','archive','portail','culte'],combat:false},
+  'Autres Dieux':{source:'The Other Gods (1921) ; The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Puissances venues de l’extérieur qui protègent les dieux du rêve et punissent certaines ascensions.',behavior:'INTERVENTION EXTÉRIEURE — effacent les voies menant aux hauteurs interdites',weak:'non applicable',resist:'espace ordinaire',routes:['rêve','portail','archive','hallucination'],combat:false},
+  'Chats d’Ulthar':{source:'The Cats of Ulthar (1920) ; The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Communauté féline des Contrées du Rêve, capable d’agir collectivement et de franchir des routes lunaires.',behavior:'ALLIANCE FÉLINE — observe, encercle ou secourt selon les actes du voyageur',weak:'non établie',resist:'menace isolée',routes:['rêve','témoignage','trace'],combat:false},
+  'Shantak':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Grande monture écailleuse des Contrées du Rêve, liée aux routes de Kadath et aux marchés obscurs.',behavior:'TRANSPORT FORCÉ — emporte le voyageur vers des seuils qu’il ne maîtrise pas',weak:'aversion féline',resist:'vide onirique',routes:['rêve','portail','trace'],combat:false},
+  'Hommes de Leng':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Habitants cornus du plateau de Leng, associés au commerce, aux galères et aux puissances lunaires.',behavior:'CAPTURE MARCHANDE — trompent, droguent et livrent leurs prisonniers',weak:'révélation du déguisement',resist:'froid et altitude',routes:['rêve','témoignage','portail','objet'],combat:false},
+  'Gnoph-keh':{source:'The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Prédateur velu des régions glacées, connu surtout par des mentions fragmentaires.',behavior:'TRAQUE POLAIRE — suit les traces dans le froid sans se montrer longtemps',weak:'feu, hypothèse',resist:'froid',routes:['trace','archive','rêve'],combat:false},
+  'Monture du Festival':{source:'The Festival (1923)',lineage:L,desc:'Être ailé et hybride employé dans une procession souterraine ; sa nature exacte reste volontairement incertaine.',behavior:'PROCESSION SOUTERRAINE — transporte les initiés au-delà des galeries ordinaires',weak:'non établie',resist:'classification humaine',routes:['culte','témoignage','rêve','portail'],combat:false},
+  'L’Innommable':{source:'The Unnamable (1923)',lineage:L,desc:'Présence reconstruite par légendes locales, architecture, blessures et témoignage tardif.',behavior:'MANIFESTATION RÉTROSPECTIVE — devient perceptible par les conséquences qu’elle laisse',weak:'non établie',resist:'description directe',routes:['témoignage','archive','trace','hallucination'],combat:false},
+  'Bête de la caverne':{source:'The Beast in the Cave (1905)',lineage:L,desc:'Descendant humain dégénéré par une vie entière dans l’obscurité souterraine.',behavior:'CHASSE AVEUGLE — approche au son et frappe depuis l’obscurité',weak:'lumière',resist:'obscurité',routes:['trace','témoignage','mort'],combat:true},
+  'Descendant de Martense':{source:'The Lurking Fear (1922)',lineage:L,desc:'Population humaine transformée par l’isolement, la consanguinité et une vie souterraine prolongée.',behavior:'INVASION PAR LE SOL — surgit en groupe sous les habitations et les tombes',weak:'lumière et effondrement',resist:'orage et tunnels',routes:['trace','mort','archive','témoignage'],combat:true},
+  'Veilleurs de la Tourbière':{source:'The Moon-Bog (1921)',lineage:L,desc:'Présences liées aux ruines et aux eaux d’une tourbière irlandaise ; leur forme demeure mal attestée.',behavior:'APPEL NOCTURNE — attire les occupants vers l’eau et les ruines',weak:'non établie',resist:'observation diurne',routes:['témoignage','rêve','mort','archive'],combat:false},
+  'Réanimé de Herbert West':{source:'Herbert West—Reanimator (1921–1922)',lineage:L,desc:'Cadavre ramené à une activité instable par un procédé expérimental dont les effets varient avec l’état des tissus.',behavior:'RÉANIMATION INSTABLE — agit sans continuité certaine de mémoire ou d’identité',weak:'destruction corporelle',resist:'douleur',routes:['mort','archive','objet','témoignage'],combat:true},
+  'Créature de l’Au-delà':{source:'From Beyond (1920)',lineage:L,desc:'Organisme normalement imperceptible, rendu accessible aux sens par une stimulation artificielle.',behavior:'PRÉDATION INTERSTITIELLE — traverse un milieu superposé à l’espace humain',weak:'interrompre la résonance',resist:'perception ordinaire',routes:['objet','hallucination','trace','mort'],combat:false},
+  'Nodens':{source:'The Strange High House in the Mist (1926) ; The Dream-Quest of Unknown Kadath (1926–1927)',lineage:L,desc:'Puissance ancienne associée aux abysses, au rêve et à une chasse opposée aux forces de Nyarlathotep.',behavior:'CHASSE ABYSSALE — intervient par ses serviteurs et les routes du rêve',weak:'non applicable',resist:'échelle humaine',routes:['rêve','portail','archive'],combat:false},
+  'Atlach-Nacha':{source:'The Seven Geases (1934), Clark Ashton Smith',lineage:C,desc:'Entité arachnéenne vouée à une toile tendue au-dessus d’un abîme hyperboréen.',behavior:'TISSAGE DU SEUIL — relie patiemment des espaces qui ne devraient pas communiquer',weak:'non établie',resist:'temps profond',routes:['rêve','portail','archive','culte'],combat:false},
+  'Ubbo-Sathla':{source:'Ubbo-Sathla (1933), Clark Ashton Smith',lineage:C,desc:'Masse primordiale associée aux origines terrestres et à des tablettes de savoir préhumain.',behavior:'RÉGRESSION PRIMORDIALE — attire la pensée vers une mémoire antérieure à l’humanité',weak:'non établie',resist:'forme stable',routes:['objet','archive','rêve','hallucination'],combat:false},
+  'Rejeton informe de Tsathoggua':{source:'The Tale of Satampra Zeiros (1931), Clark Ashton Smith',lineage:C,desc:'Masse noire et changeante gardant un sanctuaire abandonné de Tsathoggua.',behavior:'FLUIDITÉ PRÉDATRICE — s’étire, absorbe et reforme son volume',weak:'non établie',resist:'armes ordinaires',routes:['trace','archive','objet','mort'],combat:true},
+  'Voormi':{source:'The Seven Geases (1934), Clark Ashton Smith',lineage:C,desc:'Peuple velu et cavernicole d’Hyperborée, antérieur aux implantations humaines de la région.',behavior:'CHASSE CAVERNICOLE — piste en groupe dans les reliefs volcaniques',weak:'feu',resist:'froid et roche',routes:['trace','archive','témoignage'],combat:true}
+ };
+ Object.keys(added).forEach(function(name){CD1123_CORPUS[name]=added[name]});
+ const groups={
+  'Puissances cosmiques':['Cthulhu','Dagon','Hydra','Yog-Sothoth','Nyarlathotep','Azathoth','Shub-Niggurath','Yig','Tsathoggua','Grands Dieux de la Terre','Autres Dieux','Nodens','Atlach-Nacha','Ubbo-Sathla'],
+  'Civilisations non humaines':['Ancien','Ancien antarctique','Mi-Go','Grande Race de Yith','Profond','Peuple-serpent','Hommes de Leng','Voormi'],
+  'Entités oniriques':['Zoog','Gug','Ghast','Maigre bête de la nuit','Bête lunaire','Araignée de Leng','Prêtre masqué de Leng','Chats d’Ulthar','Shantak','Gnoph-keh'],
+  'Prédateurs extradimensionnels':['Chien de Tindalos','Byakhee','Celui qui hante les ténèbres','Monture du Festival','Créature de l’Au-delà'],
+  'Formes et phénomènes':['Couleur tombée du ciel','Polype rampant','Présence au-delà de la fenêtre','Entité de la Maison maudite','L’Innommable','Veilleurs de la Tourbière'],
+  'Altérés et réanimés':['Goule','Brown Jenkin','Keziah Mason','Chose sur le seuil','Résidu de Joseph Curwen','Horreur de Dunwich','Bête de la caverne','Descendant de Martense','Réanimé de Herbert West'],
+  'Cultes et hybrides':['Cultiste','Cultiste de Dagon'],
+  'Organismes et rejetons':['Shoggoth','Rejeton fongique','Rejeton informe de Tsathoggua'],
+  'Manifestations de Blackwater':['Noyé de Blackwater','Veilleur sans visage','Le Carillonneur des Angles','L’Abbé des Noyés']
+ };
+ Object.keys(groups).forEach(function(family){groups[family].forEach(function(name){if(CD1123_CORPUS[name])CD1123_CORPUS[name].family=family})});
+ const unique=['Cthulhu','Dagon','Hydra','Yog-Sothoth','Nyarlathotep','Azathoth','Shub-Niggurath','Yig','Tsathoggua','Nodens','Atlach-Nacha','Ubbo-Sathla','L’Innommable','Le Carillonneur des Angles','L’Abbé des Noyés'];
+ const uncommon=['Profond','Goule','Cultiste','Cultiste de Dagon','Noyé de Blackwater','Rejeton fongique','Descendant de Martense','Réanimé de Herbert West'];
+ Object.keys(CD1123_CORPUS).forEach(function(name){const c=CD1123_CORPUS[name];if(!c.family)c.family='Dossier non classé';c.rarity=unique.includes(name)?'unique ou exceptionnelle':uncommon.includes(name)?'inhabituelle':'rare';if(typeof creatures==='object'&&creatures){if(!creatures[name])creatures[name]={hp:0,atk:0,cat:c.combat?'Mythe':'Dossier indirect',nonCombat:!c.combat};Object.assign(creatures[name],c)}});
+ window.CD1124_ADDITIONS=Object.keys(added);
+ window.cd11240State=function(){const names=Object.keys(CD1123_CORPUS),families=[...new Set(names.map(function(n){return CD1123_CORPUS[n].family}))];return {corpus:names.length,ajouts:Object.keys(added).length,families:families.length,classificationComplete:names.every(function(n){return !!(CD1123_CORPUS[n].family&&CD1123_CORPUS[n].rarity)})};};
 })();
 </script>
 </body>
