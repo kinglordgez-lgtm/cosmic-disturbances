@@ -438,6 +438,11 @@ header{left:18px!important}
 <script>
 "use strict";
 let seed,rng,map,px,py,player,enemy=null,battle=false,journal=[],codex={},seenItems={},ach={};
+const cd11290Modules=new Map();
+window.cd11290Register=function(name,read,write){
+ if(typeof name!=="string"||!name||typeof read!=="function"||typeof write!=="function"||cd11290Modules.has(name))throw new Error("Module de reprise invalide : "+name);
+ cd11290Modules.set(name,{read,write});
+};
 
 
 const creatures={
@@ -641,7 +646,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.29.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.30.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11173,6 +11178,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof move!=='function'||typeof spawnEnemy!=='function'||typeof cdOpenPanel!=='function')return;
  let st={moves:0,shown:false,pending:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10390',()=>st,value=>{st=value});
  function skills(){return (player&&player.char&&player.char.skills)||{}}
  function reset(){st={moves:0,shown:false,pending:null}}
  window.cd10390Choose=function(mode){
@@ -11225,6 +11231,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof cdOpenPanel!=='function'||typeof spawnEnemy!=='function'||typeof cd760ItemsWithTag!=='function')return;
  let st={armed:false,kind:null,item:null,used:false};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10400',()=>st,value=>{st=value});
  function pick(){
    const light=cd760ItemsWithTag('lumière')[0]||cd760ItemsWithTag('feu')[0];
    if(light)return {kind:'light',item:light.n,label:'BALISER AVEC '+String(light.n||'UNE LUMIÈRE').toUpperCase(),small:'lumière / feu · prochaine menace -1 PV et ATQ -1'};
@@ -11290,6 +11297,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof spawnEnemy!=='function'||typeof cdOpenPanel!=='function')return;
  let st={shown:false,applied:false,kind:null,item:null,result:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10410',()=>st,value=>{st=value});
  function invTag(tag){
    try{return typeof cd760ItemsWithTag==='function'?(cd760ItemsWithTag(tag)||[]):[]}catch(e){return []}
  }
@@ -11375,6 +11383,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof investigate!=='function'||typeof cdOpenPanel!=='function')return;
  let st={armed:false,strong:false,label:null,consumed:false};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10420',()=>st,value=>{st=value});
  function armFromConvergence(){
    try{
      if(typeof cd10410State!=='function')return;
@@ -11434,6 +11443,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof move!=='function'||typeof cdOpenPanel!=='function')return;
  let st={moves:0,shown:false,resolved:false,result:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10430',()=>st,value=>{st=value});
  function skill(name){
    try{return Number(player&&player.char&&player.char.skills&&player.char.skills[name])||35}catch(e){return 35}
  }
@@ -11503,6 +11513,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof move!=='function'||typeof cdOpenPanel!=='function')return;
  let st={moved:false,shown:false,resolved:false,result:null,x:null,y:null,depth:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10440',()=>st,value=>{st=value});
  function nearest(kind){
    let best=null,dist=999;
    for(let y=1;y<12;y++)for(let x=1;x<12;x++){
@@ -11581,6 +11592,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof move!=='function'||typeof cdOpenPanel!=='function')return;
  let st={moved:false,shown:false,resolved:false,result:null,effect:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10450',()=>st,value=>{st=value});
  function skill(name){
    try{return Number(player&&player.char&&player.char.skills&&player.char.skills[name])||0}catch(e){return 0}
  }
@@ -11648,6 +11660,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof move!=='function'||typeof resolveTile!=='function')return;
  let st={cacheUsed:false,safeUsed:false,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10460',()=>st,value=>{st=value});
  function prof(){try{return String(player&&player.char&&player.char.job||'')}catch(e){return ''}}
  function rewardCache(){
    if(st.cacheUsed)return; st.cacheUsed=true;
@@ -11752,6 +11765,9 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 
  // Garantie de test : le choix de marquage entre dans la file après le premier déplacement réussi.
  let markQueued=false;
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10461-queue',
+  ()=>({queue:q.slice(),seq,markQueued}),
+  state=>{q.splice(0,q.length,...state.queue);seq=state.seq;markQueued=state.markQueued;pumping=false});
  function ensureMark(){
    if(markQueued)return;
    let m=null;try{m=typeof cd10440State==='function'?cd10440State():null}catch(e){}
@@ -11789,6 +11805,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof render!=='function'||typeof resolveTile!=='function'||typeof move!=='function')return;
  let st={cacheConsumed:false,safeCrossed:false,cacheInsight:false,insightUsed:false,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10470',()=>st,value=>{st=value});
  function mark(){try{return typeof cd10440State==='function'?cd10440State():null}catch(e){return null}}
  function paint(){
    try{
@@ -11864,6 +11881,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof spawnEnemy!=='function'||typeof investigate!=='function'||typeof move!=='function')return;
  let st={cacheArmed:false,safeArmed:false,cacheUsed:false,safeUsed:false,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10480',()=>st,value=>{st=value});
  function r47(){try{return typeof cd10470State==='function'?cd10470State():null}catch(e){return null}}
  const oldInvestigate10480=investigate;
  investigate=function(){
@@ -11928,6 +11946,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof investigate!=='function'||typeof move!=='function'||typeof spawnEnemy!=='function'||typeof render!=='function')return;
  let st={investigated:false,placed:false,claimed:false,armed:false,used:false,x:null,y:null,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10490',()=>st,value=>{st=value});
  function nearestFloor(){
    let best=null,bd=999;
    try{for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -11997,6 +12016,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof move!=='function'||typeof glyph!=='function'||typeof cdOpenPanel!=='function')return;
  let st={leadPlaced:false,reached:false,resolved:false,x:null,y:null,result:null,combatArmed:false};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10500',()=>st,value=>{st=value});
  function s49(){try{return typeof cd10490State==='function'?cd10490State():null}catch(e){return null}}
  function nearestFloor(){
    let best=null,bd=999;
@@ -12066,6 +12086,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  if(typeof cdOpenPanel!=='function')return;
  const oldOpen10510=cdOpenPanel;
  let st={discreet:0,modal:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10510',()=>st,value=>{st=value});
  function important(title,body){
    const t=String(title||'').toUpperCase(),b=String(body||'');
    if(/PROGRESSION|NIVEAU|MORT|DÉCISION|DECISION/.test(t))return true;
@@ -12123,6 +12144,7 @@ window.cd10514NpcLiveRefresh=true;
 (function(){
  const TILE_KIND={wall:'structure',floor:'passage',water:'eau',exit:'transition',chest:'objet',shrine:'anomalie',trap:'danger',npc:'personne',quest:'indice'};
  let st={moves:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10520',()=>st,value=>{st=value});
  function band(v,max){
    const r=max>0?v/max:1;
    return r>=.72?'haute':r>=.38?'fragile':'basse';
@@ -12186,6 +12208,7 @@ window.cd10514NpcLiveRefresh=true;
    tandis qu'une SAN basse peut aussi produire un faux signal distinct. */
 (function(){
  let st={real:null,falseSignal:null,announced:false};
+ if(typeof cd11290Register==='function')cd11290Register('cd-v10530',()=>st,value=>{st=value});
  function key(p){return p?p.x+','+p.y:''}
  function chooseReality(){
    st={real:null,falseSignal:null,announced:false};
@@ -16330,34 +16353,49 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
  window.cd11270State=function(){return {navigation:!!document.querySelector('.cd11270-nav'),historique:history.length}};
 })();
 </script>
-<script id="cd-v11290">
-/* V11.29 — noyau sérialisable. Aucun point de reprise n'est encore écrit :
-   les états des modules et les choix doivent encore être migrés. */
+<script id="cd-v11300-globals">
+/* V11.30 — variables de run partagées entre les couches historiques. */
 (function(){
- const modules=new Map();
- window.cd11290Register=function(name,read,write){
-  if(typeof name!=="string"||!name||typeof read!=="function"||typeof write!=="function"||modules.has(name))throw new Error("Module de reprise invalide : "+name);
-  modules.set(name,{read,write});
- };
+ if(typeof cd11290Register!=='function')return;
+ const names=['cd23Stats','cd24State','cd27Visited','cd29Guard','cd30LastDepth','cd31Steps','cd31LastAnomaly',
+  'cd34LastEvent','cd34EventTurns','cd36Known','cd38FloorGoal','cd38GoalDepth','cd39Depth','cd39Seen',
+  'cd39Current','cd42LastSan','cd42LastDepth','cd48Depth','cd48Omen','cd50Secret','cd50Depth',
+  'cd621LastDepth','cd64LastDepth','cd65LastDepth','cd67Depth','cd74Depth'];
+ cd11290Register('global-run-state',()=>Object.fromEntries(names.map(name=>[name,eval(name)])),
+  state=>{for(const name of names)eval(name+'=state[name]')});
+ cd11290Register('narrative-event',()=>CD21_EVENTS.indexOf(cd21Event),
+  index=>{cd21Event=Number.isInteger(index)&&index>=0?CD21_EVENTS[index]||null:null});
+ cd11290Register('level-choice',()=>({pending:cd46Pending,last:cd46LastLevel,choices:cd46Choices.map(x=>x.id)}),
+  state=>{cd46Pending=state.pending;cd46LastLevel=state.last;cd46Choices=state.choices.map(id=>CD46_PERKS.find(x=>x.id===id)).filter(Boolean)});
+})();
+</script>
+<script id="cd-v11290">
+/* V11.29–30 — noyau et états enregistrés en mémoire. Aucun point de reprise
+   n'est encore écrit : les fenêtres et événements différés restent à migrer. */
+(function(){
+ const modules=cd11290Modules;
  window.cd11290CaptureCore=function(){
   if(!player||!Array.isArray(map)||typeof rng?.getState!=="function")throw new Error("Run non initialisé");
-  return JSON.parse(JSON.stringify({schema:1,seed,rngState:rng.getState(),map,px,py,player,enemy,battle,journal,codex,seenItems,ach}));
+  return JSON.parse(JSON.stringify({schema:2,seed,rngState:rng.getState(),map,px,py,player,enemy,battle,journal,codex,seenItems,ach,
+   modules:Object.fromEntries([...modules].map(([name,hook])=>[name,hook.read()]))}));
  };
  window.cd11290RestoreCore=function(snapshot,options){
-  if(!snapshot||snapshot.schema!==1||!Number.isInteger(snapshot.seed)||!Number.isInteger(snapshot.rngState)||
+  if(!snapshot||snapshot.schema!==2||!Number.isInteger(snapshot.seed)||!Number.isInteger(snapshot.rngState)||
      !Array.isArray(snapshot.map)||snapshot.map.length!==13||snapshot.map.some(row=>!Array.isArray(row)||row.length!==13)||
      !Number.isInteger(snapshot.px)||!Number.isInteger(snapshot.py)||snapshot.px<0||snapshot.px>12||snapshot.py<0||snapshot.py>12||
      !snapshot.player||typeof snapshot.player!=="object"||!Array.isArray(snapshot.player.inv)||
-     !Array.isArray(snapshot.journal)||typeof snapshot.battle!=="boolean"||snapshot.battle&&!snapshot.enemy)
+     !Array.isArray(snapshot.journal)||typeof snapshot.battle!=="boolean"||snapshot.battle&&!snapshot.enemy||
+     !snapshot.modules||typeof snapshot.modules!=="object"||[...modules.keys()].some(name=>!Object.hasOwn(snapshot.modules,name)))
    throw new Error("Point de reprise incomplet");
   const copy=JSON.parse(JSON.stringify(snapshot));
   const nextRng=mulberry(copy.seed);nextRng.setState(copy.rngState);
   seed=copy.seed;rng=nextRng;map=copy.map;px=copy.px;py=copy.py;player=copy.player;
   enemy=copy.enemy; battle=copy.battle;journal=copy.journal;codex=copy.codex||{};
   seenItems=copy.seenItems||{};ach=copy.ach||{};
+  for(const [name,hook] of modules)hook.write(copy.modules[name]);
   if(options?.render!==false)render();
  };
- window.cd11290Registry=function(){return {schema:1,modules:[...modules.keys()],active:false}};
+ window.cd11290Registry=function(){return {schema:2,modules:[...modules.keys()],active:false}};
 })();
 </script>
 </body>
