@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.27.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.28.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16240,7 +16240,11 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
    {kind:'Culte',target:'Ordre Ésotérique de Dagon',note:'L’ordre d’Innsmouth encadre les rites marins.',source:'The Shadow over Innsmouth (1931)',lineage:L}
   ],
   'Cultiste de Dagon':[
-   {kind:'Culte',target:'Ordre Ésotérique de Dagon',note:'L’organisation est attestée ; ce cultiste particulier appartient au corpus de Blackwater.',source:'The Shadow over Innsmouth (1931) ; Corpus de Blackwater',lineage:'Lovecraft + création originale'}
+   {kind:'Culte',target:'Ordre Ésotérique de Dagon',note:'L’organisation est attestée ; ce cultiste particulier appartient au corpus de Blackwater.',source:'The Shadow over Innsmouth (1931) ; Corpus de Blackwater',lineage:'Lovecraft + création originale'},
+   {kind:'Archétype du jeu',target:'Cultiste',note:'Variante locale de l’archétype humain ; ce rapprochement de dossiers est propre au jeu.',source:'Corpus de Blackwater',lineage:O,entity:true}
+  ],
+  'Cultiste':[
+   {kind:'Variante du jeu',target:'Cultiste de Dagon',note:'Dossier de variante locale des cultistes de Blackwater ; aucune appartenance commune à un culte n’est déduite.',source:'Corpus de Blackwater',lineage:O,entity:true}
   ],
   'Mi-Go':[
    {kind:'Objet',target:'Cylindre cérébral',note:'Dispositif utilisé pour conserver et transporter un cerveau humain.',source:'The Whisperer in Darkness (1930)',lineage:L}
