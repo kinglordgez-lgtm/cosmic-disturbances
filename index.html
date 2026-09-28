@@ -646,7 +646,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.31.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.32.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13002,6 +13002,8 @@ window.cd10514NpcLiveRefresh=true;
  if(typeof cdOpenPanel!=='function')return;
  const basePanel10680=cdOpenPanel;
  let active=false,locked=false,lastTouch=0,lastChoice=null;
+ if(typeof cd11290Register==='function')cd11290Register('correlated-choice',
+  ()=>({active,lastChoice}),state=>{active=state.active;lastChoice=state.lastChoice;locked=false;lastTouch=0});
  function closeChoice(){
    try{if(typeof closeOverlays==='function')closeOverlays();else if(typeof closeModalOnly==='function')closeModalOnly()}catch(e){}
  }
@@ -13030,13 +13032,6 @@ window.cd10514NpcLiveRefresh=true;
        .replace(/<button\s+onclick=["']cd10500Choose\(['"]proof['"]\)["']/i,'<button type="button" data-cd10680-choice="proof"')
        .replace(/<button\s+onclick=["']cd10500Choose\(['"]threat['"]\)["']/i,'<button type="button" data-cd10680-choice="threat"');
      const r=basePanel10680.call(this,title,fixed);
-     setTimeout(function(){
-       document.querySelectorAll('[data-cd10680-choice]').forEach(function(btn){
-         btn.style.pointerEvents='auto';btn.style.touchAction='manipulation';
-         btn.addEventListener('pointerup',function(ev){lastTouch=Date.now();ev.preventDefault();ev.stopPropagation();commit(btn.getAttribute('data-cd10680-choice'));},{passive:false});
-         btn.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();if(Date.now()-lastTouch<650)return;commit(btn.getAttribute('data-cd10680-choice'));});
-       });
-     },0);
      return r;
    }
    return basePanel10680.apply(this,arguments);
@@ -13044,6 +13039,12 @@ window.cd10514NpcLiveRefresh=true;
  const css=document.createElement('style');
  css.textContent='#sheetContent [data-cd10680-choice]{pointer-events:auto!important;touch-action:manipulation!important;min-height:58px!important;padding:10px 12px!important;position:relative!important;z-index:3!important}#sheetContent .actions:has([data-cd10680-choice]){display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin-top:14px!important}';
  document.head.appendChild(css);
+ const sheetContent=document.getElementById('sheetContent');
+ if(sheetContent){
+  function choice(ev){return ev.target&&ev.target.closest&&ev.target.closest('[data-cd10680-choice]')}
+  sheetContent.addEventListener('pointerup',function(ev){const btn=choice(ev);if(!btn)return;lastTouch=Date.now();ev.preventDefault();ev.stopPropagation();commit(btn.getAttribute('data-cd10680-choice'))},{passive:false,capture:true});
+  sheetContent.addEventListener('click',function(ev){const btn=choice(ev);if(!btn)return;ev.preventDefault();ev.stopPropagation();if(Date.now()-lastTouch<650)return;commit(btn.getAttribute('data-cd10680-choice'))},true);
+ }
  window.cd10680State=function(){return {lieuCorreleTactile:true,active:active,locked:locked,lastChoice:lastChoice};};
 })();
 </script>
@@ -15339,6 +15340,8 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  if(typeof cd18Talk!=='function'||typeof cd18NpcPanel!=='function')return;
  let choiceLocked=false,lastTouch=0;
  const totals={sources:0,links:0,resolved:0,duplicates:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('witness-network',
+  ()=>({totals:{...totals}}),state=>{choiceLocked=false;lastTouch=0;Object.assign(totals,state.totals)});
  function state(){
   if(!player.cd11090)player.cd11090={sources:{},order:[],link:null,resolution:null};
   return player.cd11090;
@@ -15552,6 +15555,9 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
 (function(){
  if(typeof enemyTurn!=='function'||typeof attack!=='function'||typeof defend!=='function'||typeof cd15StudyEnemy!=='function')return;
  const totals={armed:0,countered:0,executed:0,blocked:0};let foe=null,last=null;
+ if(typeof cd11290Register==='function')cd11290Register('species-instinct',
+  ()=>({foeIsEnemy:!!enemy&&foe===enemy,totals:{...totals},last}),
+  state=>{foe=state.foeIsEnemy?enemy:null;Object.assign(totals,state.totals);last=state.last});
  function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
  function guardian(e){return !!(e&&(e.cd49Guardian||e.cd10840Case))}
  function family(n){
@@ -15675,6 +15681,8 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  if(typeof attack!=='function'||typeof cdOpenPanel!=='function')return;
  const MEMORY='cosmic_combat_memory_v1',EXPERTISE='cosmic_bestiary_expertise_v1';
  const totals={panels:0,reflex:0,guard:0,doctrine:0,tactical:0,normal:0};let locked=false,last=null;
+ if(typeof cd11290Register==='function')cd11290Register('tactical-assault',
+  ()=>({totals:{...totals},last}),state=>{locked=false;Object.assign(totals,state.totals);last=state.last});
  function load(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){return {}}}
  function family(n){n=String(n||'');if(/Profond|Noyé|Dagon/i.test(n))return 'ABYSSALE';if(/Mi-Go|fongique/i.test(n))return 'FONGIQUE';if(/Byakhee|Tindalos|Polype/i.test(n))return 'EXTRADIMENSIONNELLE';if(/Cultiste|Veilleur/i.test(n))return 'RITUELLE';if(/Goule/i.test(n))return 'NÉCROPHAGE';return 'INCONNUE'}
  function baseName(){return String(enemy&&(enemy.base||enemy.baseName||enemy.name)||'')}
