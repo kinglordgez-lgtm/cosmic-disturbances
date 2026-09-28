@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.26.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.27.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16015,7 +16015,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  function card(name,r,all){
   const s=stage(r),p=profile(name),g=guardian(name);
   const provenance=typeof cd11230Provenance==='function'?cd11230Provenance(name):null;
-  let body='<div class="entry cd11210-entry"><b>'+esc(name)+' — '+esc(s.name)+'</b><br><span style="color:var(--muted)">Rencontres : '+r.encounters+' · Études réussies : '+r.studies+' · Victoires : '+r.victories+(r.correlations?' · Recoupements : '+r.correlations:'')+'</span>';
+  let body='<div class="entry cd11210-entry" id="cd11270-'+encodeURIComponent(name)+'"><b>'+esc(name)+' — '+esc(s.name)+'</b><br><span style="color:var(--muted)">Rencontres : '+r.encounters+' · Études réussies : '+r.studies+' · Victoires : '+r.victories+(r.correlations?' · Recoupements : '+r.correlations:'')+'</span>';
   if(provenance&&provenance.channels&&provenance.channels.length)body+='<br><span style="color:var(--muted)">Voies de preuve : '+esc(provenance.channels.join(' · '))+'</span>';
   if(s.rank===1)body+='<br><span style="color:var(--muted)">Signalement encore instable : description, comportement et vulnérabilités non vérifiés.</span>';
   if(s.rank===2)body+='<br>'+(p.desc?esc(p.desc):'Présence attestée, nature encore incertaine.')+'<br><span style="color:var(--muted)">Comportement et vulnérabilités encore incertains.</span>';
@@ -16038,7 +16038,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   const victories=names.reduce(function(total,n){return total+Math.max(0,Number(data[n].victories||0))},0);
   const corpus=typeof CD1123_CORPUS==='object'&&CD1123_CORPUS?Object.keys(CD1123_CORPUS).length:0;
   const families=typeof CD1123_CORPUS==='object'&&CD1123_CORPUS?[...new Set(Object.keys(CD1123_CORPUS).map(function(n){return CD1123_CORPUS[n].family}).filter(Boolean))].length:0;
-  let html='<div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossier'+(names.length>1?'s':'')+' ouvert'+(names.length>1?'s':'')+' · '+confirmed+' connaissance'+(confirmed>1?'s':'')+' confirmée'+(confirmed>1?'s':'')+' · '+victories+' victoire'+(victories>1?'s':'')+' documentée'+(victories>1?'s':'')+(corpus?' · '+corpus+' entrées dans le corpus':'')+(families?' · '+families+' familles':'');
+  let html='<div class="cd11270-nav"><button type="button" data-cd11270-back hidden>← Retour au dossier précédent</button></div><div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossier'+(names.length>1?'s':'')+' ouvert'+(names.length>1?'s':'')+' · '+confirmed+' connaissance'+(confirmed>1?'s':'')+' confirmée'+(confirmed>1?'s':'')+' · '+victories+' victoire'+(victories>1?'s':'')+' documentée'+(victories>1?'s':'')+(corpus?' · '+corpus+' entrées dans le corpus':'')+(families?' · '+families+' familles':'');
   html+='</div><div class="entry"><b>NIVEAUX DE PREUVE</b><br>Rumeur → Indice → Observation → Corrélation → Connaissance confirmée</div>';
   return html+(names.length?names.map(function(n){return card(n,data[n],data)}).join(''):'<div class="entry">Aucun dossier ouvert.</div>');
  }
@@ -16273,10 +16273,51 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   });
   if(!rows.length)return '';
   return '<div class="cd11260-relations"><b>RELATIONS DOCUMENTÉES</b>'+rows.map(function(x){
-   return '<span class="cd11260-relation"><span>'+esc(x.kind)+' : <b>'+esc(x.target)+'</b> — '+esc(x.note)+'</span><small>Source : '+esc(x.source)+' · Lignée : '+esc(x.lineage)+'</small></span>';
+   const target=x.entity?'<button type="button" class="cd11270-link" data-cd11270-target="'+encodeURIComponent(x.target)+'">'+esc(x.target)+'</button>':'<b>'+esc(x.target)+'</b>';
+   return '<span class="cd11260-relation"><span>'+esc(x.kind)+' : '+target+' — '+esc(x.note)+'</span><small>Source : '+esc(x.source)+' · Lignée : '+esc(x.lineage)+'</small></span>';
   }).join('')+'</div>';
  };
  window.cd11260State=function(){return {dossiers:Object.keys(links).length,relations:Object.keys(links).reduce(function(n,k){return n+links[k].length},0),preuveMinimum:'OBSERVATION',relationsEntreEntitesMasquees:true}};
+})();
+</script>
+<style id="cd-v11270-nav-style">
+.cd11270-nav{position:sticky;top:0;z-index:5;background:var(--panel);padding:0 54px 0 0}
+.cd11270-nav:has(button[hidden]){display:none}
+.cd11270-nav button,.cd11270-link{cursor:pointer;touch-action:manipulation}
+.cd11270-nav button{font-size:.8em;padding:6px 9px;margin-bottom:6px}
+.cd11270-link{display:inline;border:0;border-bottom:1px solid currentColor;background:none;color:var(--gold);font:inherit;font-weight:bold;padding:0;max-width:100%;white-space:normal;text-align:left}
+</style>
+<script id="cd-v11270">
+/* V11.27 — circulation entre dossiers déjà découverts, sans mutation des preuves. */
+(function(){
+ let currentNav=null,history=[];
+ function cardId(name){return 'cd11270-'+encodeURIComponent(name)}
+ function jump(card,sheet){
+  if(!card||!sheet)return false;
+  sheet.scrollTop+=card.getBoundingClientRect().top-sheet.getBoundingClientRect().top-60;
+  return true;
+ }
+ function backButton(root){return root&&root.querySelector('[data-cd11270-back]')}
+ function update(root){const b=backButton(root);if(b)b.hidden=!history.length}
+ document.addEventListener('click',function(ev){
+  const btn=ev.target&&ev.target.closest&&ev.target.closest('[data-cd11270-target],[data-cd11270-back]');
+  if(!btn)return;
+  const root=document.getElementById('sheetContent'),sheet=document.getElementById('sheet');
+  if(!root||!sheet||!root.contains(btn)||!root.querySelector('.cd11210-summary'))return;
+  ev.preventDefault();ev.stopPropagation();
+  const nav=root.querySelector('.cd11270-nav');
+  if(nav!==currentNav){currentNav=nav;history=[]}
+  if(btn.hasAttribute('data-cd11270-back')){
+   if(history.length){const previous=history.pop();jump(document.getElementById(previous),sheet)}
+  }else{
+   let name;try{name=decodeURIComponent(btn.getAttribute('data-cd11270-target'))}catch(e){return}
+   const target=document.getElementById(cardId(name)),origin=btn.closest('.cd11210-entry');
+   if(!target||!origin||!root.contains(target)||target===origin)return;
+   history.push(origin.id);jump(target,sheet);
+  }
+  update(root);
+ },true);
+ window.cd11270State=function(){return {navigation:!!document.querySelector('.cd11270-nav'),historique:history.length}};
 })();
 </script>
 </body>
