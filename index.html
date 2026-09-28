@@ -488,7 +488,13 @@ const jobs=[
 const traits=["Sang-froid","Curieux","Méfiant","Insomniaque","Œil exercé","Volonté de fer","Superstitieux","Cicatrice étrange"];
 const skills=["Investigation","Observation","Armes","Médecine","Psychologie","Occultisme","Érudition","Endurance"];
 
-function mulberry(a){return()=>{let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function mulberry(a){
+ let state=a>>>0;
+ const next=()=>{let t=state=(state+0x6D2B79F5)>>>0;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296};
+ next.getState=()=>state;
+ next.setState=value=>{if(!Number.isInteger(value)||value<0||value>0xFFFFFFFF)throw new Error("État aléatoire invalide");state=value>>>0};
+ return next
+}
 function R(n){return Math.floor(rng()*n)}
 function toast(s){let t=document.getElementById("toast");t.textContent=s;t.style.display="block";clearTimeout(t._x);t._x=setTimeout(()=>t.style.display="none",1500)}
 function log(s){journal.unshift(s);journal=journal.slice(0,60)}
@@ -502,7 +508,7 @@ function closeOverlays(){
 
 function skillCheck(skill,difficulty){
  const v=player.char.skills[skill]||0, target=Math.max(5,Math.min(95,v-difficulty));
- const roll=Math.floor(Math.random()*100)+1, ok=roll<=target;
+ const roll=Math.floor(rng()*100)+1, ok=roll<=target;
  log(`${skill} : ${roll}/${target} ${ok?"✓":"✗"}`);return ok
 }
 
@@ -595,18 +601,18 @@ function npcChoice(choice){
 function closeModalOnly(){document.getElementById("modal").classList.remove("open")}
 
 function makeCharacter(){
- const female=Math.random()<.5,pool=female?firstF:firstM,job=jobs[Math.floor(Math.random()*jobs.length)];
+ const female=rng()<.5,pool=female?firstF:firstM,job=jobs[Math.floor(rng()*jobs.length)];
  let v=Object.fromEntries(skills.map(s=>[s,35]));
  v[job.focus[0]]+=35;v[job.focus[1]]+=25;let rem=60;
- while(rem-->0)v[skills[Math.floor(Math.random()*skills.length)]]++;
- return {name:pool[Math.floor(Math.random()*pool.length)]+" "+lastN[Math.floor(Math.random()*lastN.length)],
- sex:female?"Femme":"Homme",job:female?job.f:job.m,trait:traits[Math.floor(Math.random()*traits.length)],skills:v}
+ while(rem-->0)v[skills[Math.floor(rng()*skills.length)]]++;
+ return {name:pool[Math.floor(rng()*pool.length)]+" "+lastN[Math.floor(rng()*lastN.length)],
+ sex:female?"Femme":"Homme",job:female?job.f:job.m,trait:traits[Math.floor(rng()*traits.length)],skills:v}
 }
 
 function newRun(){
  closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
  player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0,npc:null,status:[]};
- seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();if(typeof cd14GenerateGeometry==='function')cd14GenerateGeometry();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(Math.random()<.35)startQuest();render()
+ seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();if(typeof cd14GenerateGeometry==='function')cd14GenerateGeometry();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(rng()<.35)startQuest();render()
 }
 function generateMap(){
  map=Array.from({length:13},()=>Array(13).fill("wall"));let x=6,y=6;map[y][x]="floor";
@@ -635,7 +641,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.28.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.29.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -1028,16 +1034,16 @@ const CD_RPG = {
   ]
 };
 function cdSkillCheck(name,diff=0){
-  const s=(player.skills&&player.skills[name])||45, r=1+Math.floor(Math.random()*100);
+  const s=(player.skills&&player.skills[name])||45, r=1+Math.floor(rng()*100);
   const ok=r<=Math.max(5,Math.min(95,s-diff));
   log(`${name} : ${r}/${s} — ${ok?"réussite":"échec"}.`); return ok;
 }
 function cdAtmosphere(){
  cd21MaybeEvent();
   if(typeof battle!=="undefined"&&battle)return;
-  if(Math.random()<0.045){
-    log("ÉVÉNEMENT : "+CD_RPG.events[Math.floor(Math.random()*CD_RPG.events.length)]);
-    if(Math.random()<0.30){player.san=Math.max(0,player.san-1);log("-1 SAN.");}
+  if(rng()<0.045){
+    log("ÉVÉNEMENT : "+CD_RPG.events[Math.floor(rng()*CD_RPG.events.length)]);
+    if(rng()<0.30){player.san=Math.max(0,player.san-1);log("-1 SAN.");}
   }
 }
 function cdEnsureSkills(){
@@ -1089,17 +1095,17 @@ function cd12AddStatus(s){
 function cd12Tick(){
  const a=cd12Status();
  if(a.includes("Saignement")){player.hp=Math.max(1,player.hp-1);log("Saignement : -1 PV.")}
- if(a.includes("Terreur")&&Math.random()<.35){player.san=Math.max(0,player.san-1);log("Terreur : -1 SAN.")}
+ if(a.includes("Terreur")&&rng()<.35){player.san=Math.max(0,player.san-1);log("Terreur : -1 SAN.")}
 }
 function cd12Discover(){
- const t=CD12.discoveries[Math.floor(Math.random()*CD12.discoveries.length)];
+ const t=CD12.discoveries[Math.floor(rng()*CD12.discoveries.length)];
  log("DÉCOUVERTE : "+t);
  player.myth=Math.min(100,player.myth+1);
  toast("Découverte · +1% Mythe")
 }
 function cd12BossChance(){
- if(battle||player.depth<3||player.depth%3!==0||Math.random()>.18)return false;
- const b=CD12.bosses[Math.floor(Math.random()*CD12.bosses.length)];
+ if(battle||player.depth<3||player.depth%3!==0||rng()>.18)return false;
+ const b=CD12.bosses[Math.floor(rng()*CD12.bosses.length)];
  enemy={name:b.name,hp:b.hp+player.depth*2,maxhp:b.hp+player.depth*2,atk:b.atk+Math.floor(player.depth/2),def:b.def,x:px,y:py,weak:b.weak,resist:"ancien"};
  battle=true;codex[b.name]=true;
  if(!creatures[b.name])creatures[b.name]={hp:b.hp,atk:b.atk,def:b.def,cat:"Boss",desc:"Une présence majeure liée aux perturbations de Blackwater.",weak:b.weak,resist:"ancien"};
@@ -1110,7 +1116,7 @@ function cd12BossChance(){
 function cd12Rest(){
  if(battle){toast("Impossible en combat");return}
  if(player.san>=player.maxsan&&player.hp>=player.maxhp){toast("Vous n'avez pas besoin de souffler");return}
- const danger=Math.random();
+ const danger=rng();
  if(danger<.22){log("Votre repos est interrompu.");spawnEnemy();render();return}
  player.hp=Math.min(player.maxhp,player.hp+3);
  player.san=Math.min(player.maxsan,player.san+2);
@@ -1139,16 +1145,16 @@ const CD13_ZONES=[
 ];
 function cd13Zone(){let z=CD13_ZONES[0],d=Math.max(1,player.depth||1);for(const q of CD13_ZONES)if(d>=q.min)z=q;return z}
 function cd13ZoneEvent(){
- if(!battle&&Math.random()<.07){
+ if(!battle&&rng()<.07){
   const z=cd13Zone();log("ZONE : "+z.event);
-  if(Math.random()<.25){player.san=Math.max(0,player.san-1);log("-1 SAN.")}
+  if(rng()<.25){player.san=Math.max(0,player.san-1);log("-1 SAN.")}
  }
 }
 function cd13PickEnemy(){
  const z=cd13Zone(),pool=z.enemyBias.filter(n=>creatures[n]);
- if(pool.length&&Math.random()<.72)return pool[Math.floor(Math.random()*pool.length)];
+ if(pool.length&&rng()<.72)return pool[Math.floor(rng()*pool.length)];
  const names=Object.keys(creatures).filter(n=>creatures[n].cat!=="Boss");
- return names[Math.floor(Math.random()*names.length)]
+ return names[Math.floor(rng()*names.length)]
 }
 window.addEventListener("load",()=>{try{log("ZONE : "+cd13Zone().name+".")}catch(e){console.error(e)}});
 </script>
@@ -1228,7 +1234,7 @@ const CD15_EVENTS=[
  {t:"Le passage est presque effondré.",skill:"Endurance",ok:"Vous forcez le passage et trouvez une cache.",bad:"Les pierres vous blessent."}
 ];
 function cd15Event(){
- if(battle||Math.random()>.055)return;
+ if(battle||rng()>.055)return;
  const e=CD15_EVENTS[R(CD15_EVENTS.length)];
  const ok=skillCheck(e.skill,12);
  log("RENCONTRE : "+e.t);
@@ -1243,7 +1249,7 @@ function cd15Event(){
    log(e.bad);
    if(e.skill==="Endurance"){player.hp=Math.max(1,player.hp-3)}
    else if(e.skill==="Occultisme"){player.san=Math.max(0,player.san-3);player.myth=Math.min(100,player.myth+2)}
-   else if(Math.random()<.55)spawnEnemy();
+   else if(rng()<.55)spawnEnemy();
    else player.san=Math.max(0,player.san-1);
  }
  render()
@@ -1474,7 +1480,7 @@ const CD21_EVENTS=[
 ];
 let cd21Event=null;
 function cd21MaybeEvent(){
- if(battle||cd21Event||Math.random()>.065)return false;
+ if(battle||cd21Event||rng()>.065)return false;
  cd21Event=CD21_EVENTS[R(CD21_EVENTS.length)];
  cd21ShowEvent();return true
 }
@@ -6985,7 +6991,7 @@ enemyTurn=function(){cd460Sync();const r=cd460EnemyTurn.apply(this,arguments);if
    if(!s.armed||s.shown||!alive())return;
    s.turns++; if(s.turns<2)return;
    s.shown=true;
-   const n=String(enemy.name||"La créature"),r=Math.random();
+   const n=String(enemy.name||"La créature"),r=rng();
    if(r<.34){
      enemy.atk=(enemy.atk||1)+1;
      announce("RANCUNE INSTINCTIVE",n+" associe votre présence à la douleur. +1 ATQ ennemi.");
@@ -8318,7 +8324,7 @@ function cd740Offer(){
 function cd740Choose(mode,skill){
   const s=cd740State();if(s.resolved)return;s.resolved=true;
   const v=(player.char&&player.char.skills&&player.char.skills[skill])||0;
-  const roll=Math.floor(Math.random()*100)+1,ok=roll<=Math.max(5,Math.min(95,v));
+  const roll=Math.floor(rng()*100)+1,ok=roll<=Math.max(5,Math.min(95,v));
   let title,body;
   if(ok){
     title='DÉCOR EXPLOITÉ';player.xp=(player.xp||0)+2;
@@ -9292,7 +9298,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
     const inv=Number(s.Investigation||0), obs=Number(s.Observation||0);
     const skill = inv>=obs ? "Investigation" : "Observation";
     const val = Math.max(inv,obs);
-    const roll = 1+Math.floor(Math.random()*100);
+    const roll = 1+Math.floor(rng()*100);
     if(roll<=val){
       if(typeof player.xp==="number") player.xp+=2;
       if(typeof log==="function") log("FIL CONDUCTEUR — PISTE RELIÉE ("+skill+" "+val+", jet "+roll+"). +2 XP.");
@@ -9340,7 +9346,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  function trigger(){
    if(s.done||!window.player)return; s.done=true;
    const k=skills(), o=Number(k.Observation||0), oc=Number(k.Occultisme||0);
-   const skill=o>=oc?"Observation":"Occultisme", val=Math.max(o,oc), roll=1+Math.floor(Math.random()*100);
+   const skill=o>=oc?"Observation":"Occultisme", val=Math.max(o,oc), roll=1+Math.floor(rng()*100);
    if(roll<=val){
      if(typeof player.xp==="number")player.xp+=2;
      if(typeof log==="function")log("SIXIÈME SENS — PRÉSENCE DÉTECTÉE ("+skill+" "+val+", jet "+roll+"). +2 XP.");
@@ -9382,7 +9388,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  window.cd1010Choose=function(mode){
    if(st.resolved||!window.player)return; st.resolved=true;
    const skill=mode==='observer'?'Observation':mode==='suivre'?'Investigation':'Occultisme';
-   const val=Number(sk()[skill]||0),roll=1+Math.floor(Math.random()*100),ok=roll<=Math.max(5,Math.min(95,val));
+   const val=Number(sk()[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(5,Math.min(95,val));
    let title,body;
    if(ok){title='TRACE INTERPRÉTÉE';player.xp=(player.xp||0)+2;body='Le motif devient cohérent : quelque chose a traversé le secteur en évitant les rues normales. <b>+2 XP.</b>';}
    else{title='PISTE INCOMPLÈTE';body='Les marques sont réelles, mais leur logique vous échappe encore. <b>Aucune pénalité.</b>';}
@@ -9420,7 +9426,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  window.cd1020Choose=function(mode){
    if(st.resolved||!window.player)return;st.resolved=true;
    const skill=mode==='ecouter'?'Observation':mode==='deduire'?'Investigation':'Psychologie';
-   const val=Number(skills()[skill]||0),roll=1+Math.floor(Math.random()*100),ok=roll<=Math.max(5,Math.min(95,val));
+   const val=Number(skills()[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(5,Math.min(95,val));
    let title,body;
    if(ok){
      title='MENACE LOCALISÉE';player.xp=(player.xp||0)+2;
@@ -9470,7 +9476,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      st.token='cover';title='ARME EN GARDE';body='Le revolver reste bas, mais prêt. <b>La prochaine créature commence avec -2 PV.</b>';
      log('PRÉPARATION — ARME EN GARDE : prochaine créature -2 PV initiaux.');
    }else{
-     const val=Number((player.char&&player.char.skills&&player.char.skills.Observation)||0),roll=1+Math.floor(Math.random()*100),ok=roll<=Math.max(5,Math.min(95,val));
+     const val=Number((player.char&&player.char.skills&&player.char.skills.Observation)||0),roll=1+Math.floor(rng()*100),ok=roll<=Math.max(5,Math.min(95,val));
      if(ok){player.xp=(player.xp||0)+2;title='ABORDS SÉCURISÉS';body='Vous repérez les lignes de fuite et les zones aveugles. <b>+2 XP.</b><br><b>Observation '+val+' · jet '+roll+' ✓</b>'}
      else{title='RIEN DE CERTAIN';body='Blackwater refuse de livrer un schéma fiable. <b>Aucune pénalité.</b><br><b>Observation '+val+' · jet '+roll+'</b>'}
      log('PRÉPARATION — '+title+' (Observation '+val+', jet '+roll+').'+(ok?' +2 XP.':''));
@@ -9503,7 +9509,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  const st={shown:false,resolved:false,brace:false};
  function skill(n){return Number((window.player&&player.char&&player.char.skills&&player.char.skills[n])||0)}
- function roll(n){const v=skill(n),r=1+Math.floor(Math.random()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
+ function roll(n){const v=skill(n),r=1+Math.floor(rng()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
  function offer(){
    if(st.shown||!battle||!enemy)return;st.shown=true;
    const n=enemy.name||'la créature';
@@ -9565,7 +9571,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    return player.npc.cd1050;
  }
  function skill(n){return Number((window.player&&player.char&&player.char.skills&&player.char.skills[n])||0)}
- function roll(n){const v=skill(n),r=1+Math.floor(Math.random()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
+ function roll(n){const v=skill(n),r=1+Math.floor(rng()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
  function offer(){
    const st=state();
    if(st.shown||battle||!player||!player.npc)return;st.shown=true;
@@ -9634,11 +9640,11 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  ];
  function pick(){
    // La fissure cosmique reste rare, les sept autres anomalies sont communes.
-   if(Math.random()<.02)return anomalies[7];
-   return anomalies[Math.floor(Math.random()*7)];
+   if(rng()<.02)return anomalies[7];
+   return anomalies[Math.floor(rng()*7)];
  }
  function stat(n){return Number(player&&player.char&&player.char.skills&&player.char.skills[n]||0)}
- function check(n){const v=stat(n),r=1+Math.floor(Math.random()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
+ function check(n){const v=stat(n),r=1+Math.floor(rng()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
  function detect(){
    if(st.shown)return;st.shown=true;st.anom=pick();const a=st.anom;
    log('ANOMALIE DE SECTEUR — '+a.name+'.');toast('ANOMALIE DÉTECTÉE');
@@ -9694,7 +9700,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
     {skill:'Investigation',title:'TRACE RÉCURRENTE',text:'Vous reconnaissez votre propre passage, mais une seconde trace semble l’avoir suivi.'},
     {skill:'Psychologie',title:'SOUVENIR ÉTRANGER',text:'Le lieu vous paraît familier d’une manière qui ne correspond pas à vos souvenirs.'}
    ];
-   const a=options[Math.floor(Math.random()*options.length)],v=skill(a.skill),r=1+Math.floor(Math.random()*100),ok=r<=Math.max(5,Math.min(95,v));
+   const a=options[Math.floor(rng()*options.length)],v=skill(a.skill),r=1+Math.floor(rng()*100),ok=r<=Math.max(5,Math.min(95,v));
    let result,body;
    if(ok){player.xp=(player.xp||0)+2;result='PASSAGE RECONNU';body=a.text+' Vous distinguez ce qui a changé depuis votre premier passage. <b>+2 XP.</b>'}
    else{result='DÉJÀ-VU TROUBLANT';body=a.text+' La comparaison vous échappe encore. <b>Aucune pénalité.</b>'}
@@ -9817,7 +9823,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      body="Le fil d’Ariane mental survit au déplacement. Votre enquête suivante s’appuie sur un trajet devenu cohérent. <b>+2 XP.</b>";
    }else{
      const sk=(player.char&&player.char.skills)||{};
-     const val=Number(sk.Investigation||0), roll=1+Math.floor(Math.random()*100);
+     const val=Number(sk.Investigation||0), roll=1+Math.floor(rng()*100);
      if(roll<=val){
        player.xp=(player.xp||0)+2;
        title="BOUCLE BRISÉE";
@@ -9887,7 +9893,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      body='Le repère consolidé s’ancre dans votre mémoire. En avançant, vous reconnaissez immédiatement ce qui appartient au trajet réel. <b>+1 XP.</b>';
    }else{
      const sk=(player.char&&player.char.skills)||{};
-     const val=Number(sk.Observation||0),roll=1+Math.floor(Math.random()*100);
+     const val=Number(sk.Observation||0),roll=1+Math.floor(rng()*100);
      if(roll<=val){
        player.xp=(player.xp||0)+1;title='FAUX REPÈRE DÉMASQUÉ';
        body='Le souvenir parasite tente de se superposer au passage, mais un détail concret le trahit. <b>Observation '+val+' · jet '+roll+' ✓ · +1 XP.</b>';
@@ -9933,7 +9939,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.used=true;
    const sk=(player.char&&player.char.skills)||{};
    const base=Number(sk.Observation||0), intel=hasFieldIntel()?10:0, trait=traitBonus();
-   const target=Math.max(5,Math.min(95,base+intel+trait)), roll=1+Math.floor(Math.random()*100);
+   const target=Math.max(5,Math.min(95,base+intel+trait)), roll=1+Math.floor(rng()*100);
    let title,body;
    if(roll<=target){
      enemy.hp=Math.max(1,(enemy.hp||1)-2);player.xp=(player.xp||0)+2;
@@ -9984,7 +9990,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      player.xp=(player.xp||0)+1; title='ÉLAN CONSERVÉ';
      body='Après avoir abattu '+s.foe+', vous reprenez votre progression sans perdre le fil des signes qui avaient préparé l’affrontement. <b>+1 XP.</b>';
    }else{
-     const sk=(player.char&&player.char.skills)||{}, val=Number(sk.Psychologie||0), roll=1+Math.floor(Math.random()*100);
+     const sk=(player.char&&player.char.skills)||{}, val=Number(sk.Psychologie||0), roll=1+Math.floor(rng()*100);
      if(roll<=val){player.xp=(player.xp||0)+1;title='TENSION ÉVACUÉE';body='Le combat avait commencé sur une lecture imparfaite, mais vous refusez d’emporter cette erreur avec vous. <b>Psychologie '+val+' · jet '+roll+' ✓ · +1 XP.</b>';}
      else{player.san=Math.max(0,(player.san||0)-1);title='DOUTE PERSISTANT';body='La victoire ne suffit pas à effacer votre mauvaise lecture de '+s.foe+'. Chaque bruit du secteur semble annoncer une nouvelle erreur. <b>Psychologie '+val+' · jet '+roll+' ✕ · -1 SAN.</b>';}
    }
@@ -10022,7 +10028,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  };
  function resolve(){
    if(!s.armed||s.used||battle||!player)return; s.armed=false;s.used=true;
-   const sk=(player.char&&player.char.skills)||{}, key=s.skill||'Investigation', val=Number(sk[key]||0), roll=1+Math.floor(Math.random()*100);
+   const sk=(player.char&&player.char.skills)||{}, key=s.skill||'Investigation', val=Number(sk[key]||0), roll=1+Math.floor(rng()*100);
    let title,body;
    if(roll<=val){
      player.xp=(player.xp||0)+2;title='DÉTAIL RÉUTILISÉ';
@@ -10059,7 +10065,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.used=true;
    const sk=(player.char&&player.char.skills)||{};
    const key=(Number(sk.Observation||0)>=Number(sk.Investigation||0))?'Observation':'Investigation';
-   const val=Number(sk[key]||0), roll=1+Math.floor(Math.random()*100);
+   const val=Number(sk[key]||0), roll=1+Math.floor(rng()*100);
    let title,body;
    if(roll<=val){
      player.xp=(player.xp||0)+1;title='REPÈRE FIXÉ';
@@ -10104,7 +10110,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const sk=(player.char&&player.char.skills)||{};
    const keys=['Investigation','Observation','Érudition'];
    let key=keys[0]; for(const k of keys)if(Number(sk[k]||0)>Number(sk[key]||0))key=k;
-   const val=Number(sk[key]||0),roll=1+Math.floor(Math.random()*100);
+   const val=Number(sk[key]||0),roll=1+Math.floor(rng()*100);
    let title,body;
    if(roll<=val){
      player.xp=(player.xp||0)+1;title='DÉTAIL RÉVÉLATEUR';
@@ -10143,7 +10149,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.armed=false;s.used=true;
    const sk=(player.char&&player.char.skills)||{};
    const inv=Number(sk.Investigation||0),obs=Number(sk.Observation||0);
-   const key=inv>=obs?'Investigation':'Observation',val=Math.max(inv,obs),roll=1+Math.floor(Math.random()*100);
+   const key=inv>=obs?'Investigation':'Observation',val=Math.max(inv,obs),roll=1+Math.floor(rng()*100);
    let title,body;
    if(roll<=val){
      player.xp=(player.xp||0)+1;title='PISTE CONSOLIDÉE';
@@ -10185,7 +10191,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.used=true;
    const sk=(player.char&&player.char.skills)||{};
    const obs=Number(sk.Observation||0),eru=Number(sk['Érudition']||0);
-   const key=obs>=eru?'Observation':'Érudition',val=Math.max(obs,eru),roll=1+Math.floor(Math.random()*100);
+   const key=obs>=eru?'Observation':'Érudition',val=Math.max(obs,eru),roll=1+Math.floor(rng()*100);
    if(roll<=val){
      player.xp=(player.xp||0)+1;
      s.result='MATÉRIEL CERNÉ';
@@ -10229,7 +10235,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const entries=Object.entries(player.char.skills).map(([k,v])=>[k,Number(v)||0]);
    if(!entries.length)return;
    const best=entries.reduce((a,b)=>b[1]>a[1]?b:a),weak=entries.reduce((a,b)=>b[1]<a[1]?b:a);
-   const roll=1+Math.floor(Math.random()*100), val=best[1];
+   const roll=1+Math.floor(rng()*100), val=best[1];
    if(roll<=val){
      player.xp=(player.xp||0)+1;
      s.result='POINT FORT IDENTIFIÉ';
@@ -10271,7 +10277,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.used=true;
    const sk=player.char.skills;
    const key=(Number(sk.Observation||0)>=Number(sk.Investigation||0))?'Observation':'Investigation';
-   const val=Number(sk[key]||0),roll=1+Math.floor(Math.random()*100);
+   const val=Number(sk[key]||0),roll=1+Math.floor(rng()*100);
    if(roll<=val){
      player.xp=(player.xp||0)+1;
      if(typeof log==='function')log("SENS DE L’ORIENTATION — REPÈRE TROUVÉ ("+key+' '+val+', jet '+roll+"). +1 XP.");
@@ -10305,7 +10311,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.used=true;
    const sk=player.char.skills;
    const occ=Number(sk.Occultisme||0),eru=Number(sk['Érudition']||0);
-   const key=occ>=eru?'Occultisme':'Érudition',val=Math.max(occ,eru),roll=1+Math.floor(Math.random()*100);
+   const key=occ>=eru?'Occultisme':'Érudition',val=Math.max(occ,eru),roll=1+Math.floor(rng()*100);
    if(roll<=val){
      player.xp=(player.xp||0)+1;
      s.result='SAVOIR MOBILISÉ';
@@ -10354,7 +10360,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      if(!st.used){
        st.used=true;
        const occ=Number(sk.Occultisme||0),eru=Number(sk['Érudition']||0);
-       const key=occ>=eru?'Occultisme':'Érudition',val=Math.max(occ,eru),roll=1+Math.floor(Math.random()*100);
+       const key=occ>=eru?'Occultisme':'Érudition',val=Math.max(occ,eru),roll=1+Math.floor(rng()*100);
        if(roll<=val){player.xp=(player.xp||0)+1;st.result='SAVOIR MOBILISÉ';st.detail='Des lectures, des rumeurs et quelques souvenirs malsains forment déjà une grille de lecture. <b>'+key+' '+val+' · jet '+roll+' ✓ · +1 XP.</b>';}
        else{st.result='ARCHIVES LACUNAIRES';st.detail='Vos connaissances ne suffisent pas encore à donner un nom aux horreurs de Blackwater. Vous gardez vos hypothèses ouvertes. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b>';}
        if(typeof log==='function')log('PRÉPARATION AU BESTIAIRE — '+st.result+'.');
@@ -10382,7 +10388,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    s.used=true;
    const sk=player.char.skills;
    const inv=Number(sk.Investigation||0),end=Number(sk.Endurance||0);
-   const key=inv>=end?'Investigation':'Endurance',val=Math.max(inv,end),roll=1+Math.floor(Math.random()*100);
+   const key=inv>=end?'Investigation':'Endurance',val=Math.max(inv,end),roll=1+Math.floor(rng()*100);
    const unlocked=(typeof cd23Stats==='object'&&cd23Stats&&cd23Stats.ach)?Object.keys(cd23Stats.ach).length:0;
    if(roll<=val){
      player.xp=(player.xp||0)+1;
@@ -10430,7 +10436,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
        if(s.moves>=2&&player&&player.char&&player.char.skills){
          s.used=true;
          const sk=player.char.skills,obs=Number(sk.Observation||0),psy=Number(sk.Psychologie||0);
-         const key=obs>=psy?'Observation':'Psychologie',val=Math.max(obs,psy),roll=1+Math.floor(Math.random()*100);
+         const key=obs>=psy?'Observation':'Psychologie',val=Math.max(obs,psy),roll=1+Math.floor(rng()*100);
          let title,body;
          if(roll<=val){player.xp=(player.xp||0)+1;title='BRUIT LOCALISÉ';body='Un frottement bref se détache du silence. Vous en situez la provenance avant qu’il ne cesse. <b>'+key+' '+val+' · jet '+roll+' ✓ · +1 XP.</b>';}
          else{title='ÉCHO INDÉCIS';body='Un bruit court entre les murs, mais Blackwater déforme trop les distances pour en tirer une certitude. <b>'+key+' '+val+' · jet '+roll+' ✕ · aucune perte.</b>';}
@@ -10471,7 +10477,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
        s.used=true;
        const sk=player.char.skills;
        const inv=Number(sk.Investigation||0),eru=Number(sk['Érudition']||0);
-       const key=inv>=eru?'Investigation':'Érudition',val=Math.max(inv,eru),roll=1+Math.floor(Math.random()*100);
+       const key=inv>=eru?'Investigation':'Érudition',val=Math.max(inv,eru),roll=1+Math.floor(rng()*100);
        let title,body;
        if(roll<=val){
          player.xp=(player.xp||0)+1;title='PRIORITÉ CERNÉE';
@@ -11329,7 +11335,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    if(mode==='feint'){sk='Investigation';title='FAUSSE PISTE RÉUSSIE';success='Le marquage matériel attire la menace sur une mauvaise ligne.';effect='-2 PV ennemi';}
    else if(mode==='read'){sk='Occultisme';title='MENACE DÉCHIFFRÉE';success='Le signe et le terrain se répondent. Vous reconnaissez une faiblesse avant l’assaut.';effect='-2 PV ennemi · +1 XP';}
    else if(mode==='initiative'){sk='Observation';title='INITIATIVE SAISIE';success='Votre balisage révèle le mouvement adverse une seconde trop tôt pour lui.';effect='-1 PV ennemi · ATQ ennemie -1';}
-   const val=skill(sk),roll=1+Math.floor(Math.random()*100),ok=roll<=val;
+   const val=skill(sk),roll=1+Math.floor(rng()*100),ok=roll<=val;
    if(ok){
      if(mode==='feint')enemy.hp=Math.max(1,Number(enemy.hp||1)-2);
      else if(mode==='read'){enemy.hp=Math.max(1,Number(enemy.hp||1)-2);player.xp=(player.xp||0)+1;}
@@ -11457,7 +11463,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      if(typeof log==='function')log('CHOIX D’ITINÉRAIRE — REPÈRE ANCRÉ : +1 SAN.');
      if(typeof toast==='function')toast('REPÈRE ANCRÉ');
    }else{
-     const val=skill('Observation'),roll=1+Math.floor(Math.random()*100),ok=roll<=val;
+     const val=skill('Observation'),roll=1+Math.floor(rng()*100),ok=roll<=val;
      if(ok){
        player.xp=(player.xp||0)+3;st.result='RACCOURCI MAÎTRISÉ';
        if(typeof log==='function')log('CHOIX D’ITINÉRAIRE — RACCOURCI MAÎTRISÉ (Observation '+val+', jet '+roll+'). +3 XP.');
@@ -11579,7 +11585,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    try{return Number(player&&player.char&&player.char.skills&&player.char.skills[name])||0}catch(e){return 0}
  }
  function roll(name){
-   const v=skill(name),r=1+Math.floor((typeof rng==='function'?rng():Math.random())*100);
+   const v=skill(name),r=1+Math.floor(rng()*100);
    return {v:v,r:r,ok:r<=v};
  }
  function offer(tries){
@@ -12018,7 +12024,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    if(st.resolved)return;st.resolved=true;
    try{if(map[st.y]&&map[st.y][st.x]==='lead50')map[st.y][st.x]='floor'}catch(e){}
    const skills=player&&player.char&&player.char.skills?player.char.skills:{};
-   const skill=mode==='proof'?'Investigation':'Observation',val=Number(skills[skill]||0),roll=1+Math.floor(Math.random()*100),ok=roll<=val;
+   const skill=mode==='proof'?'Investigation':'Observation',val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
    if(typeof closeModalOnly==='function')closeModalOnly();
    if(mode==='proof'){
      if(ok){player.xp=Number(player.xp||0)+2;st.result='PREUVE MATÉRIELLE';log('PISTE → DÉCOUVERTE — PREUVE MATÉRIELLE ('+skill+' '+val+', jet '+roll+') : +2 XP et une trouvaille supplémentaire.');toast('PREUVE MATÉRIELLE · +2 XP');setTimeout(function(){try{if(typeof loot==='function')loot()}catch(e){}},120)}
@@ -13415,7 +13421,7 @@ window.cd10514NpcLiveRefresh=true;
   {id:'moisson',title:'LA MOISSON DU CIEL NOIR',clue:'Des incisions précises marquent la pierre et la chair.',threat:'des collecteurs fongiques qui classent les habitants'},
   {id:'reflet',title:'LA RUE QUI SE SOUVIENT',clue:'Les vitrines reflètent des passants qui ne sont pas encore arrivés.',threat:'une mémoire étrangère qui reconstruit Blackwater'}
  ];
- function make(){const c=CASES[Math.floor((typeof rng==='function'?rng():Math.random())*CASES.length)]||CASES[0];return {caseId:c.id,title:c.title,clue:c.clue,threat:c.threat,stage:0,choice:null,resolved:false,guardianApplied:false};}
+ function make(){const c=CASES[Math.floor(rng()*CASES.length)]||CASES[0];return {caseId:c.id,title:c.title,clue:c.clue,threat:c.threat,stage:0,choice:null,resolved:false,guardianApplied:false};}
  function state(){if(!player)return null;if(!player.cd10800)player.cd10800=make();return player.cd10800;}
  function advanceByReading(){
   const s=state();if(!s||s.stage!==0)return false;s.stage=1;
@@ -14842,7 +14848,7 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
   return player.npc.cd11030;
  }
  function skill(name){return Number(player&&player.char&&player.char.skills&&player.char.skills[name]||0)}
- function roll(target){const value=1+(typeof R==='function'?R(100):Math.floor(Math.random()*100));return {value:value,target:clamp(target),ok:value<=clamp(target)}}
+ function roll(target){const value=1+(typeof R==='function'?R(100):Math.floor(rng()*100));return {value:value,target:clamp(target),ok:value<=clamp(target)}}
  function textFor(s){
   if(!s||!s.resolved)return '';
   return '<b>LECTURE CONSERVÉE — '+String(s.title||'TÉMOIGNAGE')+'</b><small>'+String(s.detail||'')+'</small>';
@@ -15137,7 +15143,7 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
   try{
    if(n&&lastName&&n.name===lastName&&typeof CD20_NPCS!=='undefined'&&CD20_NPCS.length>1){
     const pool=CD20_NPCS.filter(function(x){return x.name!==lastName});
-    const alt=pool[(typeof R==='function'?R(pool.length):Math.floor(Math.random()*pool.length))];
+    const alt=pool[(typeof R==='function'?R(pool.length):Math.floor(rng()*pool.length))];
     if(alt){Object.keys(alt).forEach(function(k){n[k]=alt[k]});stats.repeatsAvoided++;}
    }
    if(n){lastName=n.name;ensure(n);stats.generated++;stats.last={kind:'generated',name:n.name,temperament:spec(n).kind};}
@@ -16141,9 +16147,9 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
  function pick(channel){
   const prov=load(PROVENANCE),eligible=Object.keys(corpus).filter(function(n){return corpus[n].routes.includes(channel)&&!(prov[n]&&prov[n].channels||[]).includes(channel)});
   if(!eligible.length)return null;const unopened=eligible.filter(function(n){return !prov[n]||!(prov[n].channels||[]).length}),pool=unopened.length?unopened:eligible;
-  return pool[Math.floor((typeof rng==='function'?rng():Math.random())*pool.length)];
+  return pool[Math.floor(rng()*pool.length)];
  }
- function attempt(channel,chance){const roll=typeof rng==='function'?rng():Math.random();if(roll>=chance)return null;const n=pick(channel);return n?evidence(n,channel):null}
+ function attempt(channel,chance){const roll=rng();if(roll>=chance)return null;const n=pick(channel);return n?evidence(n,channel):null}
  Object.keys(corpus).forEach(function(name){const c=corpus[name],base=typeof creatures==='object'&&creatures?creatures[name]:null;if(base)Object.assign(base,{source:c.source,lineage:c.lineage,behavior:c.behavior});else if(typeof creatures==='object'&&creatures)creatures[name]={hp:0,atk:0,cat:c.combat?'Mythe':'Dossier indirect',desc:c.desc,weak:c.weak,resist:c.resist,source:c.source,lineage:c.lineage,behavior:c.behavior,nonCombat:!c.combat}});
  if(typeof investigate==='function'){
   const baseInvestigate11230=investigate;
@@ -16322,6 +16328,36 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   update(root);
  },true);
  window.cd11270State=function(){return {navigation:!!document.querySelector('.cd11270-nav'),historique:history.length}};
+})();
+</script>
+<script id="cd-v11290">
+/* V11.29 — noyau sérialisable. Aucun point de reprise n'est encore écrit :
+   les états des modules et les choix doivent encore être migrés. */
+(function(){
+ const modules=new Map();
+ window.cd11290Register=function(name,read,write){
+  if(typeof name!=="string"||!name||typeof read!=="function"||typeof write!=="function"||modules.has(name))throw new Error("Module de reprise invalide : "+name);
+  modules.set(name,{read,write});
+ };
+ window.cd11290CaptureCore=function(){
+  if(!player||!Array.isArray(map)||typeof rng?.getState!=="function")throw new Error("Run non initialisé");
+  return JSON.parse(JSON.stringify({schema:1,seed,rngState:rng.getState(),map,px,py,player,enemy,battle,journal,codex,seenItems,ach}));
+ };
+ window.cd11290RestoreCore=function(snapshot,options){
+  if(!snapshot||snapshot.schema!==1||!Number.isInteger(snapshot.seed)||!Number.isInteger(snapshot.rngState)||
+     !Array.isArray(snapshot.map)||snapshot.map.length!==13||snapshot.map.some(row=>!Array.isArray(row)||row.length!==13)||
+     !Number.isInteger(snapshot.px)||!Number.isInteger(snapshot.py)||snapshot.px<0||snapshot.px>12||snapshot.py<0||snapshot.py>12||
+     !snapshot.player||typeof snapshot.player!=="object"||!Array.isArray(snapshot.player.inv)||
+     !Array.isArray(snapshot.journal)||typeof snapshot.battle!=="boolean"||snapshot.battle&&!snapshot.enemy)
+   throw new Error("Point de reprise incomplet");
+  const copy=JSON.parse(JSON.stringify(snapshot));
+  const nextRng=mulberry(copy.seed);nextRng.setState(copy.rngState);
+  seed=copy.seed;rng=nextRng;map=copy.map;px=copy.px;py=copy.py;player=copy.player;
+  enemy=copy.enemy; battle=copy.battle;journal=copy.journal;codex=copy.codex||{};
+  seenItems=copy.seenItems||{};ach=copy.ach||{};
+  if(options?.render!==false)render();
+ };
+ window.cd11290Registry=function(){return {schema:1,modules:[...modules.keys()],active:false}};
 })();
 </script>
 </body>
