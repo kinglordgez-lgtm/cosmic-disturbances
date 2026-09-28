@@ -646,7 +646,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.32.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.33.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13377,6 +13377,8 @@ window.cd10514NpcLiveRefresh=true;
 (function(){
  if(typeof newRun!=='function'||typeof renderQuestTracker!=='function')return;
  let applied=0,last=null;
+ if(typeof cd11290Register==='function')cd11290Register('atomic-remanence',
+  ()=>({applied,last}),state=>{applied=state.applied;last=state.last});
  function outcome(reading,fromDepth,toDepth){
    const r=reading||{},skill=String(r.skill||''),site=String(r.site||'le secteur');
    let title,text;
@@ -13535,6 +13537,9 @@ window.cd10514NpcLiveRefresh=true;
   reflet:{name:'Vitre mémorielle',desc:'Un éclat qui conserve le reflet d’une rue ayant cessé d’exister.',tags:'mémoire, espace, anomalie'}
  };
  let floor=-1,steps=0,forced=0,closures=0;
+ if(typeof cd11290Register==='function')cd11290Register('guardian-cycle',
+  ()=>({floor,steps,forced,closures}),
+  state=>{floor=state.floor;steps=state.steps;forced=state.forced;closures=state.closures});
  function dossier(){try{return player&&player.cd10800?player.cd10800:(typeof window.cd10800State==='function'?window.cd10800State():null)}catch(e){return null}}
  function ensureRewardDB(){
   if(typeof itemDB!=='object'||!itemDB)return;
@@ -14154,6 +14159,9 @@ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.gu
 (function(){
  let dead=false;
  const st={deaths:0,blocked:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('death-gate',
+  ()=>({dead,stats:{...st}}),
+  state=>{dead=state.dead;Object.assign(st,state.stats)});
  const PROFILES={
   cloches:{name:'Le Carillonneur des Angles',desc:'Gardien extradimensionnel dont la résonance précède les coups.',weak:"Cartouches d’argent",resist:'Géométrie et résonance',hp:72,atk:15,def:5},
   sel:{name:'L’Abbé des Noyés',desc:'Gardien abyssal dont la litanie régénère la chair noyée.',weak:'Sel consacré',resist:'Eau et liturgie abyssale',hp:58,atk:14,def:5},
@@ -14289,6 +14297,8 @@ body.cd10940-convergence #mapWrap{filter:saturate(.90) contrast(1.075);box-shado
    logique ni masquer les chemins. Aucun équilibrage final n'est figé ici. */
 (function(){
  const st={depth:null,real:null,falseSignal:null,resolvedReal:false,resolvedFalse:false,prepared:null,lastMode:null,decisions:0,falseChecks:0,consumed:0};
+ if(typeof cd11290Register==='function')cd11290Register('perception-choice',
+  ()=>({...st}),state=>Object.assign(st,state));
  const modeClasses=['cd10940-anchored','cd10940-signs','cd10940-fractured','cd10940-convergence'];
  function key(x,y){return x+','+y}
  function chooseSignals(){
@@ -14439,6 +14449,9 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
    capacité mentale. Les valeurs restent provisoires jusqu'à l'équilibrage final. */
 (function(){
  const st={pending:false,resolving:false,ruptures:0,anchors:0,revelations:0,blocked:0,last:null,anchorDepths:new Set()};
+ if(typeof cd11290Register==='function')cd11290Register('mental-rupture',
+  ()=>({...st,anchorDepths:[...st.anchorDepths]}),
+  state=>{Object.assign(st,state);st.anchorDepths=new Set(state.anchorDepths);st.resolving=false});
  function alive(){return !!player&&Number(player.hp)>0}
  function depth(){return Number(player&&player.depth||0)}
  function hpCost(){return Math.max(4,Math.ceil(Number(player&&player.maxhp||1)*.08))}
@@ -16405,6 +16418,7 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
  }
  window.cd11290CaptureCore=function(){
   if(!player||!Array.isArray(map)||typeof rng?.getState!=="function")throw new Error("Run non initialisé");
+  if(Number(player.hp)<=0)throw new Error("Réalité terminée");
   return JSON.parse(JSON.stringify({schema:3,seed,rngState:rng.getState(),map,px,py,player,enemy,battle,journal,codex,seenItems,ach,
    enemyRef:{cd460:!!enemy&&player.cd460?.ref===enemy},ui:readWindow(),
    modules:Object.fromEntries([...modules].map(([name,hook])=>[name,hook.read()]))}));
@@ -16413,7 +16427,7 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   if(!snapshot||snapshot.schema!==3||!Number.isInteger(snapshot.seed)||!Number.isInteger(snapshot.rngState)||
      !Array.isArray(snapshot.map)||snapshot.map.length!==13||snapshot.map.some(row=>!Array.isArray(row)||row.length!==13)||
      !Number.isInteger(snapshot.px)||!Number.isInteger(snapshot.py)||snapshot.px<0||snapshot.px>12||snapshot.py<0||snapshot.py>12||
-     !snapshot.player||typeof snapshot.player!=="object"||!Array.isArray(snapshot.player.inv)||
+     !snapshot.player||typeof snapshot.player!=="object"||!Array.isArray(snapshot.player.inv)||Number(snapshot.player.hp)<=0||
      !Array.isArray(snapshot.journal)||typeof snapshot.battle!=="boolean"||snapshot.battle&&!snapshot.enemy||
      !snapshot.ui||typeof snapshot.ui.html!=="string"||typeof snapshot.ui.open!=="boolean"||
      !snapshot.modules||typeof snapshot.modules!=="object"||[...modules.keys()].some(name=>!Object.hasOwn(snapshot.modules,name)))
