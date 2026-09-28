@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.25.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.26.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16012,7 +16012,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  function guardian(name){
   try{if(typeof cd10910Archive!=='function')return null;const a=cd10910Archive()||{},id=Object.keys(a).find(function(k){return canonical(a[k]&&a[k].name)===name});return id?a[id]:null}catch(e){return null}
  }
- function card(name,r){
+ function card(name,r,all){
   const s=stage(r),p=profile(name),g=guardian(name);
   const provenance=typeof cd11230Provenance==='function'?cd11230Provenance(name):null;
   let body='<div class="entry cd11210-entry"><b>'+esc(name)+' — '+esc(s.name)+'</b><br><span style="color:var(--muted)">Rencontres : '+r.encounters+' · Études réussies : '+r.studies+' · Victoires : '+r.victories+(r.correlations?' · Recoupements : '+r.correlations:'')+'</span>';
@@ -16027,6 +16027,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   }
   if(s.rank>=4)body+='<div class="cd11250-conclusion gold"><span>Lecture croisée : traces, études et résultats de combat concordent.</span></div>';
   if(s.rank>=5)body+='<div class="cd11250-conclusion gold"><span>Statut confirmé : les données disponibles forment une connaissance stable.</span></div>';
+  if(s.rank>=3&&typeof window.cd11260Relations==='function')body+=window.cd11260Relations(name,s.rank,all);
   if(g&&s.rank>=3)body+='<br>Doctrine : <b>'+esc(g.doctrine||'?')+'</b> · Relique : <b>'+esc(g.relic||'?')+'</b>';
   return body+'</div>';
  }
@@ -16039,7 +16040,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   const families=typeof CD1123_CORPUS==='object'&&CD1123_CORPUS?[...new Set(Object.keys(CD1123_CORPUS).map(function(n){return CD1123_CORPUS[n].family}).filter(Boolean))].length:0;
   let html='<div class="entry cd11210-summary"><b>DOSSIERS ENCYCLOPÉDIQUES</b><br>'+names.length+' dossier'+(names.length>1?'s':'')+' ouvert'+(names.length>1?'s':'')+' · '+confirmed+' connaissance'+(confirmed>1?'s':'')+' confirmée'+(confirmed>1?'s':'')+' · '+victories+' victoire'+(victories>1?'s':'')+' documentée'+(victories>1?'s':'')+(corpus?' · '+corpus+' entrées dans le corpus':'')+(families?' · '+families+' familles':'');
   html+='</div><div class="entry"><b>NIVEAUX DE PREUVE</b><br>Rumeur → Indice → Observation → Corrélation → Connaissance confirmée</div>';
-  return html+(names.length?names.map(function(n){return card(n,data[n])}).join(''):'<div class="entry">Aucun dossier ouvert.</div>');
+  return html+(names.length?names.map(function(n){return card(n,data[n],data)}).join(''):'<div class="entry">Aucun dossier ouvert.</div>');
  }
  cd23CodexProgress=unified;window.cd23CodexProgress=cd23CodexProgress;
  if(typeof cd23OpenCodex==='function'){
@@ -16214,6 +16215,68 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
  Object.keys(CD1123_CORPUS).forEach(function(name){const c=CD1123_CORPUS[name];if(!c.family)c.family='Dossier non classé';c.rarity=unique.includes(name)?'unique ou exceptionnelle':uncommon.includes(name)?'inhabituelle':'rare';if(typeof creatures==='object'&&creatures){if(!creatures[name])creatures[name]={hp:0,atk:0,cat:c.combat?'Mythe':'Dossier indirect',nonCombat:!c.combat};Object.assign(creatures[name],c)}});
  window.CD1124_ADDITIONS=Object.keys(added);
  window.cd11240State=function(){const names=Object.keys(CD1123_CORPUS),families=[...new Set(names.map(function(n){return CD1123_CORPUS[n].family}))];return {corpus:names.length,ajouts:Object.keys(added).length,families:families.length,classificationComplete:names.every(function(n){return !!(CD1123_CORPUS[n].family&&CD1123_CORPUS[n].rarity)})};};
+})();
+</script>
+<style id="cd-v11260-relations-style">
+.cd11260-relations{display:grid;gap:6px;margin-top:9px;padding:8px 0;border-top:1px solid #3a4150}
+.cd11260-relations>span{display:block;min-width:0;overflow-wrap:break-word}
+.cd11260-relation{display:grid;gap:2px;padding-left:8px;border-left:2px solid #a88746}
+.cd11260-relation>span{display:block;min-width:0}
+.cd11260-relation small{color:var(--muted);font-size:.82em}
+</style>
+<script id="cd-v11260">
+/* V11.26 — relations encyclopédiques, sans dévoilement d'un autre dossier.
+   L'œuvre atteste le lien documentaire ; les hypothèses de Blackwater restent
+   expressément des créations du jeu et requièrent une corrélation. */
+(function(){
+ const L='Lovecraft — texte primaire',O='Cosmic Disturbances — création originale';
+ const links={
+  'Cthulhu':[
+   {kind:'Lieu',target:'R’lyeh',note:'Cité engloutie où Cthulhu demeure dans le récit.',source:'The Call of Cthulhu (1926)',lineage:L},
+   {kind:'Culte',target:'Culte de Cthulhu',note:'Des fidèles transmettent le rituel et attendent son retour.',source:'The Call of Cthulhu (1926)',lineage:L}
+  ],
+  'Profond':[
+   {kind:'Lieu',target:'Y’ha-nthlei',note:'Cité sous-marine évoquée comme demeure des Profonds.',source:'The Shadow over Innsmouth (1931)',lineage:L},
+   {kind:'Culte',target:'Ordre Ésotérique de Dagon',note:'L’ordre d’Innsmouth encadre les rites marins.',source:'The Shadow over Innsmouth (1931)',lineage:L}
+  ],
+  'Cultiste de Dagon':[
+   {kind:'Culte',target:'Ordre Ésotérique de Dagon',note:'L’organisation est attestée ; ce cultiste particulier appartient au corpus de Blackwater.',source:'The Shadow over Innsmouth (1931) ; Corpus de Blackwater',lineage:'Lovecraft + création originale'}
+  ],
+  'Mi-Go':[
+   {kind:'Objet',target:'Cylindre cérébral',note:'Dispositif utilisé pour conserver et transporter un cerveau humain.',source:'The Whisperer in Darkness (1930)',lineage:L}
+  ],
+  'Grande Race de Yith':[
+   {kind:'Entité',target:'Polype rampant',note:'Ancienne puissance souterraine redoutée par la Grande Race.',source:'The Shadow Out of Time (1934–1935)',lineage:L,entity:true}
+  ],
+  'Polype rampant':[
+   {kind:'Entité',target:'Grande Race de Yith',note:'Le récit conserve les traces de leur opposition ancienne.',source:'The Shadow Out of Time (1934–1935)',lineage:L,entity:true}
+  ],
+  'Keziah Mason':[
+   {kind:'Entité',target:'Brown Jenkin',note:'Le familier accompagne Keziah dans la maison de la sorcière.',source:'The Dreams in the Witch House (1932)',lineage:L,entity:true},
+   {kind:'Seuil',target:'Angles de la maison de la sorcière',note:'Les angles et les rêves ouvrent des passages dans le récit ; ce n’est pas un portail accessible sur la carte.',source:'The Dreams in the Witch House (1932)',lineage:L}
+  ],
+  'Brown Jenkin':[
+   {kind:'Entité',target:'Keziah Mason',note:'Le familier est lié à la sorcière et à ses apparitions.',source:'The Dreams in the Witch House (1932)',lineage:L,entity:true}
+  ],
+  'Noyé de Blackwater':[
+   {kind:'Phénomène',target:'Cloche immergée',note:'Le dossier local soupçonne une résonance commune ; causalité non établie.',source:'Corpus de Blackwater',lineage:O,minRank:4}
+  ]
+ };
+ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+ window.cd11260Relations=function(name,rank,evidence){
+  if(rank<3)return '';
+  const rows=(links[name]||[]).filter(function(x){
+   if(rank<(x.minRank||3))return false;
+   if(!x.entity)return true;
+   const r=evidence&&evidence[x.target];
+   return !!(r&&(Number(r.encounters||0)>0||Number(r.studies||0)>0||Number(r.victories||0)>0));
+  });
+  if(!rows.length)return '';
+  return '<div class="cd11260-relations"><b>RELATIONS DOCUMENTÉES</b>'+rows.map(function(x){
+   return '<span class="cd11260-relation"><span>'+esc(x.kind)+' : <b>'+esc(x.target)+'</b> — '+esc(x.note)+'</span><small>Source : '+esc(x.source)+' · Lignée : '+esc(x.lineage)+'</small></span>';
+  }).join('')+'</div>';
+ };
+ window.cd11260State=function(){return {dossiers:Object.keys(links).length,relations:Object.keys(links).reduce(function(n,k){return n+links[k].length},0),preuveMinimum:'OBSERVATION',relationsEntreEntitesMasquees:true}};
 })();
 </script>
 </body>
