@@ -646,7 +646,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.30.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.31.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -14516,6 +14516,8 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
  if(typeof cdOpenPanel!=='function'||typeof cd46Open!=='function')return;
  let locked=false,lastTouch=0,reopenTimer=null;
  const st={panels:0,commits:0,reopens:0,duplicates:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('tactile-choice',()=>({...st}),
+  state=>{if(reopenTimer!==null)clearTimeout(reopenTimer);reopenTimer=null;locked=false;lastTouch=0;Object.assign(st,state)});
  function pending(){try{return Math.max(0,Number(cd46Pending)||0)}catch(e){return 0}}
  function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
  function modalOpen(){const m=document.getElementById('modal');return !!(m&&m.classList&&m.classList.contains('open'))}
@@ -14585,6 +14587,9 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
  let foe=null,used=false;
  const totals={anchored:0,signs:0,fractured:0,convergence:0,blocked:0};
  let last=null;
+ if(typeof cd11290Register==='function')cd11290Register('mental-combat',
+  ()=>({foeIsEnemy:!!enemy&&foe===enemy,used,totals:{...totals},last}),
+  state=>{foe=state.foeIsEnemy?enemy:null;used=state.used;Object.assign(totals,state.totals);last=state.last});
  function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
  function mode(){
   const ratio=Number(player&&player.san||0)/Math.max(1,Number(player&&player.maxsan||1)),awake=Number(player&&player.myth||0)>=20;
@@ -14664,6 +14669,9 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
  let foe=null,resolved=false;
  const totals={countered:0,failed:0,blocked:0};
  let last=null;
+ if(typeof cd11290Register==='function')cd11290Register('family-pressure',
+  ()=>({foeIsEnemy:!!enemy&&foe===enemy,resolved,totals:{...totals},last}),
+  state=>{foe=state.foeIsEnemy?enemy:null;resolved=state.resolved;Object.assign(totals,state.totals);last=state.last});
  function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
  function family(n){
   n=String(n||'');
@@ -14856,6 +14864,9 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
  if(typeof cd18NpcPanel!=='function'||typeof spawnEnemy!=='function')return;
  let prep=null,last=null;
  const totals={facts:0,myth:0,success:0,failed:0,applied:0};
+ if(typeof cd11290Register==='function')cd11290Register('witness-prep',
+  ()=>({prep,last,totals:{...totals}}),
+  state=>{prep=state.prep;last=state.last;Object.assign(totals,state.totals)});
  function clamp(v){return Math.max(5,Math.min(95,Math.floor(Number(v)||0)))}
  function mental(){
   const ratio=Number(player&&player.san||0)/Math.max(1,Number(player&&player.maxsan||1));
@@ -16370,21 +16381,33 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
 })();
 </script>
 <script id="cd-v11290">
-/* V11.29–30 — noyau et états enregistrés en mémoire. Aucun point de reprise
-   n'est encore écrit : les fenêtres et événements différés restent à migrer. */
+/* V11.29–31 — capture en mémoire, y compris la fenêtre visible.
+   La reprise durable attend encore l'audit des événements différés. */
 (function(){
  const modules=cd11290Modules;
+ function readWindow(){
+  const modal=document.getElementById('modal'),sheet=document.getElementById('sheet'),content=document.getElementById('sheetContent');
+  return {open:!!modal?.classList?.contains('open'),html:content?.innerHTML||'',scroll:sheet?.scrollTop||0};
+ }
+ function writeWindow(ui){
+  const modal=document.getElementById('modal'),sheet=document.getElementById('sheet'),content=document.getElementById('sheetContent');
+  if(content)content.innerHTML=ui.html;
+  if(modal?.classList)modal.classList.toggle('open',ui.open);
+  if(sheet)sheet.scrollTop=ui.scroll;
+ }
  window.cd11290CaptureCore=function(){
   if(!player||!Array.isArray(map)||typeof rng?.getState!=="function")throw new Error("Run non initialisé");
-  return JSON.parse(JSON.stringify({schema:2,seed,rngState:rng.getState(),map,px,py,player,enemy,battle,journal,codex,seenItems,ach,
+  return JSON.parse(JSON.stringify({schema:3,seed,rngState:rng.getState(),map,px,py,player,enemy,battle,journal,codex,seenItems,ach,
+   enemyRef:{cd460:!!enemy&&player.cd460?.ref===enemy},ui:readWindow(),
    modules:Object.fromEntries([...modules].map(([name,hook])=>[name,hook.read()]))}));
  };
  window.cd11290RestoreCore=function(snapshot,options){
-  if(!snapshot||snapshot.schema!==2||!Number.isInteger(snapshot.seed)||!Number.isInteger(snapshot.rngState)||
+  if(!snapshot||snapshot.schema!==3||!Number.isInteger(snapshot.seed)||!Number.isInteger(snapshot.rngState)||
      !Array.isArray(snapshot.map)||snapshot.map.length!==13||snapshot.map.some(row=>!Array.isArray(row)||row.length!==13)||
      !Number.isInteger(snapshot.px)||!Number.isInteger(snapshot.py)||snapshot.px<0||snapshot.px>12||snapshot.py<0||snapshot.py>12||
      !snapshot.player||typeof snapshot.player!=="object"||!Array.isArray(snapshot.player.inv)||
      !Array.isArray(snapshot.journal)||typeof snapshot.battle!=="boolean"||snapshot.battle&&!snapshot.enemy||
+     !snapshot.ui||typeof snapshot.ui.html!=="string"||typeof snapshot.ui.open!=="boolean"||
      !snapshot.modules||typeof snapshot.modules!=="object"||[...modules.keys()].some(name=>!Object.hasOwn(snapshot.modules,name)))
    throw new Error("Point de reprise incomplet");
   const copy=JSON.parse(JSON.stringify(snapshot));
@@ -16392,10 +16415,12 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   seed=copy.seed;rng=nextRng;map=copy.map;px=copy.px;py=copy.py;player=copy.player;
   enemy=copy.enemy; battle=copy.battle;journal=copy.journal;codex=copy.codex||{};
   seenItems=copy.seenItems||{};ach=copy.ach||{};
+  if(copy.enemyRef?.cd460&&player.cd460)player.cd460.ref=enemy;
   for(const [name,hook] of modules)hook.write(copy.modules[name]);
   if(options?.render!==false)render();
+  writeWindow(copy.ui);
  };
- window.cd11290Registry=function(){return {schema:2,modules:[...modules.keys()],active:false}};
+ window.cd11290Registry=function(){return {schema:3,modules:[...modules.keys()],active:false}};
 })();
 </script>
 </body>
