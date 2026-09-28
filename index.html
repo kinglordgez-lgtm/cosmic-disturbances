@@ -635,7 +635,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.24.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.25.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15933,6 +15933,14 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
 })();
 </script>
 
+<style id="cd-v11250-codex-readability">
+/* V11.25 — les métadonnées encyclopédiques restent séparées pendant le
+   défilement tactile iOS afin d'éviter les mots visuellement concaténés. */
+.cd11210-entry{overflow-wrap:break-word;word-break:normal}
+.cd11250-meta,.cd11250-source,.cd11250-conclusion{display:grid;gap:2px;margin-top:4px}
+.cd11250-meta>span,.cd11250-source>span,.cd11250-conclusion>span{display:block;min-width:0}
+</style>
+
 <script id="cd-v11210">
 /* V11.21 — BESTIAIRE UNIFIÉ
    Remplace les anciennes listes superposées par une fiche unique par entité.
@@ -16014,11 +16022,11 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
   if(s.rank>=3){
    body+='<br>'+(p.desc?esc(p.desc):'Présence documentée par l’enquête.')+'<br>Comportement : <b>'+esc(p.behavior||ABILITIES[name]||(g&&g.doctrine?'DOCTRINE — '+g.doctrine:'données partielles'))+'</b>';
    body+='<br>Faiblesse : <b>'+esc(p.weak||'?')+'</b> · Résistance : <b>'+esc(p.resist||'?')+'</b>';
-   if(p.family||p.rarity)body+='<br><span style="color:var(--muted)">Famille : '+esc(p.family||'non classée')+' · Rareté d’observation : '+esc(p.rarity||'indéterminée')+'</span>';
-   if(p.source)body+='<br><span class="gold">Source : '+esc(p.source)+(p.lineage?' · '+esc(p.lineage):'')+'</span>';
+   if(p.family||p.rarity)body+='<div class="cd11250-meta" style="color:var(--muted)"><span>Famille : '+esc(p.family||'non classée')+'</span><span>Rareté d’observation : '+esc(p.rarity||'indéterminée')+'</span></div>';
+   if(p.source)body+='<div class="cd11250-source gold"><span>Source : '+esc(p.source)+'</span>'+(p.lineage?'<span>Lignée : '+esc(p.lineage)+'</span>':'')+'</div>';
   }
-  if(s.rank>=4)body+='<br><span class="gold">Lecture croisée : traces, études et résultats de combat concordent.</span>';
-  if(s.rank>=5)body+='<br><span class="gold">Statut confirmé : les données disponibles forment une connaissance stable.</span>';
+  if(s.rank>=4)body+='<div class="cd11250-conclusion gold"><span>Lecture croisée : traces, études et résultats de combat concordent.</span></div>';
+  if(s.rank>=5)body+='<div class="cd11250-conclusion gold"><span>Statut confirmé : les données disponibles forment une connaissance stable.</span></div>';
   if(g&&s.rank>=3)body+='<br>Doctrine : <b>'+esc(g.doctrine||'?')+'</b> · Relique : <b>'+esc(g.relic||'?')+'</b>';
   return body+'</div>';
  }
