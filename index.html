@@ -646,7 +646,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.33.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.57.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -932,7 +932,10 @@ function bootGame(){
    if(typeof investigate!=="function")throw new Error("Fonction critique manquante : investigate");
    if(typeof skillCheck!=="function")throw new Error("Fonction critique manquante : skillCheck");
    if(typeof currentQuestStep!=="function")throw new Error("Fonction critique manquante : currentQuestStep");
-   if(!player||!Array.isArray(map))newRun(); else render();
+   if(!player||!Array.isArray(map)){
+     if(typeof window.cd11350Boot==='function'&&window.cd11350Boot())return;
+     newRun();
+   }else render();
  }catch(e){console.error(e);showRuntimeError(e)}
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bootGame,{once:true});
@@ -3172,7 +3175,7 @@ function cd46CheckLevel(){
  if(lv>cd46LastLevel){
    cd46Pending+=lv-cd46LastLevel;cd46LastLevel=lv;
    log("PROGRESSION — Une nouvelle aptitude permanente est disponible.");
-   setTimeout(()=>{try{cd46Open()}catch(e){console.warn("cd46",e)}},80)
+   try{cd46Open()}catch(e){console.warn("cd46",e)}
  }else if(lv<cd46LastLevel)cd46LastLevel=lv
 }
 
@@ -3877,7 +3880,7 @@ function cd56Choice(kind){
 const cd56Move=move;
 move=function(dx,dy){const od=player?player.depth:0,r=cd56Move.apply(this,arguments),s=cd55State();if(player&&player.depth!==od)s.cd56MetDepth=null;if(cd56CanMeet()&&rng()<.055)cd56Meet();return r};
 const cd56Reveal=cd50Reveal;
-cd50Reveal=function(){const was=cd50Here(),r=cd56Reveal.apply(this,arguments);if(was&&r){cd55Heat(1,"votre découverte d'un lieu secret");if(cd56CanMeet()&&rng()<.18)setTimeout(cd56Meet,120)}return r};
+cd50Reveal=function(){const was=cd50Here(),r=cd56Reveal.apply(this,arguments);if(was&&r){cd55Heat(1,"votre découverte d'un lieu secret");if(cd56CanMeet()&&rng()<.18)cd56Meet()}return r};
 const cd56Character=openCharacter;
 openCharacter=function(){const r=cd56Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd55State();if(root&&!document.getElementById("cd56RivalMeet")){const d=document.createElement("div");d.id="cd56RivalMeet";d.style.cssText="margin-top:8px;font-size:12px";d.innerHTML="<b>CONFRONTATIONS MAÎTRISÉES</b> : "+(s.defeated||0);root.appendChild(d)}return r};
 
@@ -4080,7 +4083,7 @@ function cd62Choose(i){
 const cd62Move=move;
 move=function(dx,dy){
  const od=player?player.depth:0,r=cd62Move.apply(this,arguments);
- if(player&&player.depth!==od){player.cd62={depth:player.depth,chosen:false,risk:0,bonus:0};setTimeout(cd62Offer,120)}
+ if(player&&player.depth!==od)player.cd62={depth:player.depth,chosen:false,risk:0,bonus:0};
  return r
 };
 
@@ -4115,7 +4118,6 @@ function cd621CheckDepth(){
  if(d!==cd621LastDepth){
    cd621LastDepth=d;
    player.cd62={depth:d,chosen:false,risk:0,bonus:0};
-   setTimeout(function(){ if(!battle)cd62Offer(); },180);
  }
 }
 const cd621ResolveTile=resolveTile;
@@ -4155,7 +4157,7 @@ resolveTile=function(){
  if(player&&(player.depth||0)!==before){
    cd621LastDepth=player.depth;
    player.cd62={depth:player.depth,chosen:false,risk:0,bonus:0};
-   setTimeout(cd62Offer,220);
+   cd62Offer();
  }
  return r
 };
@@ -4300,7 +4302,7 @@ let cd64LastDepth=(player&&player.depth)||0;
 const cd64Resolve=resolveTile;
 resolveTile=function(){
  const r=cd64Resolve.apply(this,arguments),d=player?player.depth||0:0;
- if(d!==cd64LastDepth){cd64LastDepth=d;cd64Prepare();const s=cd64State();if(s.event)setTimeout(cd64Trigger,260)}
+ if(d!==cd64LastDepth){cd64LastDepth=d;cd64Prepare();const s=cd64State();if(s.event)cd64Trigger()}
  return r
 };
 const cd64Character=openCharacter;
@@ -4357,7 +4359,7 @@ function cd66Choose(id){
 const cd66Reward=cd38RewardGoal;
 cd38RewardGoal=function(){
  const r=cd66Reward.apply(this,arguments);
- setTimeout(function(){if(!battle)cd66Open()},180);
+ if(!battle)cd66Open();
  return r
 };
 const cd66NewRun=newRun;
@@ -4435,7 +4437,7 @@ function cd68Clue(){
 const cd68Spawn=spawnEnemy;
 spawnEnemy=function(){
  const r=cd68Spawn.apply(this,arguments);
- if(battle&&enemy)setTimeout(cd68Clue,100);
+ if(battle&&enemy)cd68Clue();
  return r
 };
 const cd68NewRun=newRun;
@@ -4477,7 +4479,12 @@ attack=function(){
  return cd69Attack.apply(this,arguments)
 };
 const cd69Spawn=spawnEnemy;
-spawnEnemy=function(){const r=cd69Spawn.apply(this,arguments);const s=cd69State();s.enemy=enemy;s.ready=false;s.used=false;return r};
+spawnEnemy=function(){
+ const s=cd69State();s.enemy=null;s.ready=false;s.used=false;
+ const r=cd69Spawn.apply(this,arguments);
+ if(battle&&enemy&&!s.enemy)s.enemy=enemy;
+ return r
+};
 const cd69NewRun=newRun;
 newRun=function(){const r=cd69NewRun.apply(this,arguments);player.cd69={enemy:null,ready:false,used:false,total:0};return r};
 
@@ -7993,8 +8000,7 @@ function cd670State(){
 }
 function cd670Prompt(){
   const s=cd670State(); if(s.shown)return; s.shown=true;
-  setTimeout(()=>{
-    if(typeof cdOpenPanel!=='function')return;
+  if(typeof cdOpenPanel==='function'){
     cdOpenPanel('PRÉPARATION DE TERRAIN',
       '<h2>AVANT DE VOUS ENFONCER DANS BLACKWATER</h2><p>Quelques secondes suffisent pour préparer une seule chose correctement.</p>'+ 
       '<div class="itemActions">'+
@@ -8002,7 +8008,7 @@ function cd670Prompt(){
       '<button onclick="cd670Choose(\'lampe\')">VÉRIFIER LA LAMPE<br><small>+1 charge</small></button>'+ 
       '<button onclick="cd670Choose(\'sac\')">ORGANISER LE SAC<br><small>+2 XP au prochain butin</small></button>'+ 
       '</div>');
-  },80);
+  }
 }
 function cd670Choose(choice){
   const s=cd670State(); if(s.choice)return; s.choice=choice;
@@ -8256,7 +8262,7 @@ move=function(dx,dy){
   const r=cd720Move.apply(this,arguments);
   try{
     if(player&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
-      const s=cd720State(); if(!s.shown){s.moves++; if(s.moves>=3)setTimeout(cd720Offer,120)}
+      const s=cd720State(); if(!s.shown){s.moves++; if(s.moves>=3)cd720Offer()}
     }
   }catch(e){console.warn('cd720 move',e)}
   return r;
@@ -8300,7 +8306,7 @@ move=function(dx,dy){
   try{
     const route=player&&player.cd720&&player.cd720.choice;
     if(route&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
-      const s=cd730State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd730Consequence,140)}
+      const s=cd730State();if(!s.shown){s.moves++;if(s.moves>=2)cd730Consequence()}
     }
   }catch(e){console.warn('cd730 move',e)}
   return r;
@@ -8347,7 +8353,7 @@ move=function(dx,dy){
   const r=cd740Move.apply(this,arguments);
   try{
     if(player&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
-      const s=cd740State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd740Offer,120)}
+      const s=cd740State();if(!s.shown){s.moves++;if(s.moves>=2)cd740Offer()}
     }
   }catch(e){console.warn('cd740 move',e)}
   return r;
@@ -8395,7 +8401,7 @@ const cd750Move=move;
 move=function(dx,dy){
   const bx=px,by=py,r=cd750Move.apply(this,arguments);
   try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
-    const s=cd750State();if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd750Offer,260)}
+    const s=cd750State();if(!s.shown){s.moves++;if(s.moves>=2)cd750Offer()}
   }}catch(e){console.warn('cd750 move',e)}
   return r;
 };
@@ -8452,7 +8458,7 @@ const cd760Move=move;
 move=function(dx,dy){
   const bx=px,by=py,r=cd760Move.apply(this,arguments);
   try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){
-    const s=cd760State();if(!s.shown){s.moves++;if(s.moves>=3)setTimeout(cd760Offer,420)}
+    const s=cd760State();if(!s.shown){s.moves++;if(s.moves>=3)cd760Offer()}
   }}catch(e){console.warn('cd760 move',e)}
   return r;
 };
@@ -8478,7 +8484,7 @@ function cd770Choose(mode){
  toast(title);closeOverlays();render();setTimeout(()=>cdOpenPanel('SYNERGIE MULTIPLE','<h2>'+title+'</h2><p>'+body+'</p>'),80);
 }
 const cd770Move=move;
-move=function(dx,dy){const bx=px,by=py,r=cd770Move.apply(this,arguments);try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){const s=cd770State();if(!s.shown){s.moves++;if(s.moves>=4)setTimeout(cd770Offer,520)}}}catch(e){console.warn('cd770 move',e)}return r};
+move=function(dx,dy){const bx=px,by=py,r=cd770Move.apply(this,arguments);try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){const s=cd770State();if(!s.shown){s.moves++;if(s.moves>=4)cd770Offer()}}}catch(e){console.warn('cd770 move',e)}return r};
 
 
 
@@ -8541,7 +8547,7 @@ const cd790Attack=attack;
 attack=function(){
   const trigger=!!(player&&battle&&enemy&&!cd780State().shown&&!cd790State().shown);
   const r=cd790Attack.apply(this,arguments);
-  if(trigger&&battle&&enemy)setTimeout(cd790Resolve,520);
+  if(trigger&&battle&&enemy)cd790Resolve();
   return r;
 };
 
@@ -8592,7 +8598,7 @@ const cd800Attack=attack;
 attack=function(){
   const known=!!(player&&battle&&enemy&&cd800State().studied[cd800BaseName(enemy)]&&!enemy._cd800Applied);
   const r=cd800Attack.apply(this,arguments);
-  if(known&&battle&&enemy)setTimeout(cd800Resolve,760);
+  if(known&&battle&&enemy)cd800Resolve();
   return r;
 };
 
@@ -8631,7 +8637,7 @@ move=function(dx,dy){
   const r=cd810Move.apply(this,arguments);
   if(player&&!battle&&(px!==bx||py!==by)){
     const s=cd810State();
-    if(!s.shown){s.moves++;if(s.moves>=3)setTimeout(cd810Resolve,80)}
+    if(!s.shown){s.moves++;if(s.moves>=3)cd810Resolve()}
   }
   return r;
 };
@@ -8669,7 +8675,7 @@ const cd820Investigate=investigate;
 investigate=function(){
   const eligible=!!(player&&!battle&&!cd820State().shown);
   const r=cd820Investigate.apply(this,arguments);
-  if(eligible&&!battle)setTimeout(cd820Resolve,90);
+  if(eligible&&!battle)cd820Resolve();
   return r;
 };
 
@@ -8867,7 +8873,7 @@ move=function(dx,dy){
   try{
     if(player&&!battle&&(px!==bx||py!==by)){
       const s=cd870State();
-      if(!s.shown){s.moves++;if(s.moves>=2)setTimeout(cd870Resolve,90)}
+      if(!s.shown){s.moves++;if(s.moves>=2)cd870Resolve()}
     }
   }catch(e){console.warn('cd870 move',e)}
   return r;
@@ -8945,7 +8951,7 @@ spawnEnemy=function(){const r=cd880SpawnEnemy.apply(this,arguments);try{cd880App
 const cd880Move=move;
 move=function(dx,dy){
   const bx=px,by=py,r=cd880Move.apply(this,arguments);
-  try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){const s=cd880State();if(!s.shown){s.moves++;if(s.moves>=1)setTimeout(cd880Offer,650)}}}catch(e){console.warn('cd880 move',e)}
+  try{if(player&&!battle&&Number.isInteger(px)&&Number.isInteger(py)&&(px!==bx||py!==by)){const s=cd880State();if(!s.shown){s.moves++;if(s.moves>=1)cd880Offer()}}}catch(e){console.warn('cd880 move',e)}
   return r;
 };
 
@@ -9276,6 +9282,8 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 /* === V9.9.0 — FIL CONDUCTEUR === */
 (function(){
   const cd990 = {armed:false, resolved:false};
+  let cd990Count=0;
+  if(typeof cd11290Register==='function')cd11290Register('early-990',()=>({armed:cd990.armed,resolved:cd990.resolved,count:cd990Count}),state=>{cd990.armed=!!state.armed;cd990.resolved=!!state.resolved;cd990Count=Number(state.count)||0});
 
   function cd990Skills(){
     return (window.player && player.char && player.char.skills) ? player.char.skills : {};
@@ -9318,13 +9326,12 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
   }
 
   const oldInvestigate990 = investigate;
-  let cd990Count=0;
   investigate = function(){
     cd990Count++;
     const shouldResolve = cd990Count===2;
     const out = oldInvestigate990.apply(this, arguments);
     if(cd990Count===1) cd990Arm();
-    else if(shouldResolve) setTimeout(cd990Resolve, 30);
+    else if(shouldResolve) cd990Resolve();
     return out;
   };
 
@@ -9342,6 +9349,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 /* === V10.0.0 — SIXIÈME SENS === */
 (function(){
  const s={moves:0,done:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-1000',()=>({...s}),state=>Object.assign(s,state));
  function skills(){return (window.player&&player.char&&player.char.skills)||{}}
  function panel(result,body){
    if(typeof cdOpenPanel==="function") cdOpenPanel("SIXIÈME SENS",
@@ -9367,7 +9375,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const bx=(typeof px!=="undefined"?px:null), by=(typeof py!=="undefined"?py:null);
    const out=oldMove1000.apply(this,arguments);
    const moved=(bx!==null&&by!==null&&(px!==bx||py!==by));
-   if(moved&&!s.done){s.moves++;if(s.moves===3)setTimeout(trigger,30)}
+   if(moved&&!s.done){s.moves++;if(s.moves===3)trigger()}
    return out;
  };
  const oldNew1000=(typeof newRun==="function")?newRun:null;
@@ -9381,6 +9389,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Le joueur choisit comment l'interpréter ; aucun déplacement n'est modifié. */
 (function(){
  const st={moves:0,shown:false,resolved:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-1010',()=>({...st}),state=>Object.assign(st,state));
  function sk(){return (window.player&&player.char&&player.char.skills)||{}}
  function offer(){
    if(st.shown||!window.player||battle)return; st.shown=true;
@@ -9406,7 +9415,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldMove1010=move;
  move=function(dx,dy){
    const bx=px,by=py,out=oldMove1010.apply(this,arguments);
-   try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===4)setTimeout(offer,520)}}catch(e){console.warn('cd1010 move',e)}
+   try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===4)offer()}}catch(e){console.warn('cd1010 move',e)}
    return out;
  };
  const oldNew1010=(typeof newRun==='function')?newRun:null;
@@ -9419,6 +9428,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Choix tactique sans modifier le déplacement de base. */
 (function(){
  const st={moves:0,shown:false,resolved:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-1020',()=>({...st}),state=>Object.assign(st,state));
  function skills(){return (window.player&&player.char&&player.char.skills)||{}}
  function offer(){
    if(st.shown||!window.player||battle)return;st.shown=true;
@@ -9449,7 +9459,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldMove1020=move;
  move=function(dx,dy){
    const bx=px,by=py,out=oldMove1020.apply(this,arguments);
-   try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===2)setTimeout(offer,180)}}catch(e){console.warn('cd1020 move',e)}
+   try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===2)offer()}}catch(e){console.warn('cd1020 move',e)}
    return out;
  };
  const oldNew1020=(typeof newRun==='function')?newRun:null;
@@ -9462,6 +9472,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Le choix crée un effet concret consommé par la prochaine enquête ou rencontre. */
 (function(){
  const st={moves:0,shown:false,resolved:false,token:null};
+ if(typeof cd11290Register==='function')cd11290Register('early-1030',()=>({...st}),state=>Object.assign(st,state));
  function lamp(){return window.player&&Array.isArray(player.inv)?player.inv.find(o=>o&&o.n==='Lampe à pétrole'&&(o.uses??0)>0):null}
  function offer(){
    if(st.shown||!window.player||battle)return;st.shown=true;
@@ -9501,7 +9512,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    return out;
  };
  const oldMove1030=move;
- move=function(dx,dy){const bx=px,by=py,out=oldMove1030.apply(this,arguments);try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===3)setTimeout(offer,220)}}catch(e){console.warn('cd1030 move',e)}return out};
+ move=function(dx,dy){const bx=px,by=py,out=oldMove1030.apply(this,arguments);try{if(!st.shown&&!battle&&(px!==bx||py!==by)){st.moves++;if(st.moves===3)offer()}}catch(e){console.warn('cd1030 move',e)}return out};
  const oldNew1030=(typeof newRun==='function')?newRun:null;
  if(oldNew1030)newRun=function(){st.moves=0;st.shown=false;st.resolved=false;st.token=null;return oldNew1030.apply(this,arguments)};
 })();
@@ -9513,6 +9524,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Aucun changement du déplacement ni du moteur de combat. */
 (function(){
  const st={shown:false,resolved:false,brace:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-1040',()=>({...st}),state=>Object.assign(st,state));
  function skill(n){return Number((window.player&&player.char&&player.char.skills&&player.char.skills[n])||0)}
  function roll(n){const v=skill(n),r=1+Math.floor(rng()*100);return {v,r,ok:r<=Math.max(5,Math.min(95,v))}}
  function offer(){
@@ -9546,7 +9558,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldSpawn1040=spawnEnemy;
  spawnEnemy=function(){
    const was=battle,out=oldSpawn1040.apply(this,arguments);
-   try{if(!was&&battle&&enemy&&!st.shown)setTimeout(offer,180)}catch(e){console.warn('cd1040 spawn',e)}
+   try{if(!was&&battle&&enemy&&!st.shown)offer()}catch(e){console.warn('cd1040 spawn',e)}
    return out;
  };
  const oldEnemyTurn1040=enemyTurn;
@@ -9607,7 +9619,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    if(typeof toast==='function')toast(title);if(typeof closeOverlays==='function')closeOverlays();if(typeof render==='function')render();
    /* Le résultat est déjà donné par le toast et le journal. Il n'impose plus
       une seconde fenêtre ne proposant qu'un unique bouton de continuation. */
-   setTimeout(()=>cd18NpcPanel(),120);
+   cd18NpcPanel();
  };
  const oldNpc1050=cd18NpcPanel;
  cd18NpcPanel=function(){
@@ -9617,7 +9629,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      /* V10.51.3: au premier contact, l'approche vient AVANT le panneau social.
         On évite ainsi d'empiler deux fenêtres puis de revenir à la première. */
      if(!st.shown&&!battle&&player){
-       if(player.npc){setTimeout(offer,40);return true}
+       if(player.npc){offer();return true}
      }
    }catch(e){console.warn('cd1050 npc',e)}
    return oldNpc1050.apply(this,arguments);
@@ -9633,6 +9645,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Patch non destructif : le moteur de déplacement reste inchangé. */
 (function(){
  const st={moves:0,shown:false,evolved:false,ended:false,anom:null};
+ if(typeof cd11290Register==='function')cd11290Register('early-1060',()=>({...st}),state=>Object.assign(st,state));
  const anomalies=[
   {name:'BRUME IMMOBILE',desc:'La brume cesse de dériver. Elle paraît attendre votre prochain mouvement.',skill:'Investigation',evo:'EMPREINTES SANS PROPRIÉTAIRE'},
   {name:'SILENCE ABSOLU',desc:'Le quartier devient muet. Même vos pas semblent absorbés.',skill:'Psychologie',evo:'ÉCHO INEXPLIQUÉ'},
@@ -9678,9 +9691,9 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    try{
      if(!battle&&(px!==bx||py!==by)){
        st.moves++;
-       if(st.moves===3)setTimeout(detect,180);
-       else if(st.moves===5)setTimeout(evolve,180);
-       else if(st.moves===7)setTimeout(end,180);
+       if(st.moves===3)detect();
+       else if(st.moves===5)evolve();
+       else if(st.moves===7)end();
      }
    }catch(e){console.warn('cd1060 move',e)}
    return out;
@@ -9696,6 +9709,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Le moteur de déplacement n'est pas modifié : ce patch observe seulement la position après move(). */
 (function(){
  const st={visited:new Set(),shown:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-1070',()=>({visited:[...st.visited],shown:st.shown}),state=>{st.visited=new Set(state.visited);st.shown=state.shown});
  function key(){return String(px)+','+String(py)}
  function skill(n){return Number(player&&player.char&&player.char.skills&&player.char.skills[n]||0)}
  function trigger(){
@@ -9721,7 +9735,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    try{
      if(!battle&&key()!==before){
        const k=key();
-       if(st.visited.has(k)&&!st.shown)setTimeout(trigger,160);
+       if(st.visited.has(k)&&!st.shown)trigger();
        else st.visited.add(k);
      }
    }catch(e){console.warn('cd1070 move',e)}
@@ -9740,6 +9754,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Aucun changement du moteur de déplacement : observation après move(). */
 (function(){
  const st={armed:false,kind:null,shown:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-1080',()=>({...st}),state=>Object.assign(st,state));
 
  function armFromMemory(title,body){
    try{
@@ -9783,7 +9798,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  move=function(dx,dy){
    const bx=px,by=py,out=oldMove1080.apply(this,arguments);
    try{
-     if(st.armed&&!st.shown&&!battle&&(px!==bx||py!==by))setTimeout(consequence,180);
+     if(st.armed&&!st.shown&&!battle&&(px!==bx||py!==by))consequence();
    }catch(e){console.warn('cd1080 move',e)}
    return out;
  };
@@ -9803,6 +9818,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test rapide: déclencher FIL D'ARIANE ou BOUCLE MENTALE, fermer, puis ENQUÊTER. */
 (function(){
  const s={armed:false,kind:null,used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-1090',()=>({...s}),state=>Object.assign(s,state));
 
  function arm(title,body){
    if(title!=='CONTRECOUP DU PASSAGE'||s.used)return;
@@ -9845,15 +9861,14 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    if(typeof render==='function')render();
  }
 
- // On n'altère pas investigate(): on observe le bouton d'action existant.
- const btn=document.getElementById('actionBtn');
- if(btn)btn.addEventListener('click',function(){
-   try{
-     if(s.armed&&!s.used&&!battle&&String(btn.textContent||'').trim()==='ENQUÊTER'){
-       setTimeout(resolve,220);
-     }
-   }catch(e){console.warn('cd1090 action',e)}
- },true);
+ // L'effet appartient à l'enquête elle-même, avant le point de suspension.
+ const oldInvestigate1090=investigate;
+ investigate=function(){
+   const ready=s.armed&&!s.used&&!battle;
+   const out=oldInvestigate1090.apply(this,arguments);
+   try{if(ready&&!battle)resolve()}catch(e){console.warn('cd1090 action',e)}
+   return out;
+ };
 
  const oldNew1090=newRun;
  newRun=function(){
@@ -9869,6 +9884,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test rapide : après RÉMANENCE DU CONTRECOUP, fermez le panneau puis faites 1 déplacement. */
 (function(){
  const s={armed:false,kind:null,used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10100',()=>({...s}),state=>Object.assign(s,state));
  function arm(title,body){
    if(title!=="RÉMANENCE DU CONTRECOUP"||s.used)return;
    const t=String(body||'');
@@ -9915,7 +9931,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldMove10100=move;
  move=function(dx,dy){
    const bx=px,by=py,out=oldMove10100.apply(this,arguments);
-   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))setTimeout(resolve,220)}catch(e){console.warn('cd10100 move',e)}
+   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))resolve()}catch(e){console.warn('cd10100 move',e)}
    return out;
  };
  const oldNew10100=newRun;
@@ -9930,6 +9946,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test rapide : enquêtez une fois si possible, rencontrez la première créature, résolvez RÉFLEXE DE CONFRONTATION puis attaquez une fois. */
 (function(){
  const s={used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10110',()=>({...s}),state=>Object.assign(s,state));
  function hasFieldIntel(){
    try{return (journal||[]).some(x=>/CARNET DE TERRAIN|CARTOGRAPHIE|ANOMALIE ÉVOLUTIVE|TRACE FRAÎCHE|MÉMOIRE DU PASSAGE|INSTINCT D.EXPLORATION/i.test(String(x)))}catch(e){return false}
  }
@@ -9973,6 +9990,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Une victoire influencée par l'avantage de confrontation laisse une conséquence sur le premier déplacement après le combat. */
 (function(){
  const s={armed:false,used:false,kind:null,foe:null};
+ if(typeof cd11290Register==='function')cd11290Register('early-10120',()=>({...s}),state=>Object.assign(s,state));
  function recentAdvantage(){
    try{
      const a=(journal||[]).slice(-18).map(String).join(' | ');
@@ -10006,7 +10024,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldMove10120=move;
  move=function(dx,dy){
    const bx=px,by=py,out=oldMove10120.apply(this,arguments);
-   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))setTimeout(resolve,180)}catch(e){console.warn('cd10120 move',e)}
+   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))resolve()}catch(e){console.warn('cd10120 move',e)}
    return out;
  };
  const oldNew10120=newRun;
@@ -10018,6 +10036,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    La première enquête après une victoire peut transformer ce que la créature vient d'apprendre au joueur en intuition de terrain. */
 (function(){
  const s={armed:false,used:false,foe:null,skill:null};
+ if(typeof cd11290Register==='function')cd11290Register('early-10130',()=>({...s}),state=>Object.assign(s,state));
  function skillFor(name){
    name=String(name||'');
    if(/Profond|Byakhee|Mi-Go|Tindalos|Polype|fongique/i.test(name))return 'Occultisme';
@@ -10049,7 +10068,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  investigate=function(){
    const ready=s.armed&&!s.used&&!battle;
    const out=oldInvestigate10130.apply(this,arguments);
-   try{if(ready&&!battle)setTimeout(resolve,220)}catch(e){console.warn('cd10130 investigate',e)}
+   try{if(ready&&!battle)resolve()}catch(e){console.warn('cd10130 investigate',e)}
    return out;
  };
  const oldNew10130=newRun;
@@ -10061,12 +10080,13 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Après trois déplacements réels, l'enquêteur tente de fixer mentalement un repère utile du secteur. */
 (function(){
  const s={moves:0,used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10140',()=>({...s}),state=>Object.assign(s,state));
  function modalBusy(){
    try{const m=document.getElementById('modal');return !!(m && (m.classList.contains('show') || m.style.display==='flex' || m.style.display==='block'));}catch(e){return false}
  }
  function resolve(){
    if(s.used||battle||!player)return;
-   if(modalBusy()){setTimeout(resolve,250);return;}
+   // La file de fenêtres conserve l'annonce ; l'effet du run est immédiat.
    s.used=true;
    const sk=(player.char&&player.char.skills)||{};
    const key=(Number(sk.Observation||0)>=Number(sk.Investigation||0))?'Observation':'Investigation';
@@ -10090,7 +10110,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    try{
      if(!s.used&&!battle&&(px!==bx||py!==by)){
        s.moves++;
-       if(s.moves>=3)setTimeout(resolve,180);
+       if(s.moves>=3)resolve();
      }
    }catch(e){console.warn('cd10140 move',e)}
    return out;
@@ -10105,12 +10125,13 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    La première enquête ordinaire de la nouvelle réalité peut révéler un détail utile sans modifier le système d’enquête existant. */
 (function(){
  const s={used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10150',()=>({...s}),state=>Object.assign(s,state));
  function modalBusy(){
    try{const m=document.getElementById('modal');return !!(m && (m.classList.contains('show') || m.style.display==='flex' || m.style.display==='block'));}catch(e){return false}
  }
  function resolve(){
    if(s.used||battle||!player)return;
-   if(modalBusy()){setTimeout(resolve,250);return;}
+   // Le résultat est acquis dans l'enquête, même si un panneau est visible.
    s.used=true;
    const sk=(player.char&&player.char.skills)||{};
    const keys=['Investigation','Observation','Érudition'];
@@ -10132,7 +10153,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  investigate=function(){
    const ready=!s.used&&!battle;
    const out=oldInvestigate10150.apply(this,arguments);
-   try{if(ready&&!battle)setTimeout(resolve,320)}catch(e){console.warn('cd10150 investigate',e)}
+   try{if(ready&&!battle)resolve()}catch(e){console.warn('cd10150 investigate',e)}
    return out;
  };
  const oldNew10150=newRun;
@@ -10145,12 +10166,13 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Après la première enquête ordinaire, le premier déplacement réel permet de confronter l'indice au terrain. Test très rapide : ENQUÊTER, fermer les panneaux, puis faire 1 déplacement. */
 (function(){
  const s={armed:false,used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10160',()=>({...s}),state=>Object.assign(s,state));
  function modalBusy(){
    try{const m=document.getElementById('modal');return !!(m && (m.classList.contains('show') || m.style.display==='flex' || m.style.display==='block'));}catch(e){return false}
  }
  function resolve(){
    if(!s.armed||s.used||battle||!player)return;
-   if(modalBusy()){setTimeout(resolve,250);return;}
+   // Le résultat est acquis dans le déplacement ; l'annonce peut attendre.
    s.armed=false;s.used=true;
    const sk=(player.char&&player.char.skills)||{};
    const inv=Number(sk.Investigation||0),obs=Number(sk.Observation||0);
@@ -10177,7 +10199,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldMove10160=move;
  move=function(dx,dy){
    const bx=px,by=py,out=oldMove10160.apply(this,arguments);
-   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))setTimeout(resolve,220)}catch(e){console.warn('cd10160 move',e)}
+   try{if(s.armed&&!s.used&&!battle&&(px!==bx||py!==by))resolve()}catch(e){console.warn('cd10160 move',e)}
    return out;
  };
  const oldNew10160=newRun;
@@ -10191,6 +10213,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Déclenchement immédiat depuis une nouvelle réalité : MENU > INVENTAIRE. */
 (function(){
  const s={used:false,result:'',detail:''};
+ if(typeof cd11290Register==='function')cd11290Register('early-10170',()=>({...s}),state=>Object.assign(s,state));
  function resolve(){
    if(s.used||!player)return;
    s.used=true;
@@ -10234,6 +10257,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test rapide : MENU > PERSONNAGE. */
 (function(){
  const s={used:false,result:'',detail:''};
+ if(typeof cd11290Register==='function')cd11290Register('early-10180',()=>({...s}),state=>Object.assign(s,state));
  function resolve(){
    if(s.used||!player||!player.char||!player.char.skills)return;
    s.used=true;
@@ -10277,6 +10301,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Après 3 déplacements réellement réussis, le terrain est lu une fois par réalité. */
 (function(){
  const s={moves:0,used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10190',()=>({...s}),state=>Object.assign(s,state));
  function react(){
    if(s.used||s.moves<3||!player||!player.char||!player.char.skills)return;
    s.used=true;
@@ -10311,6 +10336,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test immédiat : MENU > BESTIAIRE. */
 (function(){
  const s={used:false,result:'',detail:''};
+ if(typeof cd11290Register==='function')cd11290Register('early-10200',()=>({...s}),state=>Object.assign(s,state));
  function resolve(){
    if(s.used||!player||!player.char||!player.char.skills)return;
    s.used=true;
@@ -10388,6 +10414,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test immédiat : MENU > SUCCÈS. */
 (function(){
  const s={used:false,result:'',detail:''};
+ if(typeof cd11290Register==='function')cd11290Register('early-10211',()=>({...s}),state=>Object.assign(s,state));
  function resolve(){
    if(s.used||!player||!player.char||!player.char.skills)return;
    s.used=true;
@@ -10430,6 +10457,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Après deux déplacements réussis, l'enquêteur tente de localiser un bruit dans Blackwater. */
 (function(){
  const s={moves:0,used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10220',()=>({...s}),state=>Object.assign(s,state));
  if(typeof move!=='function'||typeof newRun!=='function')return;
  const oldMove10220=move;
  move=function(dx,dy){
@@ -10464,6 +10492,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    Test ultra-court : le résultat apparaît dans le journal après le premier déplacement réussi. */
 (function(){
  const s={used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10230',()=>({...s}),state=>Object.assign(s,state));
  if(typeof move!=='function'||typeof newRun!=='function')return;
  function objectiveText(){
    try{
@@ -10543,7 +10572,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    }
    log('LECTURE DE TRACE — '+title+' ('+skill+' '+val+', jet '+roll+')'+(ok?' : '+s.species+'.':'.'));
    toast(title);closeOverlays();render();
-   setTimeout(function(){cdOpenPanel('LECTURE DE TRACE','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+skill+' '+val+'</b> · jet <b>'+roll+'</b></p><div class="grid2">'+button+'<button onclick="closeOverlays();render()">CONTINUER L’EXPLORATION</button></div>')},90);
+   cdOpenPanel('LECTURE DE TRACE','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+skill+' '+val+'</b> · jet <b>'+roll+'</b></p><div class="grid2">'+button+'<button onclick="closeOverlays();render()">CONTINUER L’EXPLORATION</button></div>');
  };
 })();
 </script>
@@ -10614,7 +10643,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
      if(ok){enemy.hp=Math.max(1,Number(enemy.hp||1)-3);player.xp=(player.xp||0)+1;log('LECTURE TACTIQUE — point faible exploité sur '+base+' : -3 PV avant l’attaque · +1 XP.');toast('POINT FAIBLE EXPLOITÉ');}
      else{log('LECTURE TACTIQUE — ouverture manquée ('+key+' '+val+', jet '+roll+'). Attaque normale maintenue.');toast('OUVERTURE MANQUÉE');}
      render();
-     setTimeout(function(){if(battle&&enemy)cdOpenPanel('LECTURE TACTIQUE','<h2>'+(ok?'POINT FAIBLE EXPLOITÉ':'OUVERTURE MANQUÉE')+'</h2><p>'+(ok?'Votre lecture des traces devient un avantage concret : <b>-3 PV ennemi · +1 XP</b> avant votre attaque.':'La créature déjoue votre lecture. <b>Aucune pénalité : votre attaque normale reste disponible.</b>')+'</p><p><b>'+key+' '+val+'</b> · jet <b>'+roll+'</b></p><button onclick="closeOverlays();cd10260Strike()">PORTER L’ATTAQUE</button>')},80);
+     if(battle&&enemy)cdOpenPanel('LECTURE TACTIQUE','<h2>'+(ok?'POINT FAIBLE EXPLOITÉ':'OUVERTURE MANQUÉE')+'</h2><p>'+(ok?'Votre lecture des traces devient un avantage concret : <b>-3 PV ennemi · +1 XP</b> avant votre attaque.':'La créature déjoue votre lecture. <b>Aucune pénalité : votre attaque normale reste disponible.</b>')+'</p><p><b>'+key+' '+val+'</b> · jet <b>'+roll+'</b></p><button onclick="closeOverlays();cd10260Strike()">PORTER L’ATTAQUE</button>');
    }else{log('LECTURE TACTIQUE — vous privilégiez une attaque normale.');oldAttack10260();}
  };
  window.cd10260Strike=function(){closeOverlays();oldAttack10260()};
@@ -10638,6 +10667,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
 (function(){
  if(typeof win!=='function'||typeof cdOpenPanel!=='function'||typeof newRun!=='function')return;
  const s={used:false};
+ if(typeof cd11290Register==='function')cd11290Register('early-10270',()=>({used:s.used,sample:window.cd10270Sample||null}),state=>{s.used=!!state.used;window.cd10270Sample=state.sample||null});
  const oldWin10270=win;
  function sampleFor(name){
    name=String(name||'');
@@ -10662,7 +10692,8 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  win=function(){
    const foe=(enemy&&enemy.name)||'la créature',eligible=!s.used&&!!enemy;
    const out=oldWin10270.apply(this,arguments);
-   try{if(eligible)setTimeout(function(){resolve(foe)},1200)}catch(e){console.warn('cd10270 win',e)}
+   // La récompense et le tirage appartiennent à la victoire, avant toute suspension.
+   try{if(eligible)resolve(foe)}catch(e){console.warn('cd10270 win',e)}
    return out;
  };
  const oldNew10270=newRun;
@@ -10709,13 +10740,13 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  const oldSpawn10280=spawnEnemy;
  spawnEnemy=function(){
    const was=battle,out=oldSpawn10280.apply(this,arguments);
-   try{if(!was&&battle&&enemy&&window.cd10270Sample&&!window.cd10270Sample.used)setTimeout(applyMemory,420)}catch(e){console.warn('cd10280 spawn',e)}
+   try{if(!was&&battle&&enemy&&window.cd10270Sample&&!window.cd10270Sample.used)applyMemory()}catch(e){console.warn('cd10280 spawn',e)}
    return out;
  };
  // Les rencontres déclenchées par une trace créent directement enemy sans passer par spawnEnemy.
  if(typeof window.cd10240FollowTrace==='function'){
    const oldFollow10280=window.cd10240FollowTrace;
-   window.cd10240FollowTrace=function(){const out=oldFollow10280.apply(this,arguments);try{if(battle&&enemy&&window.cd10270Sample&&!window.cd10270Sample.used)setTimeout(applyMemory,520)}catch(e){console.warn('cd10280 trace',e)}return out};
+   window.cd10240FollowTrace=function(){const out=oldFollow10280.apply(this,arguments);try{if(battle&&enemy&&window.cd10270Sample&&!window.cd10270Sample.used)applyMemory()}catch(e){console.warn('cd10280 trace',e)}return out};
  }
  const oldNew10280=newRun;
  newRun=function(){window.cd10270Sample=null;return oldNew10280.apply(this,arguments)};
@@ -10773,11 +10804,11 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
        body='La donnée était juste, mais votre interprétation arrive trop tard. <b>Aucune pénalité : l’attaque normale reste disponible.</b>';
      }
      log('DÉCISION DE CORRÉLATION — '+title+' ('+key+' '+val+', jet '+roll+').');toast(title);render();
-     setTimeout(function(){if(battle&&enemy)cdOpenPanel('DÉCISION DE CORRÉLATION','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+key+' '+val+'</b> · jet <b>'+roll+'</b></p><button onclick="closeOverlays();cd10290Strike()">PORTER L’ATTAQUE</button>')},80);
+     if(battle&&enemy)cdOpenPanel('DÉCISION DE CORRÉLATION','<h2>'+title+'</h2><p>'+body+'</p><p><b>'+key+' '+val+'</b> · jet <b>'+roll+'</b></p><button onclick="closeOverlays();cd10290Strike()">PORTER L’ATTAQUE</button>');
    }else{
      enemy.atk=Math.max(1,Number(enemy.atk||1)-1);
      log('DÉCISION DE CORRÉLATION — PRUDENCE DOCUMENTÉE : ATQ ennemie -1.');toast('PRUDENCE DOCUMENTÉE');render();
-     setTimeout(function(){if(battle&&enemy)cdOpenPanel('DÉCISION DE CORRÉLATION','<h2>PRUDENCE DOCUMENTÉE</h2><p>Vous refusez de surinterpréter le prélèvement et adaptez votre garde. <b>ATQ ennemie -1.</b></p><button onclick="closeOverlays();cd10290Strike()">ENGAGER</button>')},80);
+     if(battle&&enemy)cdOpenPanel('DÉCISION DE CORRÉLATION','<h2>PRUDENCE DOCUMENTÉE</h2><p>Vous refusez de surinterpréter le prélèvement et adaptez votre garde. <b>ATQ ennemie -1.</b></p><button onclick="closeOverlays();cd10290Strike()">ENGAGER</button>');
    }
  };
  window.cd10290Strike=function(){closeOverlays();return oldAttack10290()};
@@ -10955,7 +10986,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  win=function(){
    const foe=(enemy&&(enemy.base||enemy.baseName||enemy.name))||'INCONNUE',eligible=!!enemy;
    const out=oldWin10330.apply(this,arguments);
-   try{if(eligible)setTimeout(function(){record(foe)},250)}catch(e){console.warn('cd10330 win',e)}
+   try{if(eligible)record(foe)}catch(e){console.warn('cd10330 win',e)}
    return out;
  };
  window.cd10330Memory=function(){return load()};
@@ -11334,7 +11365,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    if(!opts.length)opts.push({id:'ground',label:'EXPLOITER LE REPÈRE',small:'Observation · transformer le terrain en avantage'});
    opts=opts.slice(0,3);
    const buttons=opts.map(o=>'<button onclick="cd10410Choose(\''+o.id+'\')">'+o.label+'<br><small>'+o.small+'</small></button>').join('');
-   setTimeout(()=>{try{if(battle&&enemy)cdOpenPanel('AVANTAGE DE RENCONTRE','<h2>LE TERRAIN ENTRE DANS LE COMBAT</h2><p>Votre préparation avec <b>'+st.item+'</b> vous donne une fraction de seconde avant le premier échange.</p><div class="grid2">'+buttons+'</div><p><b>Échec : aucune pénalité.</b> La préparation est simplement perdue.</p>')}catch(e){console.warn('cd10410 panel',e)}},520);
+   try{if(battle&&enemy)cdOpenPanel('AVANTAGE DE RENCONTRE','<h2>LE TERRAIN ENTRE DANS LE COMBAT</h2><p>Votre préparation avec <b>'+st.item+'</b> vous donne une fraction de seconde avant le premier échange.</p><div class="grid2">'+buttons+'</div><p><b>Échec : aucune pénalité.</b> La préparation est simplement perdue.</p>')}catch(e){console.warn('cd10410 panel',e)}
  }
  window.cd10410Choose=function(mode){
    if(st.applied||!battle||!enemy){closeOverlays();return}
@@ -11450,9 +11481,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  function offer(){
    if(st.shown||battle)return;
    st.shown=true;
-   setTimeout(function(){
-     try{
-       if(battle||st.resolved)return;
+   try{
        cdOpenPanel('CHOIX D’ITINÉRAIRE',
          '<h2>LE QUARTIER SE REFERME</h2>'+ 
          '<p>Après quelques rues, deux logiques s’opposent. Vous pouvez <b>ancrer votre trajet</b> et préserver vos nerfs, ou <b>couper par l’inconnu</b> pour gagner du temps au risque de vous perdre.</p>'+ 
@@ -11460,8 +11489,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
          '<button onclick="cd10430Choose(\'anchor\')">ANCRER LE TRAJET<br><small>+1 SAN · garanti</small></button>'+ 
          '<button onclick="cd10430Choose(\'risk\')">COUPER PAR L’INCONNU<br><small>Observation · +3 XP si réussite · -2 SAN si échec</small></button>'+ 
          '</div>');
-     }catch(e){console.warn('cd10430 panel',e)}
-   },120);
+   }catch(e){console.warn('cd10430 panel',e)}
  }
  window.cd10430Choose=function(mode){
    if(st.resolved){closeOverlays();return}
@@ -11532,13 +11560,9 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    }
    return best;
  }
- function offer(tries){
+ function offer(){
    if(st.shown||st.resolved||battle)return;
-   const modal=document.getElementById('modal');
-   if(modal&&modal.classList.contains('open')){
-     if((tries||0)<8)setTimeout(()=>offer((tries||0)+1),250);
-     return;
-   }
+   // cdOpenPanel conserve le choix dans la file si un autre panneau est ouvert.
    st.shown=true;
    cdOpenPanel('LECTURE DU TERRAIN',
      '<h2 style="margin-top:0">MARQUAGE DU SECTEUR</h2>'+
@@ -11572,8 +11596,9 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
    const out=oldMove10440.apply(this,arguments);
    try{
-     if(!st.moved&&bx!==null&&by!==null&&(px!==bx||py!==by)){
-       st.moved=true;setTimeout(()=>offer(0),180);
+     if(bx!==null&&by!==null&&(px!==bx||py!==by)){
+       if(!st.moved)st.moved=true;
+       if(!st.shown&&!st.resolved&&!battle)offer();
      }
    }catch(e){console.warn('cd10440 move',e)}
    return out;
@@ -11600,13 +11625,9 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const v=skill(name),r=1+Math.floor(rng()*100);
    return {v:v,r:r,ok:r<=v};
  }
- function offer(tries){
+ function offer(){
    if(st.shown||st.resolved||battle)return;
-   const modal=document.getElementById('modal');
-   if(modal&&modal.classList.contains('open')){
-     if((tries||0)<12)setTimeout(()=>offer((tries||0)+1),250);
-     return;
-   }
+   // Une autre décision visible n'empêche pas sa mise en file durable.
    st.shown=true;
    cdOpenPanel('DÉCISION SOUS PRESSION',
      '<h2 style="margin-top:0">QUELQUE CHOSE VOUS SUIT</h2>'+ 
@@ -11643,7 +11664,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  move=function(dx,dy){
    const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
    const out=oldMove10450.apply(this,arguments);
-   try{if(!st.moved&&bx!==null&&by!==null&&(px!==bx||py!==by)){st.moved=true;setTimeout(()=>offer(0),420)}}catch(e){console.warn('cd10450 move',e)}
+   try{if(bx!==null&&by!==null&&(px!==bx||py!==by)){if(!st.moved)st.moved=true;if(!st.shown&&!st.resolved&&!battle)offer()}}catch(e){console.warn('cd10450 move',e)}
    return out;
  };
  if(typeof newRun==='function'){
@@ -11749,8 +11770,14 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  function pump(){
    if(pumping||isOpen()||!q.length)return;
    pumping=true;
-   const x=q.shift();
-   setTimeout(()=>{pumping=false;if(isOpen()){enqueue(x.title,x.body);return}rawOpen.call(window,x.title,x.body)},70);
+   setTimeout(()=>{
+     pumping=false;
+     if(isOpen()||!q.length)return;
+     const x=q[0];
+     rawOpen.call(window,x.title,x.body);
+     q.shift();
+     if(!isOpen()&&q.length)pump();
+   },70);
  }
  if(typeof closeOverlays==='function'){
    const oldClose=closeOverlays;
@@ -11767,7 +11794,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  let markQueued=false;
  if(typeof cd11290Register==='function')cd11290Register('cd-v10461-queue',
   ()=>({queue:q.slice(),seq,markQueued}),
-  state=>{q.splice(0,q.length,...state.queue);seq=state.seq;markQueued=state.markQueued;pumping=false});
+  state=>{q.splice(0,q.length,...state.queue);seq=state.seq;markQueued=state.markQueued;pumping=false;if(q.length)setTimeout(pump,0)});
  function ensureMark(){
    if(markQueued)return;
    let m=null;try{m=typeof cd10440State==='function'?cd10440State():null}catch(e){}
@@ -11786,7 +11813,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    move=function(dx,dy){
      const bx=typeof px==='number'?px:null,by=typeof py==='number'?py:null;
      const r=oldMove.apply(this,arguments);
-     try{if(bx!==null&&by!==null&&(px!==bx||py!==by))setTimeout(ensureMark,650)}catch(e){console.warn('cd10461 mark',e)}
+     try{if(bx!==null&&by!==null&&(px!==bx||py!==by))ensureMark()}catch(e){console.warn('cd10461 mark',e)}
      return r;
    };
  }
@@ -11973,7 +12000,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
  investigate=function(){
    const eligible=!battle&&!st.investigated;
    const out=oldInvestigate10490.apply(this,arguments);
-   if(eligible){st.investigated=true;setTimeout(place,180)}
+   if(eligible){st.investigated=true;place()}
    return out;
  };
  const oldMove10490=move;
@@ -12047,7 +12074,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const skill=mode==='proof'?'Investigation':'Observation',val=Number(skills[skill]||0),roll=1+Math.floor(rng()*100),ok=roll<=val;
    if(typeof closeModalOnly==='function')closeModalOnly();
    if(mode==='proof'){
-     if(ok){player.xp=Number(player.xp||0)+2;st.result='PREUVE MATÉRIELLE';log('PISTE → DÉCOUVERTE — PREUVE MATÉRIELLE ('+skill+' '+val+', jet '+roll+') : +2 XP et une trouvaille supplémentaire.');toast('PREUVE MATÉRIELLE · +2 XP');setTimeout(function(){try{if(typeof loot==='function')loot()}catch(e){}},120)}
+     if(ok){player.xp=Number(player.xp||0)+2;st.result='PREUVE MATÉRIELLE';log('PISTE → DÉCOUVERTE — PREUVE MATÉRIELLE ('+skill+' '+val+', jet '+roll+') : +2 XP et une trouvaille supplémentaire.');toast('PREUVE MATÉRIELLE · +2 XP');try{if(typeof loot==='function')loot()}catch(e){console.warn('cd10500 loot',e)}}
      else{player.san=Math.max(0,Number(player.san||0)-1);st.result='PISTE SOUILLÉE';st.combatArmed=true;log('PISTE → MENACE — PISTE SOUILLÉE ('+skill+' '+val+', jet '+roll+') : -1 SAN. La prochaine créature sera alertée.');toast('PISTE SOUILLÉE · -1 SAN')}
    }else{
      if(ok){player.xp=Number(player.xp||0)+1;st.result='MENACE ANTICIPÉE';st.combatArmed=true;log('PISTE → COMBAT — MENACE ANTICIPÉE ('+skill+' '+val+', jet '+roll+') : +1 XP. La prochaine rencontre commencera à votre avantage.');toast('MENACE ANTICIPÉE · +1 XP')}
@@ -12060,8 +12087,8 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
    const before=s49(),out=oldMove10500.apply(this,arguments);
    try{
      const after=s49();
-     if(!st.leadPlaced&&after&&after.claimed&&(!before||!before.claimed))setTimeout(placeLead,160);
-     if(st.leadPlaced&&!st.reached&&!st.resolved&&px===st.x&&py===st.y&&map[py]&&map[py][px]==='lead50'){st.reached=true;setTimeout(offer,140)}
+     if(!st.leadPlaced&&after&&after.claimed&&(!before||!before.claimed))placeLead();
+     if(st.leadPlaced&&!st.reached&&!st.resolved&&px===st.x&&py===st.y&&map[py]&&map[py][px]==='lead50'){st.reached=true;offer()}
    }catch(e){console.warn('cd10500 move',e)}
    return out;
  };
@@ -12273,6 +12300,7 @@ window.cd10514NpcLiveRefresh=true;
    un élément concret, accessible et propre à l'étage courant. */
 (function(){
  const st={marks:new Set(),suppressed:0,last:'',depth:null};
+ if(typeof cd11290Register==='function')cd11290Register('state-10540',()=>({...st,marks:[...st.marks]}),state=>{Object.assign(st,state);st.marks=new Set(state.marks)});
  const passiveTitles=new Set(['SENS DU TERRAIN','SENS DE L’ORIENTATION','CARTOGRAPHIE INSTINCTIVE','ÉCHO DU CHEMIN']);
  const concrete=new Set(['chest','quest','shrine','trap','exit']);
  function plain(html){
@@ -12350,12 +12378,12 @@ window.cd10514NpcLiveRefresh=true;
      const t=String(title||'');
      if(!forwarding && t==='PALIER DE VÉTÉRAN' && /cd10380Continue\(\)/.test(String(body||''))){
        if(typeof toast==='function')toast('PALIER DE VÉTÉRAN · INTÉGRÉ');
-       setTimeout(function(){try{if(typeof cd10380Continue==='function')cd10380Continue()}catch(e){console.warn('cd10550 palier',e)}},0);
+       try{if(typeof cd10380Continue==='function')cd10380Continue()}catch(e){console.warn('cd10550 palier',e)}
        return true;
      }
      if(!forwarding && t==='AUTOMATISME DE VÉTÉRAN' && /cd10370Continue\(\)/.test(String(body||''))){
        if(typeof toast==='function')toast('AUTOMATISME · INTÉGRÉ');
-       setTimeout(function(){try{if(typeof cd10370Continue==='function')cd10370Continue()}catch(e){console.warn('cd10550 automatisme',e)}},0);
+       try{if(typeof cd10370Continue==='function')cd10370Continue()}catch(e){console.warn('cd10550 automatisme',e)}
        return true;
      }
    }catch(e){console.warn('cd10550 panel',e)}
@@ -12394,7 +12422,7 @@ window.cd10514NpcLiveRefresh=true;
      if(!forwarding && t==='PRÉLÈVEMENT APRÈS COMBAT'){compact(t,b);return true;}
      if(!forwarding && t==='CONTRE-MESURE DOCTRINALE' && /cd10320Strike\(\)/.test(b)){
        compact(t,b);
-       setTimeout(function(){try{if(typeof closeOverlays==='function')closeOverlays();if(typeof cd10320Strike==='function')cd10320Strike()}catch(e){console.warn('cd10560 doctrine',e)}},40);
+       try{if(typeof closeOverlays==='function')closeOverlays();if(typeof cd10320Strike==='function')cd10320Strike()}catch(e){console.warn('cd10560 doctrine',e)}
        return true;
      }
    }catch(e){console.warn('cd10560 panel',e)}
@@ -12429,12 +12457,10 @@ window.cd10514NpcLiveRefresh=true;
      const t=String(title||''),b=String(body||'');
      if(!forwarding && t==='RÉFLEXE ACQUIS' && /cd10350Strike\(\)/.test(b)){
        compact10570(t,b);
-       setTimeout(function(){
-         try{
-           if(typeof closeOverlays==='function')closeOverlays();
-           if(typeof cd10350Strike==='function')cd10350Strike();
-         }catch(e){console.warn('cd10570 reflex result',e)}
-       },40);
+       try{
+         if(typeof closeOverlays==='function')closeOverlays();
+         if(typeof cd10350Strike==='function')cd10350Strike();
+       }catch(e){console.warn('cd10570 reflex result',e)}
        return true;
      }
    }catch(e){console.warn('cd10570 panel',e)}
@@ -12469,12 +12495,10 @@ window.cd10514NpcLiveRefresh=true;
        const label=plain10580(h);
        st.suppressed++;st.last=label;
        if(typeof toast==='function')toast(label);
-       setTimeout(function(){
-         try{
-           if(typeof closeOverlays==='function')closeOverlays();
-           if(typeof cd10260Strike==='function')cd10260Strike();
-         }catch(e){console.warn('cd10580 tactical result',e)}
-       },40);
+       try{
+         if(typeof closeOverlays==='function')closeOverlays();
+         if(typeof cd10260Strike==='function')cd10260Strike();
+       }catch(e){console.warn('cd10580 tactical result',e)}
        return true;
      }
    }catch(e){console.warn('cd10580 panel',e)}
@@ -12521,6 +12545,7 @@ window.cd10514NpcLiveRefresh=true;
 (function(){
  if(typeof move!=='function'||typeof render!=='function'||typeof newRun!=='function')return;
  const st={depth:null,moves:0,target:null,reveals:0};
+ if(typeof cd11290Register==='function')cd11290Register('state-10600',()=>({...st}),state=>Object.assign(st,state));
  function distances(){
    const out=new Map();
    if(!Array.isArray(map)||!map[py]||map[py][px]==='wall')return out;
@@ -12653,6 +12678,11 @@ window.cd10514NpcLiveRefresh=true;
    try{baseToast(msg)}catch(e){}
    if(queue.length)timer=setTimeout(flush,1050);
  }
+ if(typeof cd11290Register==='function')cd11290Register('notification-queue',
+  ()=>({queue:[...queue]}),state=>{
+   clearTimeout(timer);timer=0;queue.splice(0,queue.length,...(Array.isArray(state.queue)?state.queue:[]));
+   if(queue.length)timer=setTimeout(flush,0);
+  });
  toast=function(msg){
    if(modalOpen()){
      const t=String(msg||'').trim();
@@ -12704,6 +12734,11 @@ window.cd10514NpcLiveRefresh=true;
  function add(msg){msg=String(msg||'').replace(/\s+/g,' ').trim();if(!msg)return;if(delayed[delayed.length-1]!==msg)delayed.push(msg.slice(0,180));}
  function hideToast(){const t=document.getElementById('toast');if(t&&t.style.display!=='none'&&t.textContent.trim()){add(t.textContent);t.style.display='none';clearTimeout(t._x);}}
  function flush(){if(flushing||modalOpen()||!delayed.length)return;flushing=true;const next=()=>{if(modalOpen()){flushing=false;return}const m=delayed.shift();if(m)try{prevToast(m)}catch(e){}if(delayed.length)setTimeout(next,1650);else flushing=false};next();}
+ if(typeof cd11290Register==='function')cd11290Register('overlay-notification-queue',
+  ()=>({delayed:[...delayed]}),state=>{
+   delayed.splice(0,delayed.length,...(Array.isArray(state.delayed)?state.delayed:[]));flushing=false;
+   if(delayed.length)setTimeout(flush,0);
+  });
  cdOpenPanel=function(title,body){
    const t=String(title||'');
    if(AUTO.test(t)){add(t+' · '+String(body||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim());setTimeout(flush,120);return;}
@@ -12797,6 +12832,7 @@ window.cd10514NpcLiveRefresh=true;
 (function(){
  if(typeof cdOpenPanel!=='function'||typeof newRun!=='function')return;
  const st={bannersSuppressed:0,singleResultsCompacted:0,last:''};
+ if(typeof cd11290Register==='function')cd11290Register('state-10650',()=>({...st}),state=>Object.assign(st,state));
 
  /* cd330Try écrit déjà le résultat complet dans le journal et appelle toast().
     La seconde bannière fixe était donc redondante et pouvait recouvrir un choix. */
@@ -12830,12 +12866,10 @@ window.cd10514NpcLiveRefresh=true;
        const label=resultLabel(t,b),fn=action[1];
        st.singleResultsCompacted++;st.last=label;
        if(typeof toast==='function')toast(label);
-       setTimeout(function(){
-         try{
-           if(typeof closeOverlays==='function')closeOverlays();
-           if(typeof window[fn]==='function')window[fn]();
-         }catch(e){console.warn('cd10650 continuation',e)}
-       },80);
+       try{
+         if(typeof closeOverlays==='function')closeOverlays();
+         if(typeof window[fn]==='function')window[fn]();
+       }catch(e){console.warn('cd10650 continuation',e)}
        return true;
      }
    }catch(e){console.warn('cd10650 panel',e)}
@@ -12939,7 +12973,8 @@ window.cd10514NpcLiveRefresh=true;
    const r=baseInvestigate10660.apply(this,arguments);
    if(!player||Number(player.depth)!==beforeDepth)return r;
    const s=state();s.investigations++;
-   if(s.investigations>=2&&!s.done)setTimeout(function(){run(tile)},100);
+   // La lecture appartient à cette enquête : elle doit exister dans le point de reprise.
+   if(s.investigations>=2&&!s.done)run(tile);
    return r;
  };
  const baseNew10660=newRun;
@@ -13485,7 +13520,7 @@ window.cd10514NpcLiveRefresh=true;
   const baseDepth10800=window.cd10790OnDepthChanged;
   window.cd10790OnDepthChanged=function(fromDepth,toDepth){
    const changed=baseDepth10800.apply(this,arguments),s=state();
-   if(changed&&s&&s.stage===1){s.stage=2;log('CONVERGENCE DU DOSSIER — La rémanence confirme que l’affaire traverse les étages.');if(typeof toast==='function')toast('ENQUÊTE MAJEURE · DÉCISION À PRENDRE');setTimeout(openDecision,260);}
+   if(changed&&s&&s.stage===1){s.stage=2;log('CONVERGENCE DU DOSSIER — La rémanence confirme que l’affaire traverse les étages.');if(typeof toast==='function')toast('ENQUÊTE MAJEURE · DÉCISION À PRENDRE');openDecision();}
    return changed;
   };
  }
@@ -13664,6 +13699,7 @@ window.cd10514NpcLiveRefresh=true;
   'Vitre mémorielle':{desc:'Équipée : une fois par étage, la fuite est garantie et rend 1 SAN.',power:'REFLET DE FUITE'}
  };
  const st={sporeDepth:null,mirrorDepth:null,guardianCases:0,weaknesses:0,relicTriggers:0};
+ if(typeof cd11290Register==='function')cd11290Register('guardian-relic-state',()=>({...st}),state=>Object.assign(st,state));
  function dossier(){return player&&player.cd10800?player.cd10800:null;}
  function equipped(name){return !!(player&&player.equip&&player.equip.relique===name);}
  window.cd10840GuardianProfile=function(){
@@ -13789,6 +13825,7 @@ window.cd10514NpcLiveRefresh=true;
   reflet:{name:'Le Dévoreur de Reflets',weak:'Craie rituelle'}
  };
  const st={checks:0,repairs:0,carved:0,lastUnreachable:0,reveals:0};
+ if(typeof cd11290Register==='function')cd11290Register('state-10850',()=>({...st}),state=>Object.assign(st,state));
  function valid(){return Array.isArray(map)&&map.length&&Number.isInteger(px)&&Number.isInteger(py)&&map[py]&&map[py][px]!=='wall';}
  function key(x,y){return x+','+y;}
  function walkable(x,y){return y>=0&&y<map.length&&x>=0&&map[y]&&x<map[y].length&&map[y][x]!=='wall';}
@@ -13886,6 +13923,7 @@ window.cd10850State=function(){return {accessibiliteTotale:true,checks:st.checks
    une alcôve donnant l'impression d'être hors carte. */
 (function(){
  const st={checks:0,relocations:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('state-10860',()=>({...st}),state=>Object.assign(st,state));
  function key(x,y){return x+','+y;}
  function walkable(x,y){return Array.isArray(map)&&y>=0&&y<map.length&&map[y]&&x>=0&&x<map[y].length&&map[y][x]!=='wall';}
  function reachable(){
@@ -13956,6 +13994,7 @@ window.cd10860State=function(){return {marqueursAccessibles:true,checks:st.check
    pas à l'étage courant ou si leur case est devenue non praticable. */
 (function(){
  const st={checks:0,cleared:0};
+ if(typeof cd11290Register==='function')cd11290Register('state-10870',()=>({...st}),state=>Object.assign(st,state));
  function clean(){
   if(!Array.isArray(mapCells)||!Array.isArray(map))return;
   st.checks++;
@@ -14250,6 +14289,7 @@ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.gu
    profondeurs triviales par accumulation mécanique de récompenses. */
 (function(){
  const st={processed:0,levels:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('state-10930',()=>({...st}),state=>Object.assign(st,state));
  function need(level){return Math.max(30,30+(Math.max(1,Number(level)||1)-1)*10);}
  function process(){
   if(!player||Number(player.hp)<=0)return 0;
@@ -14783,6 +14823,7 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
    identité canonique (pression, bestiaire, mémoire et doctrines). */
 (function(){
  const st={repairs:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('state-10990',()=>({...st}),state=>Object.assign(st,state));
  function knownSpecies(name){
   name=String(name||'');if(!name)return null;
   const keys=(typeof creatures==='object'&&creatures)?Object.keys(creatures):[];
@@ -15180,6 +15221,11 @@ window.cd10970State=function(){return {mode:mode(),used:used,totals:Object.assig
   labels:['QUESTIONNER','RASSURER','MENACER'],secret:'Le témoin laisse échapper un détail qu’il voulait taire.'};
  let lastName='',lastLeadTouch=0,leadLocked=false;
  const stats={generated:0,repeatsAvoided:0,preferred:0,resisted:0,secrets:0,leadChoices:0,last:null};
+ if(typeof cd11290Register==='function')cd11290Register('npc-temperament-state',
+  ()=>({lastName,stats:{...stats}}),state=>{
+   lastName=String(state.lastName||'');Object.assign(stats,state.stats||{});
+   lastLeadTouch=0;leadLocked=false;
+  });
  function spec(n){return profiles[String(n&&n.name||'')]||fallback}
  function ensure(n){if(n&&!n.cd11070)n.cd11070={secret:false,attempts:0};return n&&n.cd11070}
  function skillFor(mode){return mode==='questionner'?'Investigation':mode==='rassurer'?'Psychologie':'Armes'}
@@ -15296,6 +15342,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  if(typeof cd18NPC!=='function'||typeof cd18NpcPanel!=='function')return;
  const totals={created:0,revisited:0,switches:0,last:null};
  let activeKey='';
+ if(typeof cd11290Register==='function')cd11290Register('npc-identity',()=>({totals:{...totals},activeKey}),state=>{Object.assign(totals,state.totals);activeKey=state.activeKey});
  function store(){
   if(!player.cd11080Npcs)player.cd11080Npcs={};
   return player.cd11080Npcs;
@@ -15495,6 +15542,8 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
 (function(){
  if(typeof investigate!=='function'||typeof cdOpenPanel!=='function')return;
  let locked=false,lastTouch=0;
+ if(typeof cd11290Register==='function')cd11290Register('witness-verification-choice',
+  ()=>({pending:!!pending()}),()=>{locked=false;lastTouch=0});
  function pending(){
   const s=player&&player.cd11090,r=s&&s.resolution,q=player&&player.quest;
   if(!r||!q||q.done||!q.steps||!s.link||!s.link.resolved||s.verification)return null;
@@ -16355,7 +16404,12 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
 <script id="cd-v11270">
 /* V11.27 — circulation entre dossiers déjà découverts, sans mutation des preuves. */
 (function(){
- let currentNav=null,history=[];
+ let currentNav=null,history=[],restoredHistory=false;
+ if(typeof cd11290Register==='function')cd11290Register('bestiary-navigation',
+  ()=>({history:restoredHistory||currentNav===document.getElementById('sheetContent')?.querySelector('.cd11270-nav')?[...history]:[]}),state=>{
+   history=Array.isArray(state.history)?state.history.filter(id=>typeof id==='string'&&id.startsWith('cd11270-')):[];
+   currentNav=null;restoredHistory=history.length>0;
+  });
  function cardId(name){return 'cd11270-'+encodeURIComponent(name)}
  function jump(card,sheet){
   if(!card||!sheet)return false;
@@ -16371,9 +16425,9 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   if(!root||!sheet||!root.contains(btn)||!root.querySelector('.cd11210-summary'))return;
   ev.preventDefault();ev.stopPropagation();
   const nav=root.querySelector('.cd11270-nav');
-  if(nav!==currentNav){currentNav=nav;history=[]}
+  if(nav!==currentNav){currentNav=nav;if(!restoredHistory)history=[];restoredHistory=false}
   if(btn.hasAttribute('data-cd11270-back')){
-   if(history.length){const previous=history.pop();jump(document.getElementById(previous),sheet)}
+   if(history.length){const previous=history.pop();if(!jump(document.getElementById(previous),sheet))history=[]}
   }else{
    let name;try{name=decodeURIComponent(btn.getAttribute('data-cd11270-target'))}catch(e){return}
    const target=document.getElementById(cardId(name)),origin=btn.closest('.cd11210-entry');
@@ -16382,6 +16436,11 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   }
   update(root);
  },true);
+ if(typeof newRun==='function'){
+  const baseNew11270=newRun;
+  newRun=function(){currentNav=null;history=[];restoredHistory=false;return baseNew11270.apply(this,arguments)};
+  window.newRun=newRun;
+ }
  window.cd11270State=function(){return {navigation:!!document.querySelector('.cd11270-nav'),historique:history.length}};
 })();
 </script>
@@ -16420,7 +16479,15 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   if(!player||!Array.isArray(map)||typeof rng?.getState!=="function")throw new Error("Run non initialisé");
   if(Number(player.hp)<=0)throw new Error("Réalité terminée");
   return JSON.parse(JSON.stringify({schema:3,seed,rngState:rng.getState(),map,px,py,player,enemy,battle,journal,codex,seenItems,ach,
-   enemyRef:{cd460:!!enemy&&player.cd460?.ref===enemy},ui:readWindow(),
+   enemyRef:{
+    cd68:!!enemy&&player.cd68?.last===enemy,
+    cd69:!!enemy&&player.cd69?.enemy===enemy,
+    cd451:!!enemy&&player.cd451?.ref===enemy,
+    cd460:!!enemy&&player.cd460?.ref===enemy,
+    cd471:!!enemy&&player.cd471?.ref===enemy,
+    cd480:!!enemy&&player.cd480?.ref===enemy,
+    cd490:!!enemy&&player.cd490?.ref===enemy
+   },ui:readWindow(),
    modules:Object.fromEntries([...modules].map(([name,hook])=>[name,hook.read()]))}));
  };
  window.cd11290RestoreCore=function(snapshot,options){
@@ -16437,12 +16504,161 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   seed=copy.seed;rng=nextRng;map=copy.map;px=copy.px;py=copy.py;player=copy.player;
   enemy=copy.enemy; battle=copy.battle;journal=copy.journal;codex=copy.codex||{};
   seenItems=copy.seenItems||{};ach=copy.ach||{};
-  if(copy.enemyRef?.cd460&&player.cd460)player.cd460.ref=enemy;
+  if(copy.enemyRef?.cd68&&player.cd68)player.cd68.last=enemy;
+  if(copy.enemyRef?.cd69&&player.cd69)player.cd69.enemy=enemy;
+  for(const key of ['cd451','cd460','cd471','cd480','cd490'])
+   if(copy.enemyRef?.[key]&&player[key])player[key].ref=enemy;
   for(const [name,hook] of modules)hook.write(copy.modules[name]);
   if(options?.render!==false)render();
   writeWindow(copy.ui);
  };
  window.cd11290Registry=function(){return {schema:3,modules:[...modules.keys()],active:false}};
+})();
+</script>
+<script id="cd-v11340">
+/* V11.34 — écriture atomique d'un unique point de suspension.
+   Non branché sur le démarrage ni sur les actions tant que l'audit est incomplet. */
+(function(){
+ const CURRENT='cosmic_suspended_run_current_v1';
+ const PENDING='cosmic_suspended_run_pending_v1';
+ const MAX_CHARS=750000; // Deux enveloppes UTF-16 restent sous un quota iOS prudent.
+ function hash(s){
+  let h=2166136261;
+  for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}
+  return (h>>>0).toString(16).padStart(8,'0');
+ }
+ function decode(raw){
+  if(raw===null)return null;
+  const e=JSON.parse(raw);
+  if(!e||e.format!==1||!Number.isSafeInteger(e.sequence)||e.sequence<1||
+     typeof e.body!=='string'||e.checksum!==hash(e.body))throw new Error('Point de suspension corrompu');
+  const snapshot=JSON.parse(e.body);
+  if(snapshot.schema!==3||!snapshot.player||Number(snapshot.player.hp)<=0)
+   throw new Error('Point de suspension incompatible');
+  return {sequence:e.sequence,snapshot};
+ }
+ function read(){return decode(localStorage.getItem(CURRENT))}
+ function recover(){
+  const currentRaw=localStorage.getItem(CURRENT),pendingRaw=localStorage.getItem(PENDING);
+  let current=null,pending=null,currentError=null,pendingError=null;
+  try{current=decode(currentRaw)}catch(e){currentError=e}
+  try{pending=decode(pendingRaw)}catch(e){pendingError=e}
+  if(pending&&(!current||pending.sequence>=current.sequence)){
+   // PENDING a déjà été relu et contrôlé : une coupure a pu survenir juste
+   // avant sa promotion. La reprise reste possible même si la promotion échoue.
+   try{
+    localStorage.setItem(CURRENT,pendingRaw);
+    if(localStorage.getItem(CURRENT)!==pendingRaw)throw new Error('Promotion du point temporaire non vérifiée');
+    localStorage.removeItem(PENDING);
+   }catch(e){}
+   return {...pending,recoveredFrom:'pending'};
+  }
+  if(current){
+   if(pendingRaw!==null)try{localStorage.removeItem(PENDING)}catch(e){}
+   return {...current,recoveredFrom:'current'};
+  }
+  if(currentError||pendingError)throw new Error('Aucun point de suspension valide');
+  return null;
+ }
+ function write(snapshot){
+  if(!snapshot||snapshot.schema!==3||!snapshot.player||Number(snapshot.player.hp)<=0)
+   throw new Error('Run actif requis');
+  const current=read(),body=JSON.stringify(snapshot);
+  if(current&&JSON.stringify(current.snapshot)===body){
+   // iOS peut émettre pointerup + click puis visibilitychange + pagehide pour
+   // une seule action. Un état strictement identique ne doit pas réécrire le disque.
+   if(localStorage.getItem(PENDING)!==null)try{localStorage.removeItem(PENDING)}catch(e){}
+   return current.sequence;
+  }
+  const sequence=(current?.sequence||0)+1;
+  const value=JSON.stringify({format:1,sequence,body,checksum:hash(body)});
+  if(value.length>MAX_CHARS)throw new Error('Point de suspension trop volumineux');
+  localStorage.setItem(PENDING,value);
+  if(localStorage.getItem(PENDING)!==value)throw new Error('Point temporaire non vérifié');
+  localStorage.setItem(CURRENT,value);
+  if(localStorage.getItem(CURRENT)!==value)throw new Error('Point courant non vérifié');
+  localStorage.removeItem(PENDING);
+  return sequence;
+ }
+ function discard(){
+  localStorage.removeItem(CURRENT);
+  localStorage.removeItem(PENDING);
+ }
+window.cd11340CheckpointStorage={write,read,recover,discard,
+  status:()=>({active:false,current:localStorage.getItem(CURRENT)!==null,
+   pending:localStorage.getItem(PENDING)!==null,maxChars:MAX_CHARS,
+   currentChars:(localStorage.getItem(CURRENT)||'').length})};
+})();
+</script>
+<script id="cd-v11350">
+/* Candidate V11.57 — orchestration active de la suspension et de la reprise. */
+(function(){
+ const ENABLED=true; // Candidate V11.57 : reprise automatique activée pour validation réelle.
+ const storage=window.cd11340CheckpointStorage;
+ let lastError=null,bootAttempted=false;
+ if(!storage||typeof cd11290CaptureCore!=='function'||typeof cd11290RestoreCore!=='function')return;
+ function suspend(){return storage.write(cd11290CaptureCore())}
+ function resume(){
+  const point=typeof storage.recover==='function'?storage.recover():storage.read();if(!point)return false;
+  cd11290RestoreCore(point.snapshot);
+  // Plusieurs render historiques portent de la logique : refuser une reprise altérée.
+  if(JSON.stringify(cd11290CaptureCore())!==JSON.stringify(point.snapshot))
+   throw new Error('Le rendu a modifié le point de reprise');
+  return true;
+ }
+ function discard(){storage.discard();lastError=null}
+ function commit(){
+  if(!player)return false;
+  if(Number(player.hp)<=0){discard();return false}
+  suspend();lastError=null;return true;
+ }
+ function safeCommit(){
+  try{return commit()}catch(e){
+   lastError=String(e&&e.message||e);
+   console.warn('cd11350 commit',e);
+   if(document.visibilityState!=='hidden'&&typeof toast==='function')toast('PAUSE NON ENREGISTRÉE');
+   return false;
+  }
+ }
+ window.cd11350Boot=function(){
+  if(!ENABLED||!storage.status().current)return false;
+  if(bootAttempted)return true;
+  bootAttempted=true;
+  try{return resume()}catch(e){
+   lastError=String(e&&e.message||e);
+   if(typeof showRuntimeError==='function')showRuntimeError(e);
+   return true; // Un point invalide ne déclenche jamais une nouvelle réalité silencieuse.
+  }
+ };
+ if(typeof death==='function'){
+  const previousDeath=death;
+  death=function(){discard();return previousDeath.apply(this,arguments)};window.death=death;
+ }
+ if(typeof newRun==='function'){
+  const previousNewRun=newRun;
+  newRun=function(){discard();const out=previousNewRun.apply(this,arguments);if(ENABLED)commit();return out};window.newRun=newRun;
+ }
+ if(ENABLED){
+  const afterAction=()=>queueMicrotask(safeCommit);
+  document.addEventListener('pointerup',afterAction);
+  document.addEventListener('click',afterAction);
+  // Sur iPhone la page peut être suspendue sans événement de fermeture classique.
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')safeCommit()});
+  // Signal Page Lifecycle disponible sur certains moteurs mobiles avant gel mémoire.
+  document.addEventListener('freeze',safeCommit);
+  window.addEventListener('pagehide',safeCommit);
+ }
+ window.cd11350Suspension={suspend,resume,commit,discard,status:()=>({...storage.status(),active:ENABLED,lastError,bootAttempted})};
+})();
+</script>
+<script id="cd-pwa-register">
+/* Enregistrement explicite de la couche hors-ligne. Sans ce branchement,
+   manifest.json et sw.js existent mais aucun navigateur ne les active. */
+(function(){
+ if(!('serviceWorker' in navigator))return;
+ window.addEventListener('load',function(){
+  navigator.serviceWorker.register('./sw.js').catch(function(e){console.warn('Service worker indisponible',e)});
+ },{once:true});
 })();
 </script>
 </body>
