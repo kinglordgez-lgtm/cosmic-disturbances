@@ -676,6 +676,7 @@ function makeCharacter(){
 function newRun(){
  closeOverlays();seed=100000+Math.floor(Math.random()*899999);rng=mulberry(seed);
  player={hp:34,maxhp:34,san:34,maxsan:34,myth:0,atk:5,def:1,lvl:1,xp:0,depth:0,char:makeCharacter(),equip:{arme:"Vieux revolver",outil:"Lampe à pétrole",relique:null},inv:[{n:"Lampe à pétrole",uses:2},{n:"Vieux revolver"}],quest:null,reputation:0,npc:null,status:[]};
+ if(typeof cd46Reset==='function')cd46Reset();
  seenItems["Lampe à pétrole"]=seenItems["Vieux revolver"]=true;enemy=null;battle=false;journal=[];generateMap();if(typeof cd14GenerateGeometry==='function')cd14GenerateGeometry();log("Nouvelle réalité. Seed "+seed+".");log("Blackwater semble connaître votre nom.");if(rng()<.35)startQuest();render()
 }
 function generateMap(){
@@ -705,7 +706,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.58.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.58.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3217,17 +3218,14 @@ function cd46Choose(i){
  closeOverlays();render();return true
 }
 function cd46CheckLevel(){
- if(!player)return;
- const lv=player.level||player.lvl||1;
- if(cd46LastLevel==null)cd46LastLevel=lv;
- if(lv>cd46LastLevel){
-   cd46Pending+=lv-cd46LastLevel;cd46LastLevel=lv;
-   log("PROGRESSION — Une nouvelle aptitude permanente est disponible.");
-   try{cd46Open()}catch(e){console.warn("cd46",e)}
- }else if(lv<cd46LastLevel)cd46LastLevel=lv
+ // Compatibilité historique : aucun calcul de différence ni seconde attribution.
+ return cd46Pending;
+}
+function cd46Reset(){
+ cd46Pending=0;cd46Choices=[];cd46LastLevel=player.lvl;
 }
 
-/* Détecte les montées de niveau sans remplacer le système XP existant. */
+/* Compatibilité du rendu historique : aucune attribution de progression ici. */
 const cd46Render=render;
 render=function(){
  const r=cd46Render.apply(this,arguments);
@@ -3235,13 +3233,7 @@ render=function(){
  return r
 };
 
-/* Une nouvelle partie réinitialise seulement les choix de cette incarnation. */
-const cd46NewRun=newRun;
-newRun=function(){
- const r=cd46NewRun.apply(this,arguments);
- cd46Pending=0;cd46Choices=[];cd46LastLevel=player.level||player.lvl||1;return r
-};
-
+/* Les choix sont réinitialisés dans le constructeur, avant les événements de départ. */
 /* La fiche rappelle les aptitudes obtenues. */
 if(player&&!player.cd46Perks)player.cd46Perks=[];
 const cd46OldChoose=cd46Choose;
@@ -11808,7 +11800,7 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
       déjà ouverte au lieu d'empiler une copie dans la file d'attente. */
    const socialRefresh=String(body||'').includes('cdNpcChoices');
    if(isOpen()&&socialRefresh)return rawOpen.call(this,title,body);
-   /* V11.58.1 : la file canonique cd46Pending possède déjà les niveaux.
+   /* V11.58.2 : la file canonique cd46Pending possède déjà les niveaux.
       Remplacer le choix affiché, sans en stocker une seconde copie HTML. */
    const progression=/PROGRESSION|NIVEAU/.test(String(title||'').toUpperCase())&&
      /data-cd10960-perk|cd46Choose\(/.test(String(body||''));
@@ -13214,6 +13206,11 @@ window.cd10514NpcLiveRefresh=true;
    finish();if(ev.cancelable)ev.preventDefault();ev.stopPropagation();
  },{passive:false,capture:true});
  document.addEventListener('touchcancel',finish,{passive:false,capture:true});
+ // Un nouveau geste (ou une activation clavier) ouvre une nouvelle validation.
+ document.addEventListener('keydown',function(){lastPointerTarget=null;pointerClickPending=false},{capture:true});
+ document.addEventListener('touchstart',function(ev){
+  if(target(ev)){lastPointerTarget=null;pointerClickPending=false}
+ },{capture:true,passive:true});
  document.addEventListener('pointerdown',function(ev){
    if(Date.now()-st.lastTouch<800||ev.button>0)return;
    const p=pane();if(!p||!p.contains(ev.target)||!inside(p,ev.clientX,ev.clientY))return;
@@ -14361,16 +14358,22 @@ window.cd10880State=function(){return {doctrinesUniques:true,guardians:totals.gu
  function need(level){return Math.max(30,30+(Math.max(1,Number(level)||1)-1)*10);}
  function process(){
   if(!player||Number(player.hp)<=0)return 0;
-  player.lvl=Math.max(1,Number(player.lvl)||1);player.xp=Math.max(0,Number(player.xp)||0);
+  // V11.58.2 : zéro est un niveau valide, jamais une montée gratuite.
+  const level=Number(player.lvl);
+  player.lvl=Number.isFinite(level)?Math.max(0,Math.floor(level)):1;
+  player.xp=Math.max(0,Number(player.xp)||0);
   let gained=0,guard=0;
   while(player.xp>=need(player.lvl)&&guard++<200){
    const cost=need(player.lvl);player.xp-=cost;player.lvl++;
+   // Un seuil franchi et sa récompense sont une seule transition canonique.
+   cd46Pending++;cd46LastLevel=player.lvl;
    player.maxhp=Math.max(1,Number(player.maxhp)||1)+3;cd11580SetHP(player.maxhp,'hp:14345');
    player.atk=Math.max(1,Number(player.atk)||1)+1;gained++;
    if(typeof log==='function')log('NIVEAU '+player.lvl+' — '+cost+' XP convertis · +3 PV max · +1 ATQ.');
   }
   st.processed++;st.levels+=gained;st.last={level:player.lvl,xp:player.xp,next:need(player.lvl),gained:gained};
   if(gained&&typeof toast==='function')toast(gained>1?'+'+gained+' NIVEAUX':'NIVEAU '+player.lvl);
+  if(gained)cd46Open();
   return gained;
  }
  if(typeof render==='function'){
@@ -14614,7 +14617,7 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
   const b=target(ev);if(!b)return;lastPointerTarget=b;pointerClickPending=true;if(ev.cancelable)ev.preventDefault();ev.stopPropagation();window.cd10960Select(b.getAttribute('data-cd10960-perk'));
  },{passive:false,capture:true});
  document.addEventListener('click',function(ev){
-  const b=target(ev);if(!b)return;if(ev.cancelable)ev.preventDefault();ev.stopPropagation();if(b===lastPointerTarget||(pointerClickPending&&ev.detail>0)){lastPointerTarget=null;pointerClickPending=false;return;}lastPointerTarget=null;pointerClickPending=false;window.cd10960Select(b.getAttribute('data-cd10960-perk'));
+  const b=target(ev);if(!b)return;if(ev.cancelable)ev.preventDefault();ev.stopPropagation();if(b===lastPointerTarget||pointerClickPending){lastPointerTarget=null;pointerClickPending=false;return;}lastPointerTarget=null;pointerClickPending=false;window.cd10960Select(b.getAttribute('data-cd10960-perk'));
  },{passive:false,capture:true});
  // La transition pending-level-panel est l’unique ordonnanceur, y compris après la croix.
  if(typeof render==='function'){
@@ -16744,7 +16747,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.58.1',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.58.2',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
