@@ -705,7 +705,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.58.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.58.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3204,13 +3204,13 @@ function cd46PickChoices(){
 }
 function cd46Open(){
  if(cd46Pending<=0||battle)return;
- cd46Choices=cd46PickChoices();
+ if(!cd46Choices.length)cd46Choices=cd46PickChoices();
  const buttons=cd46Choices.map((x,i)=>`<button onclick="cd46Choose(${i})"><b>${x.name}</b><br><span class="small">${x.desc}</span></button>`).join("");
  cdOpenPanel("▲ PROGRESSION",`<p>Votre expérience vous transforme. Choisissez une amélioration permanente.</p><div class="menuGrid">${buttons}</div><p class="small">Choix disponibles : ${cd46Pending}</p>`);
 }
 function cd46Choose(i){
- const x=cd46Choices[i];if(!x||cd46Pending<=0)return;
- x.apply();cd46Pending--;log("NIVEAU — Aptitude acquise : "+x.name+".");toast("APTITUDE : "+x.name);
+ const x=cd46Choices[i];if(!Number.isInteger(i)||!x||cd46Pending<=0)return false;
+ x.apply();cd46Pending--;cd46Choices=[];log("NIVEAU — Aptitude acquise : "+x.name+".");toast("APTITUDE : "+x.name);
  /* Plusieurs niveaux gagnés d'un coup restent dans le même panneau. Cette
     actualisation synchrone évite tout intervalle sans cible tactile. */
  if(cd46Pending>0){render();cd46Open();return true}
@@ -3239,7 +3239,7 @@ render=function(){
 const cd46NewRun=newRun;
 newRun=function(){
  const r=cd46NewRun.apply(this,arguments);
- cd46Pending=0;cd46LastLevel=player.level||player.lvl||1;return r
+ cd46Pending=0;cd46Choices=[];cd46LastLevel=player.level||player.lvl||1;return r
 };
 
 /* La fiche rappelle les aptitudes obtenues. */
@@ -11808,6 +11808,16 @@ newRun=function(){const r=cd980NewRun.apply(this,arguments);player.cd980={shown:
       déjà ouverte au lieu d'empiler une copie dans la file d'attente. */
    const socialRefresh=String(body||'').includes('cdNpcChoices');
    if(isOpen()&&socialRefresh)return rawOpen.call(this,title,body);
+   /* V11.58.1 : la file canonique cd46Pending possède déjà les niveaux.
+      Remplacer le choix affiché, sans en stocker une seconde copie HTML. */
+   const progression=/PROGRESSION|NIVEAU/.test(String(title||'').toUpperCase())&&
+     /data-cd10960-perk|cd46Choose\(/.test(String(body||''));
+   const current=document.getElementById('sheetContent');
+   if(progression){
+     // Un autre dialogue peut finir ; la transition ouvrira ensuite le niveau.
+     if(isOpen()&&!current?.querySelector('[data-cd10960-perk]'))return true;
+     return rawOpen.call(this,title,body);
+   }
    if(isOpen())return enqueue(title,body);
    return rawOpen.call(this,title,body);
  };
@@ -14565,21 +14575,13 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
    double toucher et rouvre les choix restants après une fermeture accidentelle. */
 (function(){
  if(typeof cdOpenPanel!=='function'||typeof cd46Open!=='function')return;
- let locked=false,lastTouch=0,reopenTimer=null;
+ let locked=false,lastPointerTarget=null,pointerClickPending=false;
  const st={panels:0,commits:0,reopens:0,duplicates:0,last:null};
  if(typeof cd11290Register==='function')cd11290Register('tactile-choice',()=>({...st}),
-  state=>{if(reopenTimer!==null)clearTimeout(reopenTimer);reopenTimer=null;locked=false;lastTouch=0;Object.assign(st,state)});
+  state=>{locked=false;lastPointerTarget=null;pointerClickPending=false;Object.assign(st,state)});
  function pending(){try{return Math.max(0,Number(cd46Pending)||0)}catch(e){return 0}}
  function rupture(){try{return typeof cd10950State==='function'&&!!cd10950State().pending}catch(e){return false}}
  function modalOpen(){const m=document.getElementById('modal');return !!(m&&m.classList&&m.classList.contains('open'))}
- function progressionVisible(){try{return !!document.querySelector('[data-cd10960-perk]')}catch(e){return false}}
- function scheduleReopen(delay){
-  if(reopenTimer!==null)clearTimeout(reopenTimer);
-  reopenTimer=setTimeout(function(){
-   reopenTimer=null;if(!pending()||battle||rupture()||modalOpen())return;
-   st.reopens++;try{cd46Open()}catch(e){console.warn('cd10960 reopen',e)}
-  },delay||180);
- }
  function select(index){
   index=Number(index);if(locked||!Number.isInteger(index)||index<0||!pending()){st.duplicates++;return false}
   locked=true;const before=pending();
@@ -14591,7 +14593,6 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
   const after=pending();
   if(after>=before){locked=false;if(typeof toast==='function')toast('CHOIX NON VALIDÉ');return false}
   st.commits++;st.last={index:index,before:before,after:after};locked=false;
-  if(after>0)scheduleReopen(150);
   return true;
  }
  window.cd10960Select=select;
@@ -14599,23 +14600,23 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
  cdOpenPanel=function(title,body){
   const t=String(title||''),b=String(body||'');
   if(/PROGRESSION|NIVEAU/.test(t.toUpperCase())&&/cd46Choose\(\d+\)/.test(b)){
-   locked=false;st.panels++;
+   st.panels++;
    const fixed=b.replace(/<button\s+onclick=(["'])cd46Choose\((\d+)\)\1/gi,function(_,q,i){return '<button type="button" data-cd10960-perk="'+i+'"'});
    return basePanel10960.call(this,title,fixed);
   }
   return basePanel10960.apply(this,arguments);
  };
  function target(ev){try{return ev&&ev.target&&ev.target.closest?ev.target.closest('[data-cd10960-perk]'):null}catch(e){return null}}
+ document.addEventListener('pointerdown',function(ev){
+  if(target(ev)){lastPointerTarget=null;pointerClickPending=false}
+ },{capture:true});
  document.addEventListener('pointerup',function(ev){
-  const b=target(ev);if(!b)return;lastTouch=Date.now();if(ev.cancelable)ev.preventDefault();ev.stopPropagation();window.cd10960Select(b.getAttribute('data-cd10960-perk'));
+  const b=target(ev);if(!b)return;lastPointerTarget=b;pointerClickPending=true;if(ev.cancelable)ev.preventDefault();ev.stopPropagation();window.cd10960Select(b.getAttribute('data-cd10960-perk'));
  },{passive:false,capture:true});
  document.addEventListener('click',function(ev){
-  const b=target(ev);if(!b)return;if(ev.cancelable)ev.preventDefault();ev.stopPropagation();if(Date.now()-lastTouch<700)return;window.cd10960Select(b.getAttribute('data-cd10960-perk'));
+  const b=target(ev);if(!b)return;if(ev.cancelable)ev.preventDefault();ev.stopPropagation();if(b===lastPointerTarget||(pointerClickPending&&ev.detail>0)){lastPointerTarget=null;pointerClickPending=false;return;}lastPointerTarget=null;pointerClickPending=false;window.cd10960Select(b.getAttribute('data-cd10960-perk'));
  },{passive:false,capture:true});
- if(typeof closeOverlays==='function'){
-  const baseClose10960=closeOverlays;
-  closeOverlays=function(){const was=progressionVisible()&&pending()>0,out=baseClose10960.apply(this,arguments);if(was&&pending()>0)scheduleReopen(220);return out};window.closeOverlays=closeOverlays;
- }
+ // La transition pending-level-panel est l’unique ordonnanceur, y compris après la croix.
  if(typeof render==='function'){
   const baseRender10960=render;
   cd11580OnTransition('pending-level-panel',()=>{if(pending()>0&&!battle&&!rupture()&&!modalOpen())cd46Open()});
@@ -16743,7 +16744,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.58.0',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.58.1',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
