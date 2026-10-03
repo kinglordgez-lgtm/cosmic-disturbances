@@ -706,7 +706,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.58.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.58.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -13206,11 +13206,6 @@ window.cd10514NpcLiveRefresh=true;
    finish();if(ev.cancelable)ev.preventDefault();ev.stopPropagation();
  },{passive:false,capture:true});
  document.addEventListener('touchcancel',finish,{passive:false,capture:true});
- // Un nouveau geste (ou une activation clavier) ouvre une nouvelle validation.
- document.addEventListener('keydown',function(){lastPointerTarget=null;pointerClickPending=false},{capture:true});
- document.addEventListener('touchstart',function(ev){
-  if(target(ev)){lastPointerTarget=null;pointerClickPending=false}
- },{capture:true,passive:true});
  document.addEventListener('pointerdown',function(ev){
    if(Date.now()-st.lastTouch<800||ev.button>0)return;
    const p=pane();if(!p||!p.contains(ev.target)||!inside(p,ev.clientX,ev.clientY))return;
@@ -14610,6 +14605,11 @@ body.cd10950-pending #mapWrap{box-shadow:inset 0 0 0 3px rgba(185,92,112,.42),0 
   return basePanel10960.apply(this,arguments);
  };
  function target(ev){try{return ev&&ev.target&&ev.target.closest?ev.target.closest('[data-cd10960-perk]'):null}catch(e){return null}}
+ // Un nouveau geste (ou une activation clavier) ouvre une nouvelle validation.
+ document.addEventListener('keydown',function(){lastPointerTarget=null;pointerClickPending=false},{capture:true});
+ document.addEventListener('touchstart',function(ev){
+  if(target(ev)){lastPointerTarget=null;pointerClickPending=false}
+ },{capture:true,passive:true});
  document.addEventListener('pointerdown',function(ev){
   if(target(ev)){lastPointerTarget=null;pointerClickPending=false}
  },{capture:true});
@@ -16747,7 +16747,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.58.2',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.58.3',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
