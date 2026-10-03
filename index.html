@@ -706,7 +706,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.58.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.58.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3549,7 +3549,7 @@ function cd51Treat(){
  }else{
    log("SOINS — Échec du traitement de "+w.name+".");cd11580SetHP(Math.max(1,player.hp-1),'hp:3550')
  }
- render();return true
+ cd51RefreshWounds();render();return true
 }
 
 /* Détecte les gros coups reçus sans modifier le moteur de combat. */
@@ -3575,15 +3575,48 @@ investigate=function(){
 };
 
 /* Une blessure peut être traitée depuis la fiche personnage. */
+/* V11.58.4 : présentation locale, sans rouvrir la fiche ni rejouer ses effets. */
+function cd51RefreshWounds(){
+ const d=document.getElementById('cd51Wounds');if(!d||!player)return;
+ const wounds=player.cd51&&player.cd51.wounds||[];
+ const keepButton=!!d.querySelector('button');
+ const names=wounds.map(id=>CD51_WOUNDS.find(w=>w.id===id)?.name||id);
+ d.innerHTML='<b>BLESSURES</b><br>'+(names.length?names.map(x=>'⚕ '+x).join('<br>'):'Aucune.')+
+  (names.length||keepButton?'<br><button data-cd11584-treat'+(names.length?'':' disabled')+'>SOIGNER LA BLESSURE</button>':'');
+}
+/* Délégation persistante : fonctionne aussi avec le HTML des sauvegardes 11.58.x.
+   Le verrou porte sur le geste, y compris si le soin échoue ou remplace le bouton. */
+(function(){
+ let ended=false,moved=false,start=null;
+ function button(ev){const t=ev.target;return t&&t.closest?t.closest('#cd51Wounds button[data-cd11584-treat], #cd51Wounds button[onclick="cd51Treat()"]'):null}
+ function point(ev){const t=ev.changedTouches&&ev.changedTouches[0]||ev.touches&&ev.touches[0]||ev;return [Number(t.clientX)||0,Number(t.clientY)||0]}
+ function begin(ev){if(!button(ev))return;ended=false;moved=false;start=point(ev)}
+ function move(ev){if(!start)return;const p=point(ev);if(Math.abs(p[0]-start[0])+Math.abs(p[1]-start[1])>12)moved=true}
+ function activate(ev){
+  const b=button(ev);if(!b)return;
+  ev.preventDefault();ev.stopImmediatePropagation();
+  if(ev.type==='click'&&ended)return;
+  if(ev.type!=='click'){if(ended)return;ended=true}
+  if(moved||b.matches(':disabled')||!document.getElementById('modal').classList.contains('open'))return;
+  if(!player||!player.cd51||!player.cd51.wounds.length)return;
+  b.removeAttribute('onclick');cd51Treat();
+ }
+ document.addEventListener('pointerdown',begin,true);
+ document.addEventListener('touchstart',begin,{capture:true,passive:true});
+ document.addEventListener('keydown',function(ev){if(button(ev)){ended=false;moved=false;start=null}},true);
+ document.addEventListener('pointermove',move,true);
+ document.addEventListener('touchmove',move,{capture:true,passive:true});
+ for(const name of ['pointercancel','touchcancel'])document.addEventListener(name,function(){moved=true;start=null},true);
+ document.addEventListener('pointerup',activate,{capture:true,passive:false});
+ document.addEventListener('touchend',activate,{capture:true,passive:false});
+ document.addEventListener('click',activate,true);
+})();
 const cd51Character=openCharacter;
 openCharacter=function(){
  const r=cd51Character.apply(this,arguments),root=document.getElementById("sheetContent"),s=cd51State();
  if(root&&!document.getElementById("cd51Wounds")){
    const d=document.createElement("div");d.id="cd51Wounds";d.style.cssText="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)";
-   const names=s.wounds.map(id=>CD51_WOUNDS.find(w=>w.id===id)?.name||id);
-   d.innerHTML="<b>BLESSURES</b><br>"+(names.length?names.map(x=>"⚕ "+x).join("<br>"):"Aucune.")+
-     (names.length?'<br><button onclick="cd51Treat()">SOIGNER LA BLESSURE</button>':"");
-   root.appendChild(d)
+   root.appendChild(d);cd51RefreshWounds()
  }
  return r
 };
@@ -16747,7 +16780,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.58.3',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.58.4',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
