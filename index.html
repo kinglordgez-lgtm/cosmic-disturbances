@@ -706,7 +706,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.58.5 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.58.6 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -15470,6 +15470,8 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
 #cd11090Network b{color:#c9a8e5}#cd11090Network small{display:block;margin-top:3px;color:var(--muted);line-height:1.3}
 #cd11090Network button{margin-top:8px;width:100%}
 #sheetContent [data-cd11090-action]{pointer-events:auto!important;touch-action:manipulation!important;position:relative!important;z-index:9!important}
+/* V11.58.6 — distinguer les choix en attente sans changer leur condition. */
+#sheetContent [data-cd11090-action]:disabled{opacity:.45;cursor:not-allowed}
 .tile.cd11090-target{outline:3px solid #bda2db!important;outline-offset:-4px;box-shadow:inset 0 0 0 2px #31213d!important}
 </style>
 <script id="cd-v11090">
@@ -15546,8 +15548,9 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
  function openNetwork(){
   const s=state(),l=s.link;if(!l)return false;choiceLocked=false;
   if(l.resolved){if(typeof cd18NpcPanel==='function')cd18NpcPanel();return true}
-  const wait=activeQuest()?'':'<p class="small">Le recoupement restera disponible dès qu’une enquête sera active.</p>';
-  const disabled=activeQuest()?'':' disabled';
+  const available=activeQuest();
+  const wait=available?'':'<p class="small" id="cd11090Waiting"><b>CHOIX EN ATTENTE — AUCUNE ENQUÊTE ACTIVE.</b><br>Ces choix réorientent une étape d’enquête. Parlez aux habitants pour obtenir une enquête, puis rouvrez ce recoupement. Les deux témoignages sont conservés.</p>';
+  const disabled=available?'':' disabled aria-describedby="cd11090Waiting"';
   cdOpenPanel('RÉSEAU DE TÉMOIGNAGES','<h2 style="margin-top:0">'+l.label+'</h2><p>'+l.names.join(' · ')+'</p><p>'+l.detail+'</p>'+wait+'<div class="grid2"><button data-cd11090-action="facts"'+disabled+'>VÉRIFIER LES FAITS<br><small>Oriente la piste vers un lieu</small></button><button data-cd11090-action="echo"'+disabled+'>SUIVRE L’ÉCHO<br><small>Oriente la piste vers une anomalie</small></button></div>');
   return true;
  }
@@ -15590,7 +15593,7 @@ window.cd11070State=function(){return {pnjDistincts:true,dernierNom:lastName,sta
    let box=document.getElementById('cd11090Network');if(box)box.remove();box=document.createElement('div');box.id='cd11090Network';
    const s=state(),count=s.order.length,l=s.link;
    if(!l)box.innerHTML='<b>DOSSIER DES TÉMOINS · '+count+'/2</b><small>'+(count?'Cette déclaration est conservée. Un second témoin permettra un recoupement.':'Obtenez une déclaration exploitable pour ouvrir un recoupement.')+'</small>';
-   else if(!l.resolved)box.innerHTML='<b>'+l.label+' · '+l.names.join(' / ')+'</b><small>'+l.detail+'</small><button data-cd11090-action="open">RECOUPER LES RÉCITS</button>';
+   else if(!l.resolved)box.innerHTML='<b>'+l.label+' · '+l.names.join(' / ')+'</b><small>'+l.detail+'</small>'+(activeQuest()?'':'<small>Choix en attente : aucune enquête active. Les témoignages sont conservés.</small>')+'<button data-cd11090-action="open">RECOUPER LES RÉCITS</button>';
    else box.innerHTML='<b>PISTE RECOUPÉE · '+(l.choice==='facts'?'VÉRIFICATION HUMAINE':'ÉCHO INTERDIT')+'</b><small>'+String(s.resolution&&s.resolution.objective||l.detail)+'</small>';
    actions.parentNode.insertBefore(box,actions);return true;
   }catch(e){console.warn('cd11090 decorate',e);return false}
@@ -16844,7 +16847,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.58.5',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.58.6',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
