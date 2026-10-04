@@ -707,7 +707,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16849,7 +16849,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.59.0',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.59.1',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
@@ -17032,8 +17032,15 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let debug=null;
  function drawDebug(){
-  const s=view(),p=s.personal,ids=p?.order||[],saved=Object.keys(s.book.entries);
-  debug.querySelector('[data-content]').innerHTML='<h2>DIAGNOSTIC CONNAISSANCE — TEMPORAIRE</h2><p>Observations personnelles : '+ids.length+' · Consignées par cet enquêteur : '+(p?.consignedIds.length||0)+' · Livre persistant : '+saved.length+'</p><p>Faits internes du monde : '+Object.keys(s.world?.facts||{}).length+' (séparés des observations).</p><h3>Enquêteur actuel</h3>'+ids.map(id=>{const o=p.observations[id];return '<div class="entry"><b>'+esc(o.type)+'</b> · '+esc(o.statement)+'<br><small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+' · '+esc(o.documentaryDegree)+'</small><br><button data-consign="'+esc(id)+'"'+(s.book.entries[id]?' disabled':'')+'>'+(s.book.entries[id]?'CONSIGNÉ':'CONSIGNER CETTE OBSERVATION')+'</button></div>'}).join('')+'<h3>Livre — consultation seule</h3>'+saved.map(id=>{const o=s.book.entries[id].observation;return '<div class="entry">'+esc(o.statement)+'<br><small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+' · '+esc(o.documentaryDegree)+'</small></div>'}).join('');
+  const s=view(),p=s.personal,ids=p?.order||[],saved=Object.keys(s.book.entries),facts=Object.values(s.world?.facts||{});
+  const provenance=o=>'<small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+' · '+esc(o.documentaryDegree)+'</small>';
+  const world=facts.map(f=>'<div class="entry" data-world-fact="'+esc(f.id)+'"><b>'+esc(f.state.name)+'</b> · PV à la dernière capture : '+esc(f.state.hp)+'/'+esc(f.state.maxhp)+'<br><small>Instance '+esc(f.id)+' · source moteur : '+esc(f.origin)+'</small></div>').join('');
+  const personal=ids.map(id=>{const o=p.observations[id];return '<div class="entry" data-personal-observation="'+esc(id)+'"><b>'+esc(o.type)+'</b> · '+esc(o.statement)+'<br>'+provenance(o)+'<br><button data-consign="'+esc(id)+'"'+(s.book.entries[id]?' disabled':'')+'>'+(s.book.entries[id]?'CONSIGNÉ':'CONSIGNER')+'</button></div>'}).join('');
+  const permanent=saved.map(id=>{const o=s.book.entries[id].observation;return '<div class="entry" data-book-observation="'+esc(id)+'">'+esc(o.statement)+'<br>'+provenance(o)+'</div>'}).join('');
+  debug.querySelector('[data-content]').innerHTML='<h2>DIAGNOSTIC CONNAISSANCE — TEST TEMPORAIRE</h2><p class="small">Consulter ne fait rien apprendre à l’enquêteur. Seul CONSIGNER transmet une observation au Livre.</p>'+
+   '<section data-knowledge-section="world"><h3>1 · FAITS OBJECTIFS DU MONDE · '+facts.length+'</h3><p class="small">Réalité '+esc(s.world?.id||'')+' · seed '+esc(s.world?.seed||'')+'. Captures des instances de combat ; ce ne sont pas des connaissances personnelles.</p>'+(world||'<p>Aucun fait de combat capturé dans cette réalité.</p>')+'</section>'+
+   '<section data-knowledge-section="personal"><h3>2 · OBSERVATIONS PERSONNELLES · '+ids.length+'</h3><p class="small">Enquêteur actuel : '+esc(p?.observer.name||'')+'. Les observations non consignées disparaissent avec lui.</p>'+(personal||'<p>Aucune observation personnelle. Cet enquêteur n’hérite pas automatiquement du savoir du Livre.</p>')+'</section>'+
+   '<section data-knowledge-section="book"><h3>3 · LIVRE PERSISTANT · '+saved.length+'</h3><p class="small">Uniquement les éléments volontairement consignés. L’auteur et la réalité d’origine restent conservés.</p>'+(permanent||'<p>Aucun élément consigné dans le Livre.</p>')+'</section>';
  }
  function openDebug(){
   if(!alive())return false;
@@ -17044,8 +17051,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  }
  window.cd11590Knowledge=Object.freeze({view,consign,openDebug,documentaryStates:STATES});
  document.addEventListener('DOMContentLoaded',()=>{
-  if(new URLSearchParams(location.search).get('knowledgeDebug')!=='1')return;
-  const menu=document.getElementById('mainMenu'),b=document.createElement('button');b.type='button';b.textContent='DIAGNOSTIC CONNAISSANCE';b.id='cd11590DebugButton';b.addEventListener('click',openDebug);(menu?.querySelector('.sheet')||menu)?.appendChild(b);
+  const menu=document.getElementById('mainMenu'),b=document.createElement('button');b.type='button';b.textContent='DIAGNOSTIC CONNAISSANCE';b.id='cd11590DebugButton';b.className='small';b.style.marginTop='8px';b.title='Outil temporaire de validation';b.addEventListener('click',openDebug);(menu?.querySelector('.sheet')||menu)?.appendChild(b);
  });
 })();
 </script>
