@@ -707,7 +707,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16793,8 +16793,10 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(Number(player.hp)<=0)return cd11580RecordDeath(cd11580CombatAction?'combat':'systemic',cd11580ActionName);
   return false;
  }
- function finish(){
+ function finish(kind){
   if(terminal()){death();return}
+  // Une transition documentaire ne résout aucun événement du monde.
+  if(kind==='documentary')return;
   initialize();
   for(const fn of [cd29EnsureCriticalAccess,cd38EnsureGoal,cd48Ensure,cd30AnnounceDepth,cd25EnterZone,cd36Check,cd42Check,cd281Try,cd302Ensure,cd311Check,cd312Check,cd10930ProcessXP,cd46CheckLevel,cd621CheckDepth,...cd11580Transitions.values()]){
    fn();if(terminal()){death();return}
@@ -16802,7 +16804,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   cd11585Opening();
   window.cd11590AfterTransition?.();
  }
- window.cd11580Action=function(name,fn,args=[],self=window){
+ window.cd11580Action=function(name,fn,args=[],self=window,kind='gameplay'){
   if(cd11580Rendering)throw new Error('Transition de gameplay demandée pendant le rendu : '+name);
   const outer=cd11580ActionDepth===0;
   if(name!=='newRun'&&player?.cd11580Death)return false;
@@ -16814,7 +16816,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   }
   cd11580ActionDepth++;
   let out,ok=false;
-  try{out=fn.apply(self,args);if(outer)finish();ok=true;return out}
+  try{out=fn.apply(self,args);if(outer)finish(kind);ok=true;return out}
   catch(e){faulted=true;throw e}
   finally{
    cd11580ActionDepth--;
@@ -16849,7 +16851,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.59.2',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.59.3',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
@@ -16869,6 +16871,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   for(const [id,e]of Object.entries(v.entries)){
    if(!e||e.observation?.id!==id||!STATES.includes(e.observation.documentaryDegree)||!e.observation.observer?.id||!e.observation.reality?.id||!e.consignation?.observer?.id||!Number.isSafeInteger(e.observation.causalOrder)||!Number.isSafeInteger(e.consignation.causalOrder))throw new Error('Provenance du Livre incomplète');
   }
+  if(Object.hasOwn(v,'hypotheses'))validateHypothesisArchive(v.hypotheses);
   return v;
  }
  try{const raw=localStorage.getItem(KEY);if(raw!==null)book=clone(validateBook(JSON.parse(raw)))}catch(e){bookError=e}
@@ -16884,6 +16887,13 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   for(const [id,e]of Object.entries(b.entries)){
    if(Object.hasOwn(out.entries,id)&&!same(out.entries[id],e))throw new Error('Identité documentaire en conflit : '+id);
    out.entries[id]=clone(e);
+  }
+  if(Object.hasOwn(a,'hypotheses')||Object.hasOwn(b,'hypotheses')){
+   out.hypotheses||={};for(const [id,e]of Object.entries(b.hypotheses||{})){
+    const old=out.hypotheses[id];if(!old){out.hypotheses[id]=clone(e);continue}if(same(old,e))continue;
+    if(hypothesisExtension(old.hypothesis,e.hypothesis))out.hypotheses[id]=clone(e);
+    else if(!hypothesisExtension(e.hypothesis,old.hypothesis))throw new Error('Identité d’hypothèse en conflit : '+id);
+   }
   }
   return out;
  }
@@ -16905,6 +16915,8 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  function validateRun(k){
   if(!k||k.schema!==1||!k.world?.id||!k.world.facts||!k.personal?.observer?.id||!k.personal.observations||!Array.isArray(k.personal.order)||!Array.isArray(k.personal.consignedIds)||!k.personal.eventKeys||!Array.isArray(k.witnessKeys)||!Number.isSafeInteger(k.causalOrder)||k.causalOrder<0)throw new Error('Mémoire de connaissance incompatible');
   for(const id of k.personal.order){const o=k.personal.observations[id];if(!o||o.id!==id||o.observer?.id!==k.personal.observer.id||o.reality?.id!==k.world.id||!STATES.includes(o.documentaryDegree))throw new Error('Observation personnelle incompatible')}
+  if(!Array.isArray(k.personal.claims))throw new Error('Hypothèses personnelles incompatibles');
+  const ids=new Set();for(const h of k.personal.claims){validateHypothesis(h);if(ids.has(h.id)||h.author.id!==k.personal.observer.id||h.origin.id!==k.world.id)throw new Error('Auteur d’hypothèse incompatible');ids.add(h.id)}
   return k;
  }
  window.cd11590MigrateSnapshot=function(snapshot){
@@ -16918,6 +16930,13 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    if(e.observation.reality.id!==k.world.id||e.observation.observer.id!==k.personal.observer.id)continue;
    k.causalOrder=Math.max(k.causalOrder,e.observation.causalOrder,e.consignation.causalOrder);
    if(Object.hasOwn(k.personal.observations,id)&&!k.personal.consignedIds.includes(id))k.personal.consignedIds.push(id);
+  }
+  for(const entry of Object.values(s.modules[MODULE].hypotheses||{})){
+   const saved=entry.hypothesis;if(saved.author.id!==k.personal.observer.id||saved.origin.id!==k.world.id)continue;
+   k.causalOrder=Math.max(k.causalOrder,entry.consignation.causalOrder,...saved.history.map(e=>e.causalOrder));
+   const index=k.personal.claims.findIndex(h=>h.id===saved.id);if(index<0)continue;
+   const local=k.personal.claims[index];if(hypothesisExtension(local,saved))k.personal.claims[index]=clone(saved);
+   else if(!hypothesisExtension(saved,local))throw new Error('Hypothèse personnelle en conflit : '+saved.id);
   }
   return s;
  };
@@ -17027,31 +17046,130 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const next=clone(book);next.entries[id]={observation:clone(o),consignation:{observer:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},causalOrder:k.causalOrder+1}};
   persist(next);book=next;k.causalOrder++;k.personal.consignedIds.push(id);return true;
  })}
- // Vue volontairement réservée aux tests : aucune transition à la consultation,
- // aucune acquisition depuis le Livre. Un click natif délégué, une consignation.
+ // V11.59.3 : interprétations personnelles, preuves liées et archives explicites.
+ // Les copies de preuves sont documentaires : elles ne réécrivent jamais le monde.
+ function validateHypothesis(h){
+  if(!h||h.schema!==1||typeof h.id!=='string'||!h.id||typeof h.proposition!=='string'||!h.proposition.trim()||!h.author?.id||!h.origin?.id||h.documentaryDegree!=='hypothese'||!Number.isSafeInteger(h.causalOrder)||!Array.isArray(h.evidence)||!Array.isArray(h.observationIds)||!Array.isArray(h.favorableProofs)||!Array.isArray(h.contradictoryProofs)||!Array.isArray(h.history)||!h.history.length)throw new Error('Hypothèse incompatible');
+  const keys=new Set(),ids=new Set();
+  for(const e of h.evidence){
+   const o=e?.observation;
+   if(!e||typeof e.id!=='string'||ids.has(e.id)||!o||o.id!==e.observationId||!o.observer?.id||!o.reality?.id||!o.provenance||!o.context||!o.knownConditions||!Array.isArray(o.unknownConditions)||!STATES.includes(o.documentaryDegree)||!['favorable','contradictory'].includes(e.relation)||typeof e.reason!=='string'||!e.reason.trim()||!e.attachedBy?.id||!e.attachedReality?.id||!Number.isSafeInteger(e.causalOrder))throw new Error('Preuve d’hypothèse incompatible');
+   const key=e.observationId+'|'+e.relation;if(keys.has(key))throw new Error('Preuve dupliquée');keys.add(key);ids.add(e.id);
+  }
+  if(!same(h.observationIds,[...new Set(h.evidence.map(e=>e.observationId))])||!same(h.favorableProofs,h.evidence.filter(e=>e.relation==='favorable').map(e=>e.id))||!same(h.contradictoryProofs,h.evidence.filter(e=>e.relation==='contradictory').map(e=>e.id)))throw new Error('Liens de preuves incohérents');
+  let last=-1;for(const change of h.history){if(!change.actor?.id||!change.reality?.id||!Number.isSafeInteger(change.causalOrder)||change.causalOrder<=last||!['created','evidence_attached','consigned'].includes(change.event))throw new Error('Historique d’hypothèse incompatible');last=change.causalOrder}
+  if(h.id!==h.origin.id+'/hypothesis:'+h.causalOrder||h.evidence.length<2||h.observationIds.length<2||h.history[0].event!=='created'||h.history[0].causalOrder!==h.causalOrder||!same(h.history[0].evidenceIds,h.evidence.slice(0,2).map(e=>e.id)))throw new Error('Origine d’hypothèse incohérente');
+  for(const change of h.history){
+   if(!same(change.actor,h.author)||!same(change.reality,h.origin))throw new Error('Auteur historique incohérent');
+   if(change.event==='evidence_attached'){
+    const e=h.evidence.find(e=>e.id===change.evidenceId);
+    if(!e||e.causalOrder!==change.causalOrder||e.observationId!==change.observationId||e.relation!==change.relation||e.reason!==change.reason)throw new Error('Historique de preuve incohérent');
+   }
+  }
+  h.evidence.forEach((e,i)=>{
+   const change=i<2?h.history[0]:h.history.find(change=>change.event==='evidence_attached'&&change.evidenceId===e.id);
+   if(e.id!==h.id+'/proof:'+(i+1)||!change||e.causalOrder!==change.causalOrder||!same(e.attachedBy,change.actor)||!same(e.attachedReality,change.reality))throw new Error('Provenance de rattachement incohérente');
+  });
+  return h;
+ }
+ function validateHypothesisArchive(entries){
+  if(!entries||typeof entries!=='object'||Array.isArray(entries))throw new Error('Archive d’hypothèses incompatible');
+  for(const [id,e]of Object.entries(entries)){
+   validateHypothesis(e?.hypothesis);const last=e.hypothesis.history.at(-1);
+   if(e.hypothesis.id!==id||!e.consignation?.observer?.id||!e.consignation.reality?.id||!Number.isSafeInteger(e.consignation.causalOrder)||last.event!=='consigned'||last.causalOrder!==e.consignation.causalOrder||!same(last.actor,e.consignation.observer)||!same(last.reality,e.consignation.reality))throw new Error('Consignation d’hypothèse incompatible');
+  }
+ }
+ function hypothesisExtension(a,b){
+  // Une ancienne sauvegarde peut rencontrer une consignation plus récente sur disque.
+  // Seule une extension exacte de l’histoire et des preuves est fusionnable.
+  const prefix=(x,y)=>x.length<=y.length&&same(x,y.slice(0,x.length));
+  const fixed=h=>({schema:h.schema,id:h.id,proposition:h.proposition,author:h.author,origin:h.origin,causalOrder:h.causalOrder,documentaryDegree:h.documentaryDegree});
+  return same(fixed(a),fixed(b))&&prefix(a.history,b.history)&&prefix(a.evidence,b.evidence)&&prefix(a.observationIds,b.observationIds)&&prefix(a.favorableProofs,b.favorableProofs)&&prefix(a.contradictoryProofs,b.contradictoryProofs);
+ }
+ function resolveObservation(k,id){
+  if(typeof id!=='string')return null;
+  return Object.hasOwn(k.personal.observations,id)?k.personal.observations[id]:Object.hasOwn(book.entries,id)?book.entries[id].observation:null;
+ }
+ function hypothesisEvent(k,event,extra={}){return {event,causalOrder:++k.causalOrder,actor:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},...extra}}
+ function proof(k,h,o,relation,reason,order){return {id:h.id+'/proof:'+(h.evidence.length+1),observationId:o.id,observation:clone(o),relation,reason,attachedBy:clone(k.personal.observer),attachedReality:{id:k.world.id,seed:k.world.seed},causalOrder:order}}
+ function addProof(h,e){h.evidence.push(e);if(!h.observationIds.includes(e.observationId))h.observationIds.push(e.observationId);(e.relation==='favorable'?h.favorableProofs:h.contradictoryProofs).push(e.id)}
+ function documentaryAction(name,fn){if(cd11580Rendering)throw new Error('Transition d’hypothèse demandée pendant le rendu');return cd11580Action(name,()=>{requireBook();if(!alive())return false;return fn(ensure())},[],window,'documentary')}
+ function createHypothesis(ids,proposition){return documentaryAction('hypothesis-create',k=>{
+  if(!Array.isArray(ids)||ids.length!==2||ids[0]===ids[1])return false;
+  const observations=ids.map(id=>resolveObservation(k,id));if(observations.some(o=>!o))return false;
+  const text=typeof proposition==='string'?proposition.trim():'Une relation pourrait exister entre ces deux observations.';if(!text||text.length>500)return false;
+  const duplicate=k.personal.claims.find(h=>h.proposition===text&&h.evidence.length===2&&ids.every(id=>h.observationIds.includes(id)));if(duplicate)return duplicate.id;
+  const change=hypothesisEvent(k,'created'),id=k.world.id+'/hypothesis:'+change.causalOrder;
+  const h={schema:1,id,proposition:text,author:clone(k.personal.observer),origin:{id:k.world.id,seed:k.world.seed},causalOrder:change.causalOrder,documentaryDegree:'hypothese',observationIds:[],evidence:[],favorableProofs:[],contradictoryProofs:[],history:[change]};
+  for(const o of observations)addProof(h,proof(k,h,o,'favorable','Rapprochement proposé par l’enquêteur ; compatibilité à examiner.',change.causalOrder));
+  change.evidenceIds=h.evidence.map(e=>e.id);validateHypothesis(h);k.personal.claims.push(h);return id;
+ })}
+ function attachEvidence(id,observationId,relation,reason){return documentaryAction('hypothesis-evidence',k=>{
+  const h=k.personal.claims.find(h=>h.id===id),o=resolveObservation(k,observationId);
+  if(!h||!o||!['favorable','contradictory'].includes(relation)||typeof reason!=='string'||!reason.trim()||reason.length>500)return false;
+  if(h.evidence.some(e=>e.observationId===observationId&&e.relation===relation))return false;
+  const change=hypothesisEvent(k,'evidence_attached',{observationId,relation,reason:reason.trim()}),e=proof(k,h,o,relation,reason.trim(),change.causalOrder);
+  addProof(h,e);change.evidenceId=e.id;h.history.push(change);validateHypothesis(h);return e.id;
+ })}
+ function consignHypothesis(id){return documentaryAction('hypothesis-consign',k=>{
+  const h=k.personal.claims.find(h=>h.id===id);if(!h)return false;
+  const saved=book.hypotheses?.[id];if(saved&&same(saved.hypothesis,h))return false;
+  if(saved&&!hypothesisExtension(saved.hypothesis,h))throw new Error('Identité d’hypothèse en conflit : '+id);
+  // Préparer toute la copie avant écriture : un refus de stockage ne consigne rien.
+  const copy=clone(h),order=k.causalOrder+1,consignation={observer:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},causalOrder:order};
+  copy.history.push({event:'consigned',causalOrder:order,actor:clone(k.personal.observer),reality:clone(consignation.reality)});
+  const next=clone(book);next.hypotheses||={};next.hypotheses[id]={hypothesis:copy,consignation};persist(next);
+  book=next;k.causalOrder=order;k.personal.claims[k.personal.claims.indexOf(h)]=clone(copy);return true;
+ })}
+ // Vue temporaire : sélections et proposition assistée sont un brouillon d’UI.
+ // Aucun fait ni état documentaire ne change à l’ouverture ou à la sélection.
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let debug=null;
+ const selected=new Set();let proposalTemplate='relation',oppositionReason='Résultat apparemment différent ; opposition à examiner.';
  function drawDebug(){
-  const s=view(),p=s.personal,ids=p?.order||[],saved=Object.keys(s.book.entries),facts=Object.values(s.world?.facts||{});
+  const s=view(),p=s.personal,ids=p?.order||[],saved=Object.keys(s.book.entries),facts=Object.values(s.world?.facts||{}),claims=p?.claims||[];
+  const available=new Map(ids.map(id=>[id,p.observations[id]]));for(const id of saved)if(!available.has(id))available.set(id,s.book.entries[id].observation);
+  for(const id of selected)if(!available.has(id))selected.delete(id);
   const provenance=o=>'<small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+' · '+esc(o.documentaryDegree)+'</small>';
+  const choose=id=>'<button type="button" data-proof-select="'+esc(id)+'" aria-pressed="'+selected.has(id)+'">'+(selected.has(id)?'SÉLECTIONNÉ':'SÉLECTIONNER POUR HYPOTHÈSE')+'</button>';
   const world=facts.map(f=>'<div class="entry" data-world-fact="'+esc(f.id)+'"><b>'+esc(f.state.name)+'</b> · PV à la dernière capture : '+esc(f.state.hp)+'/'+esc(f.state.maxhp)+'<br><small>Instance '+esc(f.id)+' · source moteur : '+esc(f.origin)+'</small></div>').join('');
-  const personal=ids.map(id=>{const o=p.observations[id];return '<div class="entry" data-personal-observation="'+esc(id)+'"><b>'+esc(o.type)+'</b> · '+esc(o.statement)+'<br>'+provenance(o)+'<br><button data-consign="'+esc(id)+'"'+(s.book.entries[id]?' disabled':'')+'>'+(s.book.entries[id]?'CONSIGNÉ':'CONSIGNER')+'</button></div>'}).join('');
-  const permanent=saved.map(id=>{const o=s.book.entries[id].observation;return '<div class="entry" data-book-observation="'+esc(id)+'">'+esc(o.statement)+'<br>'+provenance(o)+'</div>'}).join('');
-  debug.querySelector('[data-content]').innerHTML='<h2>DIAGNOSTIC CONNAISSANCE — TEST TEMPORAIRE</h2><p class="small">Consulter ne fait rien apprendre à l’enquêteur. Seul CONSIGNER transmet une observation au Livre.</p>'+
+  const personal=ids.map(id=>{const o=p.observations[id];return '<div class="entry" data-personal-observation="'+esc(id)+'"><b>'+esc(o.type)+'</b> · '+esc(o.statement)+'<br>'+provenance(o)+'<br><button data-consign="'+esc(id)+'"'+(s.book.entries[id]?' disabled':'')+'>'+(s.book.entries[id]?'CONSIGNÉ':'CONSIGNER')+'</button> '+choose(id)+'</div>'}).join('');
+  const permanent=saved.map(id=>{const o=s.book.entries[id].observation;return '<div class="entry" data-book-observation="'+esc(id)+'">'+esc(o.statement)+'<br>'+provenance(o)+'<br>'+choose(id)+'</div>'}).join('');
+  const evidence=e=>'<div data-evidence="'+esc(e.id)+'"><b>'+(e.relation==='favorable'?'FAVORABLE — À EXAMINER':'CONTRADICTION APPARENTE')+'</b> · '+esc(e.reason)+'<br>'+esc(e.observation.statement)+'<br>'+provenance(e.observation)+'<br><small>Observation '+esc(e.observationId)+' · rattachée par '+esc(e.attachedBy.name)+' · '+esc(e.attachedReality.id)+'</small><details><summary>Provenance et contexte exacts</summary><p>'+esc(JSON.stringify({provenance:e.observation.provenance,context:e.observation.context,knownConditions:e.observation.knownConditions,unknownConditions:e.observation.unknownConditions}))+'</p></details></div>';
+  const hypothesis=(h,inBook=false)=>{
+   const one=selected.size===1?[...selected][0]:null,current=s.book.hypotheses?.[h.id],consigned=!!current&&same(current.hypothesis,h);
+   const disabled=relation=>!one||h.evidence.some(e=>e.observationId===one&&e.relation===relation)?' disabled':'';
+   return '<div class="entry" '+(inBook?'data-book-hypothesis':'data-personal-hypothesis')+'="'+esc(h.id)+'"><b>'+esc(h.proposition)+'</b><br><small>'+esc(h.author.name)+' · '+esc(h.origin.id)+' · '+esc(h.documentaryDegree)+' · '+esc(h.id)+'</small>'+h.evidence.map(evidence).join('')+'<details><summary>Historique documentaire</summary><p>'+esc(JSON.stringify(h.history))+'</p></details>'+(inBook?'':'<p><button type="button" data-support="'+esc(h.id)+'"'+disabled('favorable')+'>RATTACHER COMME FAVORABLE</button> <button type="button" data-contradict="'+esc(h.id)+'"'+disabled('contradictory')+'>RATTACHER COMME CONTRADICTOIRE</button></p><button type="button" data-consign-hypothesis="'+esc(h.id)+'"'+(consigned?' disabled':'')+'>'+(consigned?'HYPOTHÈSE CONSIGNÉE':current?'CONSIGNER LA MISE À JOUR':'CONSIGNER L’HYPOTHÈSE')+'</button>')+'</div>';
+  };
+  const archived=Object.values(s.book.hypotheses||{}).map(e=>hypothesis(e.hypothesis,true)).join('');
+  const picked=[...selected].map(id=>available.get(id)),labels=[...new Set(picked.map(o=>o.subject.label||o.subject.kind))].join(' et ');
+  const proposal=proposalTemplate==='context'?'Les effets observés autour de '+(labels||'ces sujets')+' pourraient dépendre du contexte.':'Une relation pourrait exister entre ces deux observations.';
+  debug.querySelector('[data-content]').innerHTML='<h2>DIAGNOSTIC CONNAISSANCE — TEST TEMPORAIRE</h2><p class="small">Consulter ne fait rien apprendre à l’enquêteur. Seul CONSIGNER transmet au Livre. Une hypothèse reste une interprétation, jamais un fait moteur.</p>'+
    '<section data-knowledge-section="world"><h3>1 · FAITS OBJECTIFS DU MONDE · '+facts.length+'</h3><p class="small">Réalité '+esc(s.world?.id||'')+' · seed '+esc(s.world?.seed||'')+'. Captures des instances de combat ; ce ne sont pas des connaissances personnelles.</p>'+(world||'<p>Aucun fait de combat capturé dans cette réalité.</p>')+'</section>'+
    '<section data-knowledge-section="personal"><h3>2 · OBSERVATIONS PERSONNELLES · '+ids.length+'</h3><p class="small">Enquêteur actuel : '+esc(p?.observer.name||'')+'. Les observations non consignées disparaissent avec lui.</p>'+(personal||'<p>Aucune observation personnelle. Cet enquêteur n’hérite pas automatiquement du savoir du Livre.</p>')+'</section>'+
-   '<section data-knowledge-section="book"><h3>3 · LIVRE PERSISTANT · '+saved.length+'</h3><p class="small">Uniquement les éléments volontairement consignés. L’auteur et la réalité d’origine restent conservés.</p>'+(permanent||'<p>Aucun élément consigné dans le Livre.</p>')+'</section>';
+   '<section data-knowledge-section="book"><h3>3 · LIVRE PERSISTANT · '+saved.length+' observations · '+Object.keys(s.book.hypotheses||{}).length+' hypothèses</h3><p class="small">Uniquement les éléments volontairement consignés. L’auteur et la réalité d’origine restent conservés. Aucune acquisition personnelle à la consultation.</p>'+(permanent||'<p>Aucun élément consigné dans le Livre.</p>')+archived+'</section>'+
+   '<section data-knowledge-section="hypotheses"><h3>4 · HYPOTHÈSES PERSONNELLES · '+claims.length+'</h3><p>Sélectionner exactement deux observations ci-dessus pour formuler une proposition. Les deux sont proposées comme favorables, sans validation de leur compatibilité ou de leur indépendance.</p><label>Proposition assistée <select data-proposal-template><option value="relation"'+(proposalTemplate==='relation'?' selected':'')+'>Relation possible entre les observations</option><option value="context"'+(proposalTemplate==='context'?' selected':'')+'>Effets pouvant dépendre du contexte</option></select></label><p data-proposal>'+esc(proposal)+'</p><p>'+selected.size+' observation(s) sélectionnée(s). <button type="button" data-create-hypothesis'+(selected.size===2?'':' disabled')+'>CRÉER L’HYPOTHÈSE</button> <button type="button" data-clear-selection>EFFACER LA SÉLECTION</button></p><p>Pour compléter une hypothèse existante, sélectionner une seule observation puis choisir favorable ou contradictoire.</p><label>Raison d’opposition apparente <select data-opposition-reason>'+['Résultat apparemment différent ; opposition à examiner.','Contexte différent ; compatibilité à examiner.','Sources apparemment divergentes ; opposition à examiner.'].map(reason=>'<option'+(oppositionReason===reason?' selected':'')+'>'+esc(reason)+'</option>').join('')+'</select></label>'+(claims.map(h=>hypothesis(h)).join('')||'<p>Aucune hypothèse personnelle.</p>')+'</section>';
  }
  function openDebug(){
   if(!alive())return false;
   if(!debug){debug=document.createElement('div');debug.id='cd11590Debug';debug.className='overlay';debug.style.zIndex='200001';debug.innerHTML='<div class="sheet"><button class="close" type="button" data-close>✕</button><div data-content></div></div>';document.body.appendChild(debug);
-   debug.addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;if(b.hasAttribute('data-close')){debug.classList.remove('open');return}if(!b.disabled&&b.hasAttribute('data-consign')){consign(b.getAttribute('data-consign'));drawDebug()}});
+   debug.addEventListener('change',ev=>{if(ev.target.hasAttribute('data-proposal-template')){proposalTemplate=ev.target.value;drawDebug()}if(ev.target.hasAttribute('data-opposition-reason'))oppositionReason=ev.target.value});
+   debug.addEventListener('click',ev=>{
+    const b=ev.target.closest('button');if(!b||b.disabled||!b.isConnected)return;
+    if(b.hasAttribute('data-close')){selected.clear();debug.classList.remove('open');return}
+    if(b.hasAttribute('data-proof-select')){const id=b.getAttribute('data-proof-select');if(selected.has(id))selected.delete(id);else selected.add(id);drawDebug();return}
+    if(b.hasAttribute('data-clear-selection')){selected.clear();drawDebug();return}
+    if(b.hasAttribute('data-create-hypothesis')){if(selected.size!==2)return;createHypothesis([...selected],debug.querySelector('[data-proposal]').textContent);selected.clear();drawDebug();return}
+    if(b.hasAttribute('data-support')||b.hasAttribute('data-contradict')){if(selected.size!==1)return;const favorable=b.hasAttribute('data-support');attachEvidence(b.getAttribute(favorable?'data-support':'data-contradict'),[...selected][0],favorable?'favorable':'contradictory',favorable?'Observation jugée compatible par l’enquêteur ; corroboration à examiner.':oppositionReason);selected.clear();drawDebug();return}
+    if(b.hasAttribute('data-consign-hypothesis')){consignHypothesis(b.getAttribute('data-consign-hypothesis'));drawDebug();return}
+    if(b.hasAttribute('data-consign')){consign(b.getAttribute('data-consign'));drawDebug()}
+   });
   }
-  // Transition visuelle locale : le menu opaque ne doit pas masquer le diagnostic.
-  // Ne pas appeler closeOverlays() : la consultation reste hors action de gameplay.
+  selected.clear();proposalTemplate='relation';oppositionReason='Résultat apparemment différent ; opposition à examiner.';
+  // Transition visuelle locale, sans closeOverlays ni action de gameplay.
   drawDebug();document.getElementById('mainMenu')?.classList.remove('open');debug.classList.add('open');return true;
  }
- window.cd11590Knowledge=Object.freeze({view,consign,openDebug,documentaryStates:STATES});
+ window.cd11590Knowledge=Object.freeze({view,consign,openDebug,createHypothesis,attachEvidence,consignHypothesis,documentaryStates:STATES});
  document.addEventListener('DOMContentLoaded',()=>{
   const menu=document.getElementById('mainMenu'),b=document.createElement('button');b.type='button';b.textContent='DIAGNOSTIC CONNAISSANCE';b.id='cd11590DebugButton';b.className='small';b.style.marginTop='8px';b.title='Outil temporaire de validation';b.addEventListener('click',openDebug);(menu?.querySelector('.sheet')||menu)?.appendChild(b);
  });
