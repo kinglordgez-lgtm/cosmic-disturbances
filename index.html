@@ -443,6 +443,7 @@ function cd11580OnTransition(name,fn){cd11580Transitions.set(name,fn)}
 let cd11580ActionDepth=0,cd11580Rendering=false,cd11580ActionName='',cd11580CombatAction=false;
 function cd11580RecordDeath(cause,source){
  if(!player||player.cd11580Death)return false;
+ window.cd11590BeforeDeath?.();
  player.cd11580Death={cause,source:String(source||cd11580ActionName||'système'),depth:player.depth,
   position:{x:px,y:py},enemy:enemy?{name:enemy.name,hp:enemy.hp}:null,seed,rngState:rng.getState()};
  player.cd11580Death.presentation=JSON.parse(JSON.stringify(player));
@@ -463,7 +464,7 @@ function cd11580MigrateSnapshot(snapshot){
   // nouveaux compteurs sont initialisés. Ennemi, décisions, PV et PRNG inchangés.
   copy.modules['guardian-signature']={guardians:copy.enemy?.cd10880?1:0,telegraphs:0,signatures:0,counters:0};
  }
- return copy;
+ return window.cd11590MigrateSnapshot?window.cd11590MigrateSnapshot(copy):copy;
 }
 function cd11580SetHP(value,source){
  if(player.cd11580Death)return player.hp;
@@ -706,7 +707,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.58.6 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.0 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16799,6 +16800,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    fn();if(terminal()){death();return}
   }
   cd11585Opening();
+  window.cd11590AfterTransition?.();
  }
  window.cd11580Action=function(name,fn,args=[],self=window){
   if(cd11580Rendering)throw new Error('Transition de gameplay demandée pendant le rendu : '+name);
@@ -16847,7 +16849,204 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.58.6',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.59.0',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+})();
+</script>
+
+<script id="cd-v11590-knowledge">
+/* V11.59.0 — faits du monde / observations personnelles / Livre consigné.
+   Aucune RNG, aucune promotion documentaire, aucune passerelle vers les bonus
+   historiques. Les lectures et la vue de diagnostic sont sans transition. */
+(function(){
+ const KEY='cosmic_knowledge_book_v1',MODULE='knowledge-book';
+ const STATES=Object.freeze(['observation_isolee','indice','hypothese','hypothese_etayee','correlation','connaissance_etablie']);
+ const clone=v=>JSON.parse(JSON.stringify(v));
+ const same=(a,b)=>cd11580CanonicalJSON(a)===cd11580CanonicalJSON(b);
+ const emptyBook=()=>({schema:1,realitySerial:0,entries:{}});
+ let book=emptyBook(),bookError=null,lastEnemy=null,pendingReality=null,lootDepth=0;
+ function validateBook(v){
+  if(!v||v.schema!==1||!Number.isSafeInteger(v.realitySerial)||v.realitySerial<0||!v.entries||Array.isArray(v.entries)||typeof v.entries!=='object')throw new Error('Livre de connaissance incompatible');
+  for(const [id,e]of Object.entries(v.entries)){
+   if(!e||e.observation?.id!==id||!STATES.includes(e.observation.documentaryDegree)||!e.observation.observer?.id||!e.observation.reality?.id||!e.consignation?.observer?.id||!Number.isSafeInteger(e.observation.causalOrder)||!Number.isSafeInteger(e.consignation.causalOrder))throw new Error('Provenance du Livre incomplète');
+  }
+  return v;
+ }
+ try{const raw=localStorage.getItem(KEY);if(raw!==null)book=clone(validateBook(JSON.parse(raw)))}catch(e){bookError=e}
+ function requireBook(){if(bookError)throw bookError}
+ function persist(v){
+  requireBook();validateBook(v);const raw=JSON.stringify(v);
+  if(localStorage.getItem(KEY)===raw)return;
+  localStorage.setItem(KEY,raw);
+  if(localStorage.getItem(KEY)!==raw)throw new Error('Consignation du Livre non vérifiée');
+ }
+ function mergeBooks(a,b){
+  validateBook(a);validateBook(b);const out=clone(a);out.realitySerial=Math.max(a.realitySerial,b.realitySerial);
+  for(const [id,e]of Object.entries(b.entries)){
+   if(Object.hasOwn(out.entries,id)&&!same(out.entries[id],e))throw new Error('Identité documentaire en conflit : '+id);
+   out.entries[id]=clone(e);
+  }
+  return out;
+ }
+ function fresh(p,s,id){
+  const observer={id:id+'/investigator',name:String(p.char?.name||'Enquêteur'),profession:String(p.char?.job||'')};
+  return {schema:1,world:{id,seed:s,origin:'generated',encounterSerial:0,currentEncounter:null,facts:{}},
+   personal:{observer,observations:{},order:[],eventKeys:{},consignedIds:[],claims:[]},causalOrder:0,witnessKeys:[]};
+ }
+ function legacy(snapshot){
+  const k=fresh(snapshot.player,snapshot.seed,'legacy:'+snapshot.seed+':'+snapshot.rngState);
+  k.world.origin='migration_without_retrospective_observations';
+  k.witnessKeys=Object.keys(snapshot.player.cd11090?.sources||{});
+  if(snapshot.battle&&snapshot.enemy){
+   const id=k.world.id+'/combat:legacy';k.world.currentEncounter=id;
+   k.world.facts[id]={id,type:'creature_instance',subject:{kind:'creature',id},state:truth(snapshot.enemy),origin:'checkpoint'};
+  }
+  return k;
+ }
+ function validateRun(k){
+  if(!k||k.schema!==1||!k.world?.id||!k.world.facts||!k.personal?.observer?.id||!k.personal.observations||!Array.isArray(k.personal.order)||!Array.isArray(k.personal.consignedIds)||!k.personal.eventKeys||!Array.isArray(k.witnessKeys)||!Number.isSafeInteger(k.causalOrder)||k.causalOrder<0)throw new Error('Mémoire de connaissance incompatible');
+  for(const id of k.personal.order){const o=k.personal.observations[id];if(!o||o.id!==id||o.observer?.id!==k.personal.observer.id||o.reality?.id!==k.world.id||!STATES.includes(o.documentaryDegree))throw new Error('Observation personnelle incompatible')}
+  return k;
+ }
+ window.cd11590MigrateSnapshot=function(snapshot){
+  requireBook();const s=clone(snapshot);
+  if(s.schema!==3||!s.player||!s.modules)return s;
+  if(!Object.hasOwn(s.player,'cd11590Knowledge'))s.player.cd11590Knowledge=legacy(s);
+  validateRun(s.player.cd11590Knowledge);
+  s.modules[MODULE]=mergeBooks(s.modules[MODULE]||emptyBook(),book);
+  const k=s.player.cd11590Knowledge;
+  for(const [id,e]of Object.entries(s.modules[MODULE].entries)){
+   if(e.observation.reality.id!==k.world.id||e.observation.observer.id!==k.personal.observer.id)continue;
+   k.causalOrder=Math.max(k.causalOrder,e.observation.causalOrder,e.consignation.causalOrder);
+   if(Object.hasOwn(k.personal.observations,id)&&!k.personal.consignedIds.includes(id))k.personal.consignedIds.push(id);
+  }
+  return s;
+ };
+ // Le registre capture aussi le Livre : la comparaison intégrale peut détecter
+ // une mutation documentaire pendant le rendu. Le disque conserve la copie
+ // durable ; le checkpoint fournit également une copie de récupération.
+ cd11290Register(MODULE,()=>{requireBook();return clone(book)},v=>{
+  book=clone(validateBook(v));persist(book);lastEnemy=enemy;
+ });
+ const restore=window.cd11290RestoreCore;
+ window.cd11290RestoreCore=function(s,options){return restore(window.cd11580MigrateSnapshot(s),options)};
+ function alive(){return !!player&&!player.cd11580Death&&Number(player.hp)>0&&Number(player.san)>0&&Number(player.myth)<100}
+ function ensure(){
+  requireBook();if(!player)return null;
+  if(!player.cd11590Knowledge){
+   const id=pendingReality||'legacy:'+seed+':'+rng.getState();
+   player.cd11590Knowledge=fresh(player,seed,id);
+  }
+  return validateRun(player.cd11590Knowledge);
+ }
+ function context(){return {depth:Number(player.depth)||0,position:{x:px,y:py},tile:map?.[py]?.[px]||null,
+  san:Number(player.san),myth:Number(player.myth),profession:String(player.char?.job||''),traits:clone(player.char?.traits||player.char?.trait||[])} }
+ function known(){return {equipment:clone(player.equip||{}),status:clone(player.status||[])}}
+ function record(data,key){
+  if(cd11580Rendering)throw new Error('Observation demandée pendant le rendu');
+  if(!cd11580ActionDepth)throw new Error('Observation hors transition');
+  if(!alive())return null;
+  const k=ensure(),p=k.personal;
+  if(key&&Object.hasOwn(p.eventKeys,key))return p.eventKeys[key];
+  const order=++k.causalOrder,id=k.world.id+'/observation:'+order;
+  const o={id,subject:clone(data.subject),type:String(data.type),statement:String(data.statement),
+   provenance:clone(data.provenance),observer:clone(p.observer),reality:{id:k.world.id,seed:k.world.seed},
+   context:context(),knownConditions:known(),unknownConditions:clone(data.unknownConditions||['cause_non_etablie','conditions_non_observees']),
+   causalOrder:order,fictionalTime:null,documentaryDegree:'observation_isolee',links:clone(data.links||{}),documentaryHistory:[]};
+  p.observations[id]=o;p.order.push(id);if(key)p.eventKeys[key]=id;return id;
+ }
+ function truth(e){return {name:String(e.name||''),base:String(e.base||e.baseName||e.name||''),hp:Number(e.hp),maxhp:Number(e.maxhp),
+  engineConditions:{weak:e.weak||null,resist:e.resist||null},opening:clone(e.cd11585Health||null)} }
+ function encounter(){
+  if(!alive())return null;const k=ensure();
+  if(!battle||!enemy){lastEnemy=null;k.world.currentEncounter=null;return null}
+  if(lastEnemy!==enemy||!k.world.currentEncounter){
+   const id=k.world.id+'/combat:'+(++k.world.encounterSerial);k.world.currentEncounter=id;lastEnemy=enemy;
+   k.world.facts[id]={id,type:'creature_instance',subject:{kind:'creature',id},state:truth(enemy),origin:'engine'};
+   record({type:'combat_start',subject:{kind:'creature',id,label:String(enemy.name)},statement:'Une rencontre de combat commence avec '+enemy.name+'.',
+    provenance:{kind:'direct_observation',event:'combat_start',visibleState:{hp:Number(enemy.hp),maxhp:Number(enemy.maxhp)}},links:{creature:id,combat:id}},'combat-start:'+id);
+  }
+  const id=k.world.currentEncounter;k.world.facts[id].state=truth(enemy);return id;
+ }
+ window.cd11590AfterTransition=function(){
+  if(!alive())return;const k=ensure();encounter();
+  for(const [key,src]of Object.entries(player.cd11090?.sources||{})){
+   if(k.witnessKeys.includes(key))continue;k.witnessKeys.push(key);
+   record({type:'witness_statement',subject:{kind:'npc',id:key,label:src.name},statement:String(src.text||'Déclaration recueillie.'),
+    provenance:{kind:'testimony',sourceId:key,sourceName:src.name,channel:src.origin},links:{npc:key}},'witness:'+key);
+  }
+ };
+ window.cd11590BeforeDeath=function(){
+  const k=player?.cd11590Knowledge;
+  if(k){const id=k.world.currentEncounter;if(enemy&&id&&k.world.facts[id])k.world.facts[id].state=truth(enemy);k.personal.observations={};k.personal.order=[];k.personal.eventKeys={};k.personal.consignedIds=[];k.personal.claims=[]}
+  document.getElementById('cd11590Debug')?.classList.remove('open');
+ };
+ const baseNew=window.newRun;
+ window.newRun=function(){
+  requireBook();if(cd11580Rendering)throw new Error('Nouvelle réalité demandée pendant le rendu');
+  const next=clone(book);next.realitySerial++;persist(next);
+  return cd11580Action('newRun',function(){
+  book=next;pendingReality='reality:'+book.realitySerial;lastEnemy=null;
+  try{const out=baseNew.apply(this,arguments);ensure();return out}finally{pendingReality=null}
+ },[...arguments],this)};newRun=window.newRun;
+ function hook(name,fn){const base=window[name];if(typeof base!=='function')return;window[name]=function(){const self=this,args=[...arguments];return cd11580Action(name,()=>fn(()=>base.apply(self,args),args))}}
+ hook('loot',run=>{
+  const outer=lootDepth++===0,before=player?.inv?.map(i=>i.n)||[];let out;
+  try{out=run()}finally{lootDepth--}
+  if(outer&&alive()){
+   const counts=new Map();for(const n of before)counts.set(n,(counts.get(n)||0)+1);
+   for(const item of player.inv){const n=item.n,count=counts.get(n)||0;if(count){counts.set(n,count-1);continue}
+    record({type:'item_discovery',subject:{kind:'item',id:String(n),label:String(n)},statement:'Un objet a été trouvé : '+n+'.',provenance:{kind:'direct_observation',event:'loot'},links:{item:String(n)}});
+   }
+  }return out;
+ });loot=window.loot;
+ hook('cd15StudyEnemy',run=>{
+  const e=battle?enemy:null,id=e?encounter():null,out=run();
+  if(e&&alive())record({type:'creature_study',subject:{kind:'creature',id,label:String(e.name)},statement:'L’enquêteur a étudié '+e.name+' dans cette situation ; les conclusions restent à documenter.',
+   provenance:{kind:'study_attempt',event:'cd15StudyEnemy'},links:{creature:id,combat:id}});
+  return out;
+ });cd15StudyEnemy=window.cd15StudyEnemy;
+ hook('enemyTurn',run=>{
+  const e=battle?enemy:null,id=e?encounter():null,before={hp:player?.hp,san:player?.san,status:JSON.stringify(player?.status||[]),enemyHP:e?.hp},out=run();
+  if(e&&alive()&&(Number(player.san)!==Number(before.san)||JSON.stringify(player.status||[])!==before.status||Number(e.hp)>Number(before.enemyHP)))
+   record({type:'creature_effect',subject:{kind:'creature',id,label:String(e.name)},statement:'Après l’action de '+e.name+' : variation de PV '+(player.hp-before.hp)+', de SAN '+(player.san-before.san)+', PV du spécimen '+e.hp+'.',
+    provenance:{kind:'direct_observation',event:'enemyTurn',before,after:{hp:player.hp,san:player.san,status:clone(player.status||[]),enemyHP:e.hp}},links:{creature:id,combat:id}});
+  return out;
+ });enemyTurn=window.enemyTurn;
+ hook('investigate',run=>{
+  const tile=map?.[py]?.[px],key=seed+':'+player?.depth+':'+px+':'+py,out=run();
+  if(tile==='quest'&&alive())record({type:'trace_examination',subject:{kind:'place',id:key},statement:'Une trace a été examinée sur ce lieu.',provenance:{kind:'direct_observation',event:'investigate'},links:{place:key}},'trace:'+key);
+  return out;
+ });investigate=window.investigate;
+ function view(){
+  requireBook();const k=player?.cd11590Knowledge;
+  return clone({schema:1,world:k?.world||null,personal:k?.personal||null,book,documentaryStates:STATES});
+ }
+ function consign(id){return cd11580Action('knowledge-consign',()=>{
+  requireBook();if(!alive())return false;const k=ensure(),o=k.personal.observations[id];if(!o)return false;
+  if(Object.hasOwn(book.entries,id))return false;
+  const next=clone(book);next.entries[id]={observation:clone(o),consignation:{observer:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},causalOrder:k.causalOrder+1}};
+  persist(next);book=next;k.causalOrder++;k.personal.consignedIds.push(id);return true;
+ })}
+ // Vue volontairement réservée aux tests : aucune transition à la consultation,
+ // aucune acquisition depuis le Livre. Un click natif délégué, une consignation.
+ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ let debug=null;
+ function drawDebug(){
+  const s=view(),p=s.personal,ids=p?.order||[],saved=Object.keys(s.book.entries);
+  debug.querySelector('[data-content]').innerHTML='<h2>DIAGNOSTIC CONNAISSANCE — TEMPORAIRE</h2><p>Observations personnelles : '+ids.length+' · Consignées par cet enquêteur : '+(p?.consignedIds.length||0)+' · Livre persistant : '+saved.length+'</p><p>Faits internes du monde : '+Object.keys(s.world?.facts||{}).length+' (séparés des observations).</p><h3>Enquêteur actuel</h3>'+ids.map(id=>{const o=p.observations[id];return '<div class="entry"><b>'+esc(o.type)+'</b> · '+esc(o.statement)+'<br><small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+' · '+esc(o.documentaryDegree)+'</small><br><button data-consign="'+esc(id)+'"'+(s.book.entries[id]?' disabled':'')+'>'+(s.book.entries[id]?'CONSIGNÉ':'CONSIGNER CETTE OBSERVATION')+'</button></div>'}).join('')+'<h3>Livre — consultation seule</h3>'+saved.map(id=>{const o=s.book.entries[id].observation;return '<div class="entry">'+esc(o.statement)+'<br><small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+' · '+esc(o.documentaryDegree)+'</small></div>'}).join('');
+ }
+ function openDebug(){
+  if(!alive())return false;
+  if(!debug){debug=document.createElement('div');debug.id='cd11590Debug';debug.className='overlay';debug.style.zIndex='500';debug.innerHTML='<div class="sheet"><button class="close" type="button" data-close>✕</button><div data-content></div></div>';document.body.appendChild(debug);
+   debug.addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;if(b.hasAttribute('data-close')){debug.classList.remove('open');return}if(!b.disabled&&b.hasAttribute('data-consign')){consign(b.getAttribute('data-consign'));drawDebug()}});
+  }
+  drawDebug();debug.classList.add('open');return true;
+ }
+ window.cd11590Knowledge=Object.freeze({view,consign,openDebug,documentaryStates:STATES});
+ document.addEventListener('DOMContentLoaded',()=>{
+  if(new URLSearchParams(location.search).get('knowledgeDebug')!=='1')return;
+  const menu=document.getElementById('mainMenu'),b=document.createElement('button');b.type='button';b.textContent='DIAGNOSTIC CONNAISSANCE';b.id='cd11590DebugButton';b.addEventListener('click',openDebug);(menu?.querySelector('.sheet')||menu)?.appendChild(b);
+ });
 })();
 </script>
 
