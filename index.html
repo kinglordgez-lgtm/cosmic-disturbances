@@ -707,7 +707,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16849,7 +16849,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.59.1',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.59.2',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
@@ -17044,10 +17044,12 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  }
  function openDebug(){
   if(!alive())return false;
-  if(!debug){debug=document.createElement('div');debug.id='cd11590Debug';debug.className='overlay';debug.style.zIndex='500';debug.innerHTML='<div class="sheet"><button class="close" type="button" data-close>✕</button><div data-content></div></div>';document.body.appendChild(debug);
+  if(!debug){debug=document.createElement('div');debug.id='cd11590Debug';debug.className='overlay';debug.style.zIndex='200001';debug.innerHTML='<div class="sheet"><button class="close" type="button" data-close>✕</button><div data-content></div></div>';document.body.appendChild(debug);
    debug.addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;if(b.hasAttribute('data-close')){debug.classList.remove('open');return}if(!b.disabled&&b.hasAttribute('data-consign')){consign(b.getAttribute('data-consign'));drawDebug()}});
   }
-  drawDebug();debug.classList.add('open');return true;
+  // Transition visuelle locale : le menu opaque ne doit pas masquer le diagnostic.
+  // Ne pas appeler closeOverlays() : la consultation reste hors action de gameplay.
+  drawDebug();document.getElementById('mainMenu')?.classList.remove('open');debug.classList.add('open');return true;
  }
  window.cd11590Knowledge=Object.freeze({view,consign,openDebug,documentaryStates:STATES});
  document.addEventListener('DOMContentLoaded',()=>{
