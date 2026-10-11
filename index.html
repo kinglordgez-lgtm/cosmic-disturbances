@@ -707,7 +707,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.8 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.9 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16851,7 +16851,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.59.8',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.59.9',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
@@ -16918,6 +16918,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(!Array.isArray(k.personal.claims))throw new Error('Hypothèses personnelles incompatibles');
   const ids=new Set();for(const h of k.personal.claims){validateHypothesis(h);if(ids.has(h.id)||h.author.id!==k.personal.observer.id||h.origin.id!==k.world.id)throw new Error('Auteur d’hypothèse incompatible');ids.add(h.id)}
   validateAcquisitions(k);
+  for(const h of k.personal.claims)for(const e of h.evidence)if(e.sourceKind==='indirect_archive_acquisition'&&!same(resolveAcquisition(k,e.acquisition.id),e.acquisition))throw new Error('Acquisition personnelle de preuve incompatible');
   return k;
  }
  window.cd11590MigrateSnapshot=function(snapshot){
@@ -16938,7 +16939,15 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    const index=k.personal.claims.findIndex(h=>h.id===saved.id);if(index<0)continue;
    const local=k.personal.claims[index];if(hypothesisExtension(local,saved))k.personal.claims[index]=clone(saved);
    else if(!hypothesisExtension(saved,local))throw new Error('Hypothèse personnelle en conflit : '+saved.id);
+   // Reprise d’un checkpoint antérieur à une consignation du même enquêteur :
+   // récupérer son étude déjà prouvée, pas enseigner une archive à un successeur.
+   for(const e of k.personal.claims[index].evidence)if(e.sourceKind==='indirect_archive_acquisition'){
+    const a=e.acquisition,current=(k.personal.archiveAcquisitions||[]).find(x=>x.id===a.id);
+    if(current&&!same(current,a))throw new Error('Acquisition de reprise en conflit : '+a.id);
+    if(!current){k.personal.archiveAcquisitions||=[];k.personal.archiveAcquisitions.push(clone(a));}
+   }
   }
+  validateRun(k);
   return s;
  };
  // Le registre capture aussi le Livre : la comparaison intégrale peut détecter
@@ -17047,7 +17056,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const next=clone(book);next.entries[id]={observation:clone(o),consignation:{observer:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},causalOrder:k.causalOrder+1}};
   persist(next);book=next;k.causalOrder++;k.personal.consignedIds.push(id);return true;
  })}
- // V11.59.8 : acquisition indirecte, jamais une observation directe.
+ // V11.59.9 : acquisition indirecte, jamais une observation directe.
  // Champ optionnel : absence dans une sauvegarde ancienne = aucune acquisition.
  function validateAcquisitions(k){
   if(!Object.hasOwn(k.personal,'archiveAcquisitions'))return;
@@ -17079,7 +17088,14 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   for(const e of h.evidence){
    const o=e?.observation;
    if(!e||typeof e.id!=='string'||ids.has(e.id)||!o||o.id!==e.observationId||!o.observer?.id||!o.reality?.id||!o.provenance||!o.context||!o.knownConditions||!Array.isArray(o.unknownConditions)||!STATES.includes(o.documentaryDegree)||!['favorable','contradictory'].includes(e.relation)||typeof e.reason!=='string'||!e.reason.trim()||!e.attachedBy?.id||!e.attachedReality?.id||!Number.isSafeInteger(e.causalOrder))throw new Error('Preuve d’hypothèse incompatible');
-   const key=e.observationId+'|'+e.relation;if(keys.has(key))throw new Error('Preuve dupliquée');keys.add(key);ids.add(e.id);
+   const key=e.observationId;if(keys.has(key))throw new Error('Preuve dupliquée');keys.add(key);ids.add(e.id);
+   if(Object.hasOwn(e,'sourceKind')&&!['direct_observation','indirect_archive_acquisition'].includes(e.sourceKind))throw new Error('Catégorie de preuve incompatible');
+   if(Object.hasOwn(e,'acquisition')&&e.sourceKind!=='indirect_archive_acquisition')throw new Error('Catégorie indirecte manquante');
+   if(e.sourceKind==='indirect_archive_acquisition'){
+    const a=e.acquisition;
+    validateAcquisitions({world:{id:e.attachedReality.id,seed:e.attachedReality.seed},personal:{observer:e.attachedBy,archiveAcquisitions:[a]},causalOrder:e.causalOrder});
+    if(a.causalOrder>=e.causalOrder||!same(a.sourceSnapshot.observation,o)||a.archiveId!==e.observationId)throw new Error('Chaîne de preuve indirecte incompatible');
+   }
   }
   if(!same(h.observationIds,[...new Set(h.evidence.map(e=>e.observationId))])||!same(h.favorableProofs,h.evidence.filter(e=>e.relation==='favorable').map(e=>e.id))||!same(h.contradictoryProofs,h.evidence.filter(e=>e.relation==='contradictory').map(e=>e.id)))throw new Error('Liens de preuves incohérents');
   let last=-1;for(const change of h.history){if(!change.actor?.id||!change.reality?.id||!Number.isSafeInteger(change.causalOrder)||change.causalOrder<=last||!['created','evidence_attached','consigned'].includes(change.event))throw new Error('Historique d’hypothèse incompatible');last=change.causalOrder}
@@ -17088,11 +17104,14 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    if(!same(change.actor,h.author)||!same(change.reality,h.origin))throw new Error('Auteur historique incohérent');
    if(change.event==='evidence_attached'){
     const e=h.evidence.find(e=>e.id===change.evidenceId);
+    if(change.sourceKind&&change.sourceKind!==e?.sourceKind)throw new Error('Catégorie historique incompatible');
+    if(e?.sourceKind==='indirect_archive_acquisition'&&(change.sourceKind!==e.sourceKind||change.acquisitionId!==e.acquisition.id))throw new Error('Historique indirect incompatible');
     if(!e||e.causalOrder!==change.causalOrder||e.observationId!==change.observationId||e.relation!==change.relation||e.reason!==change.reason)throw new Error('Historique de preuve incohérent');
    }
   }
   h.evidence.forEach((e,i)=>{
    const change=i<2?h.history[0]:h.history.find(change=>change.event==='evidence_attached'&&change.evidenceId===e.id);
+   if(i<2&&e.sourceKind==='indirect_archive_acquisition')throw new Error('Création indirecte interdite');
    if(e.id!==h.id+'/proof:'+(i+1)||!change||e.causalOrder!==change.causalOrder||!same(e.attachedBy,change.actor)||!same(e.attachedReality,change.reality))throw new Error('Provenance de rattachement incohérente');
   });
   return h;
@@ -17114,7 +17133,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  function resolveObservation(k,id){
   if(typeof id!=='string')return null;
   // Une archive consultée n’est pas un apprentissage de l’enquêteur.
-  // Les acquisitions indirectes restent inadmissibles comme preuves dans ce lot.
+  // Cette voie reste exclusivement réservée aux observations directes.
   if(!k.personal.order.includes(id)||!Object.hasOwn(k.personal.observations,id))return null;
   const o=k.personal.observations[id];
   return o.observer?.id===k.personal.observer.id&&o.reality?.id===k.world.id?o:null;
@@ -17140,6 +17159,25 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const change=hypothesisEvent(k,'evidence_attached',{observationId,relation,reason:reason.trim()}),e=proof(k,h,o,relation,reason.trim(),change.causalOrder);
   addProof(h,e);change.evidenceId=e.id;h.history.push(change);validateHypothesis(h);return e.id;
  })}
+ // .9 : commande distincte ; une archive brute n’est jamais un identifiant admissible.
+ function resolveAcquisition(k,id){
+  if(typeof id!=='string')return null;
+  const a=(k.personal.archiveAcquisitions||[]).find(a=>a.id===id);
+  return a&&same(a.studiedBy,k.personal.observer)&&same(a.studyReality,{id:k.world.id,seed:k.world.seed})?a:null;
+ }
+ function attachAcquisition(id,acquisitionId,relation,reason){return documentaryAction('hypothesis-indirect-evidence',k=>{
+  const h=k.personal.claims.find(h=>h.id===id),a=resolveAcquisition(k,acquisitionId);
+  if(!h||h.author.id!==k.personal.observer.id||h.origin.id!==k.world.id||!a||!['favorable','contradictory'].includes(relation)||typeof reason!=='string'||!reason.trim()||reason.length>500)return false;
+  if(h.evidence.some(e=>e.observationId===a.archiveId))return false;
+  const change=hypothesisEvent(k,'evidence_attached',{observationId:a.archiveId,relation,reason:reason.trim(),sourceKind:'indirect_archive_acquisition',acquisitionId:a.id});
+  const e=proof(k,h,a.sourceSnapshot.observation,relation,change.reason,change.causalOrder);
+  e.sourceKind='indirect_archive_acquisition';e.acquisition=clone(a);
+  addProof(h,e);change.evidenceId=e.id;h.history.push(change);validateHypothesis(h);return e.id;
+ })}
+ function selectionObservation(k,id,h=null){
+  const direct=resolveObservation(k,id);if(direct)return direct;
+  const a=h?resolveAcquisition(k,id):null;return a?.sourceSnapshot.observation||null;
+ }
  function consignHypothesis(id){return documentaryAction('hypothesis-consign',k=>{
   const h=k.personal.claims.find(h=>h.id===id);if(!h)return false;
   const saved=book.hypotheses?.[id];if(saved&&same(saved.hypothesis,h))return false;
@@ -17160,7 +17198,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const oppositionReasons=['Résultat apparemment différent ; opposition à examiner.','Contexte différent ; compatibilité à examiner.','Sources apparemment divergentes ; opposition à examiner.'];
  // La limite appartient au modèle du brouillon, pas aux seules apparences du bouton.
  function revisionHypothesis(k){return k?.personal.claims.find(h=>h.id===revisionTarget&&h.author.id===k.personal.observer.id&&h.origin.id===k.world.id)||null}
- function eligibleSelection(k,id){const h=revisionHypothesis(k);return !!resolveObservation(k,id)&&(!h||!h.evidence.some(e=>e.observationId===id))}
+ function eligibleSelection(k,id){const h=revisionHypothesis(k);const o=selectionObservation(k,id,h);return !!o&&(!h||!h.evidence.some(e=>e.observationId===o.id))}
  function selectionLimit(k){return revisionHypothesis(k)?1:2}
  function normalizeSelection(k){
   const kept=[...selected].filter(id=>eligibleSelection(k,id)).slice(0,selectionLimit(k));
@@ -17169,7 +17207,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  function draftIds(k,ids,targetId=null){
   const h=targetId?k.personal.claims.find(h=>h.id===targetId&&h.author.id===k.personal.observer.id&&h.origin.id===k.world.id):null;
   if(targetId&&!h)return [];
-  return [...new Set(Array.isArray(ids)?ids:[])].filter(id=>resolveObservation(k,id)&&(!h||!h.evidence.some(e=>e.observationId===id))).slice(0,h?1:2);
+  return [...new Set(Array.isArray(ids)?ids:[])].filter(id=>{const o=selectionObservation(k,id,h);return o&&(!h||!h.evidence.some(e=>e.observationId===o.id))}).slice(0,h?1:2);
  }
  function rememberSelection(){if(revisionTarget)revisionSelections[revisionTarget]=[...selected];else creationSelected=[...selected]}
  function switchDraft(targetId){
@@ -17210,21 +17248,22 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  function drawDebug(){
   const s=view(),p=s.personal,ids=p?.order||[],saved=Object.keys(s.book.entries),facts=Object.values(s.world?.facts||{}),claims=p?.claims||[];
   const available=new Map(ids.map(id=>[id,p.observations[id]]));
+  if(revisionHypothesis(player?.cd11590Knowledge))for(const a of p?.archiveAcquisitions||[])available.set(a.id,a.sourceSnapshot.observation);
   for(const id of selected)if(!available.has(id))selected.delete(id);
   const provenance=o=>'<small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+' · '+esc(o.documentaryDegree)+'</small>';
   const target=revisionHypothesis(player?.cd11590Knowledge);
   const choose=id=>{
-   const attached=!!target&&target.evidence.some(e=>e.observationId===id),picked=selected.has(id);
+   const attached=!!target&&target.evidence.some(e=>e.observationId===available.get(id)?.id),picked=selected.has(id);
    return '<button type="button" data-proof-select="'+esc(id)+'"'+(attached?' disabled':'')+' aria-pressed="'+picked+'">'+(attached?'DÉJÀ RATTACHÉE À CETTE HYPOTHÈSE':picked?(target?'SÉLECTIONNÉ POUR RÉVISION':'SÉLECTIONNÉ'):(target?'SÉLECTIONNER POUR RÉVISION':'SÉLECTIONNER POUR HYPOTHÈSE'))+'</button>';
   };
   const world=facts.map(f=>'<div class="entry" data-world-fact="'+esc(f.id)+'"><b>'+esc(f.state.name)+'</b> · PV à la dernière capture : '+esc(f.state.hp)+'/'+esc(f.state.maxhp)+'<br><small>Instance '+esc(f.id)+' · source moteur : '+esc(f.origin)+'</small></div>').join('');
   const personal=ids.map(id=>{const o=p.observations[id];return '<div class="entry" data-personal-observation="'+esc(id)+'"><b>'+esc(o.type)+'</b> · '+esc(o.statement)+'<br>'+provenance(o)+'<br><button data-consign="'+esc(id)+'"'+(s.book.entries[id]?' disabled':'')+'>'+(s.book.entries[id]?'CONSIGNÉ':'CONSIGNER')+'</button> '+choose(id)+'</div>'}).join('');
-  const permanent=saved.map(id=>{const o=s.book.entries[id].observation;return '<div class="entry" data-book-observation="'+esc(id)+'">'+esc(o.statement)+'<br>'+provenance(o)+'<br><small>ARCHIVE DU LIVRE — consultation seule ; même étudiée, non utilisable pour une hypothèse personnelle dans ce lot.</small><br><button type="button" data-study-archive="'+esc(id)+'"'+((p?.archiveAcquisitions||[]).some(a=>a.archiveId===id&&a.sourceVersion===cd11580CanonicalJSON(s.book.entries[id]))?' disabled':'')+'>'+((p?.archiveAcquisitions||[]).some(a=>a.archiveId===id&&a.sourceVersion===cd11580CanonicalJSON(s.book.entries[id]))?'ARCHIVE ÉTUDIÉE':'ÉTUDIER CETTE ARCHIVE')+'</button></div>'}).join('');
-  const acquisitions=(p?.archiveAcquisitions||[]).map(a=>'<div class="entry" data-archive-acquisition="'+esc(a.id)+'"><b>ACQUISITION INDIRECTE — ARCHIVE ÉTUDIÉE</b><br>'+esc(a.sourceSnapshot.observation.statement)+'<br>'+provenance(a.sourceSnapshot.observation)+'<br><small>Étudiée par '+esc(a.studiedBy.name)+' · '+esc(a.studyReality.id)+' · ordre '+esc(a.causalOrder)+'. Ce récit n’est pas une observation vécue ni une vérité confirmée. Non sélectionnable pour hypothèse.</small><details><summary>Provenance et version étudiée</summary><p>'+esc(JSON.stringify(a))+'</p></details></div>').join('');
-  const evidence=e=>'<div data-evidence="'+esc(e.id)+'"><b>'+(e.relation==='favorable'?'FAVORABLE — À EXAMINER':'CONTRADICTION APPARENTE')+'</b> · '+esc(e.reason)+'<br>'+esc(e.observation.statement)+'<br>'+provenance(e.observation)+'<br><small>Observation '+esc(e.observationId)+' · rattachée par '+esc(e.attachedBy.name)+' · '+esc(e.attachedReality.id)+'</small><details><summary>Provenance et contexte exacts</summary><p>'+esc(JSON.stringify({provenance:e.observation.provenance,context:e.observation.context,knownConditions:e.observation.knownConditions,unknownConditions:e.observation.unknownConditions}))+'</p></details></div>';
+  const permanent=saved.map(id=>{const o=s.book.entries[id].observation;return '<div class="entry" data-book-observation="'+esc(id)+'">'+esc(o.statement)+'<br>'+provenance(o)+'<br><small>ARCHIVE DU LIVRE — consultation seule ; l’archive brute n’est pas une preuve ; seule son acquisition étudiée est utilisable en révision.</small><br><button type="button" data-study-archive="'+esc(id)+'"'+((p?.archiveAcquisitions||[]).some(a=>a.archiveId===id&&a.sourceVersion===cd11580CanonicalJSON(s.book.entries[id]))?' disabled':'')+'>'+((p?.archiveAcquisitions||[]).some(a=>a.archiveId===id&&a.sourceVersion===cd11580CanonicalJSON(s.book.entries[id]))?'ARCHIVE ÉTUDIÉE':'ÉTUDIER CETTE ARCHIVE')+'</button></div>'}).join('');
+  const acquisitions=(p?.archiveAcquisitions||[]).map(a=>'<div class="entry" data-archive-acquisition="'+esc(a.id)+'"><b>ACQUISITION INDIRECTE — ARCHIVE ÉTUDIÉE</b><br>'+esc(a.sourceSnapshot.observation.statement)+'<br>'+provenance(a.sourceSnapshot.observation)+'<br><small>Étudiée par '+esc(a.studiedBy.name)+' · '+esc(a.studyReality.id)+' · ordre '+esc(a.causalOrder)+'. Ce récit n’est pas une observation vécue ni une vérité confirmée. Non sélectionnable pour création ; rattachement indirect volontaire en révision.</small>'+ (target?choose(a.id):'')+'<details><summary>Provenance et version étudiée</summary><p>'+esc(JSON.stringify(a))+'</p></details></div>').join('');
+  const evidence=e=>'<div data-evidence="'+esc(e.id)+'">'+(e.sourceKind==='indirect_archive_acquisition'?'<b>PREUVE DOCUMENTAIRE INDIRECTE — ARCHIVE ÉTUDIÉE</b><br><small>Étudiée par '+esc(e.acquisition.studiedBy.name)+' · '+esc(e.acquisition.studyReality.id)+' · acquisition '+esc(e.acquisition.id)+'</small><br>':'')+'<b>'+(e.relation==='favorable'?'FAVORABLE — À EXAMINER':'CONTRADICTION APPARENTE')+'</b> · '+esc(e.reason)+'<br>'+esc(e.observation.statement)+'<br>'+provenance(e.observation)+'<br><small>Observation '+esc(e.observationId)+' · rattachée par '+esc(e.attachedBy.name)+' · '+esc(e.attachedReality.id)+'</small><details><summary>Provenance et contexte exacts</summary><p>'+esc(JSON.stringify({provenance:e.observation.provenance,context:e.observation.context,knownConditions:e.observation.knownConditions,unknownConditions:e.observation.unknownConditions,...(e.sourceKind==='indirect_archive_acquisition'?{acquisition:e.acquisition}:{})}))+'</p></details></div>';
   const hypothesis=(h,inBook=false)=>{
    const one=selected.size===1?[...selected][0]:null,current=s.book.hypotheses?.[h.id],consigned=!!current&&same(current.hypothesis,h);
-   const disabled=relation=>!one||(target&&target.id!==h.id)||h.evidence.some(e=>e.observationId===one)?' disabled':'';
+   const disabled=relation=>!one||(target&&target.id!==h.id)||h.evidence.some(e=>e.observationId===available.get(one)?.id)?' disabled':'';
    return '<div class="entry" '+(inBook?'data-book-hypothesis':'data-personal-hypothesis')+'="'+esc(h.id)+'"><b>'+esc(h.proposition)+'</b><br><small>'+esc(h.author.name)+' · '+esc(h.origin.id)+' · '+esc(h.documentaryDegree)+' · '+esc(h.id)+'</small>'+h.evidence.map(evidence).join('')+'<details><summary>Historique documentaire</summary><p>'+esc(JSON.stringify(h.history))+'</p></details>'+(inBook?'':'<p><button type="button" data-revise-hypothesis="'+esc(h.id)+'">RÉVISER CETTE HYPOTHÈSE</button></p><p><button type="button" data-support="'+esc(h.id)+'"'+disabled('favorable')+'>RATTACHER COMME FAVORABLE</button> <button type="button" data-contradict="'+esc(h.id)+'"'+disabled('contradictory')+'>RATTACHER COMME CONTRADICTOIRE</button></p><button type="button" data-consign-hypothesis="'+esc(h.id)+'"'+(consigned?' disabled':'')+'>'+(consigned?'HYPOTHÈSE CONSIGNÉE':current?'CONSIGNER LA MISE À JOUR':'CONSIGNER L’HYPOTHÈSE')+'</button>')+'</div>';
   };
   const archived=Object.values(s.book.hypotheses||{}).map(e=>hypothesis(e.hypothesis,true)).join('');
@@ -17232,10 +17271,10 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const proposal=proposalTemplate==='context'?'Les effets observés autour de '+(labels||'ces sujets')+' pourraient dépendre du contexte.':'Une relation pourrait exister entre ces deux observations.';
   debug.querySelector('[data-content]').innerHTML='<h2>DIAGNOSTIC CONNAISSANCE — TEST TEMPORAIRE</h2><p class="small">Consulter ne fait rien apprendre à l’enquêteur. Seul CONSIGNER transmet au Livre. Une hypothèse reste une interprétation, jamais un fait moteur.</p>'+
    '<section data-knowledge-section="world"><h3>1 · FAITS OBJECTIFS DU MONDE · '+facts.length+'</h3><p class="small">Réalité '+esc(s.world?.id||'')+' · seed '+esc(s.world?.seed||'')+'. Captures des instances de combat ; ce ne sont pas des connaissances personnelles.</p>'+(world||'<p>Aucun fait de combat capturé dans cette réalité.</p>')+'</section>'+
-   '<section data-knowledge-section="personal"><h3>2 · OBSERVATIONS PERSONNELLES · '+ids.length+'</h3><p class="small">Enquêteur actuel : '+esc(p?.observer.name||'')+'. Les observations non consignées disparaissent avec lui.</p><p data-personal-selection-mode>'+ (target?'RÉVISION · '+selected.size+'/1 observation nouvelle sélectionnée · '+esc(target.id):'CRÉATION · '+selected.size+'/2 observations sélectionnées')+'</p>'+(personal||'<p>Aucune observation personnelle. Cet enquêteur n’hérite pas automatiquement du savoir du Livre.</p>')+'</section>'+
+   '<section data-knowledge-section="personal"><h3>2 · OBSERVATIONS PERSONNELLES · '+ids.length+'</h3><p class="small">Enquêteur actuel : '+esc(p?.observer.name||'')+'. Les observations non consignées disparaissent avec lui.</p><p data-personal-selection-mode>'+ (target?'RÉVISION · '+selected.size+'/1 justification nouvelle sélectionnée · '+esc(target.id):'CRÉATION · '+selected.size+'/2 observations sélectionnées')+'</p>'+(personal||'<p>Aucune observation personnelle. Cet enquêteur n’hérite pas automatiquement du savoir du Livre.</p>')+'</section>'+
    '<section data-knowledge-section="book"><h3>3 · LIVRE PERSISTANT · '+saved.length+' observations · '+Object.keys(s.book.hypotheses||{}).length+' hypothèses</h3><p class="small">Uniquement les éléments volontairement consignés. L’auteur et la réalité d’origine restent conservés. Aucune acquisition personnelle à la consultation.</p>'+(permanent||'<p>Aucun élément consigné dans le Livre.</p>')+archived+'</section>'+
    '<section data-knowledge-section="acquisitions"><h3>ACQUISITIONS PERSONNELLES INDIRECTES · '+(p?.archiveAcquisitions||[]).length+'</h3><p>Issues uniquement d’une étude volontaire. Disparaissent avec cet enquêteur ; l’archive du Livre reste intacte.</p>'+(acquisitions||'<p>Aucune archive étudiée par cet enquêteur.</p>')+'</section>'+
-   '<section data-knowledge-section="hypotheses"><h3>4 · HYPOTHÈSES PERSONNELLES · '+claims.length+'</h3><p data-selection-mode>'+ (target?'RÉVISION : une observation nouvelle maximum. <button type="button" data-new-hypothesis>NOUVELLE HYPOTHÈSE</button>':'CRÉATION : deux observations maximum.')+'</p><p data-selection-notice aria-live="polite">'+esc(selectionNotice)+'</p><p>'+ (target?'Sélectionner une observation personnelle nouvelle pour réviser cette hypothèse.':'Sélectionner exactement deux observations personnelles de l’enquêteur actuel pour formuler une proposition.')+' Les archives du Livre restent consultables uniquement. Les deux sont proposées comme favorables, sans validation de leur compatibilité ou de leur indépendance.</p><label>Proposition assistée <select data-proposal-template><option value="relation"'+(proposalTemplate==='relation'?' selected':'')+'>Relation possible entre les observations</option><option value="context"'+(proposalTemplate==='context'?' selected':'')+'>Effets pouvant dépendre du contexte</option></select></label><p data-proposal>'+esc(proposal)+'</p><p>'+selected.size+' observation(s) sélectionnée(s). <button type="button" data-create-hypothesis'+(!target&&selected.size===2?'':' disabled')+'>CRÉER L’HYPOTHÈSE</button> <button type="button" data-clear-selection>EFFACER LA SÉLECTION</button></p><p>Pour compléter une hypothèse existante, sélectionner une seule observation personnelle encore non rattachée, puis choisir favorable ou contradictoire. Une observation ne peut apparaître qu’une fois dans une hypothèse, quel que soit le rôle. Le brouillon de sélection est conservé pour cet enquêteur après fermeture et reprise.</p><label>Raison d’opposition apparente <select data-opposition-reason>'+oppositionReasons.map(reason=>'<option'+(oppositionReason===reason?' selected':'')+'>'+esc(reason)+'</option>').join('')+'</select></label>'+(claims.map(h=>hypothesis(h)).join('')||'<p>Aucune hypothèse personnelle.</p>')+'</section>';
+   '<section data-knowledge-section="hypotheses"><h3>4 · HYPOTHÈSES PERSONNELLES · '+claims.length+'</h3><p data-selection-mode>'+ (target?'RÉVISION : une justification nouvelle maximum. <button type="button" data-new-hypothesis>NOUVELLE HYPOTHÈSE</button>':'CRÉATION : deux observations maximum.')+'</p><p data-selection-notice aria-live="polite">'+esc(selectionNotice)+'</p><p>'+ (target?'Sélectionner une observation personnelle nouvelle ou une acquisition indirecte étudiée pour réviser cette hypothèse.':'Sélectionner exactement deux observations personnelles de l’enquêteur actuel pour formuler une proposition.')+' Les archives brutes restent consultables uniquement ; les acquisitions étudiées sont admissibles en révision seulement. Les deux sont proposées comme favorables, sans validation de leur compatibilité ou de leur indépendance.</p><label>Proposition assistée <select data-proposal-template><option value="relation"'+(proposalTemplate==='relation'?' selected':'')+'>Relation possible entre les observations</option><option value="context"'+(proposalTemplate==='context'?' selected':'')+'>Effets pouvant dépendre du contexte</option></select></label><p data-proposal>'+esc(proposal)+'</p><p>'+selected.size+(target?' justification sélectionnée.':' observation(s) sélectionnée(s).')+' <button type="button" data-create-hypothesis'+(!target&&selected.size===2?'':' disabled')+'>CRÉER L’HYPOTHÈSE</button> <button type="button" data-clear-selection>EFFACER LA SÉLECTION</button></p><p>Pour compléter une hypothèse existante, sélectionner une seule observation directe ou acquisition indirecte étudiée encore non rattachée, puis choisir favorable ou contradictoire. Une observation ne peut apparaître qu’une fois dans une hypothèse, quel que soit le rôle. Le brouillon de sélection est conservé pour cet enquêteur après fermeture et reprise.</p><label>Raison d’opposition apparente <select data-opposition-reason>'+oppositionReasons.map(reason=>'<option'+(oppositionReason===reason?' selected':'')+'>'+esc(reason)+'</option>').join('')+'</select></label>'+(claims.map(h=>hypothesis(h)).join('')||'<p>Aucune hypothèse personnelle.</p>')+'</section>';
  }
  function openDebug(){
   if(!alive())return false;
@@ -17251,13 +17290,13 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
     if(b.hasAttribute('data-proof-select')){
      const id=b.getAttribute('data-proof-select'),k=player?.cd11590Knowledge;if(!k||!eligibleSelection(k,id))return;
      if(selected.has(id))selected.delete(id);
-     else if(selected.size>=selectionLimit(k)){selectionNotice=revisionHypothesis(k)?'Une observation nouvelle maximum.':'Deux observations maximum.';drawDebug();return}
+     else if(selected.size>=selectionLimit(k)){selectionNotice=revisionHypothesis(k)?'Une justification nouvelle maximum.':'Deux observations maximum.';drawDebug();return}
      else selected.add(id);
      selectionNotice='';saveDraft();drawDebug();return;
     }
     if(b.hasAttribute('data-clear-selection')){selectionNotice='';selected.clear();saveDraft();drawDebug();return}
     if(b.hasAttribute('data-create-hypothesis')){if(revisionHypothesis(player?.cd11590Knowledge)||selected.size!==2)return;const result=createHypothesis([...selected],debug.querySelector('[data-proposal]').textContent);if(result){selected.clear();saveDraft()}drawDebug();return}
-    if(b.hasAttribute('data-support')||b.hasAttribute('data-contradict')){if(selected.size!==1)return;const favorable=b.hasAttribute('data-support');if(revisionTarget&&revisionTarget!==b.getAttribute(favorable?'data-support':'data-contradict'))return;const result=attachEvidence(b.getAttribute(favorable?'data-support':'data-contradict'),[...selected][0],favorable?'favorable':'contradictory',favorable?'Observation jugée compatible par l’enquêteur ; corroboration à examiner.':oppositionReason);if(result){selected.clear();saveDraft()}drawDebug();return}
+    if(b.hasAttribute('data-support')||b.hasAttribute('data-contradict')){if(selected.size!==1)return;const favorable=b.hasAttribute('data-support');if(revisionTarget&&revisionTarget!==b.getAttribute(favorable?'data-support':'data-contradict'))return;const picked=[...selected][0],indirect=resolveAcquisition(player.cd11590Knowledge,picked);const result=(indirect?attachAcquisition:attachEvidence)(b.getAttribute(favorable?'data-support':'data-contradict'),picked,favorable?'favorable':'contradictory',favorable?(indirect?'Récit étudié jugé compatible par l’enquêteur ; portée indirecte à examiner.':'Observation jugée compatible par l’enquêteur ; corroboration à examiner.'):oppositionReason);if(result){selected.clear();saveDraft()}drawDebug();return}
     if(b.hasAttribute('data-study-archive')){studyArchive(b.getAttribute('data-study-archive'));drawDebug();return}
     if(b.hasAttribute('data-consign-hypothesis')){consignHypothesis(b.getAttribute('data-consign-hypothesis'));drawDebug();return}
     if(b.hasAttribute('data-consign')){consign(b.getAttribute('data-consign'));drawDebug()}
@@ -17267,7 +17306,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   // Transition visuelle locale, sans closeOverlays ni action de gameplay.
   drawDebug();document.getElementById('mainMenu')?.classList.remove('open');debug.classList.add('open');return true;
  }
- window.cd11590Knowledge=Object.freeze({view,consign,openDebug,studyArchive,createHypothesis,attachEvidence,consignHypothesis,documentaryStates:STATES});
+ window.cd11590Knowledge=Object.freeze({view,consign,openDebug,studyArchive,createHypothesis,attachEvidence,attachAcquisition,consignHypothesis,documentaryStates:STATES});
  document.addEventListener('DOMContentLoaded',()=>{
   restoreDraft(); // Restauration UI seule ; normalise aussi le brouillon hérité avant ouverture.
   const menu=document.getElementById('mainMenu'),b=document.createElement('button');b.type='button';b.textContent='DIAGNOSTIC CONNAISSANCE';b.id='cd11590DebugButton';b.className='small';b.style.marginTop='8px';b.title='Outil temporaire de validation';b.addEventListener('click',openDebug);(menu?.querySelector('.sheet')||menu)?.appendChild(b);
