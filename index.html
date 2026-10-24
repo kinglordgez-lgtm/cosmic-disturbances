@@ -707,7 +707,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.9 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.10 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16851,7 +16851,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.59.9',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.59.10',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
@@ -16948,6 +16948,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    }
   }
   validateRun(k);
+  validatePilot(s.player.cd115910Scene,k);
   return s;
  };
  // Le registre capture aussi le Livre : la comparaison intégrale peut détecter
@@ -17056,7 +17057,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const next=clone(book);next.entries[id]={observation:clone(o),consignation:{observer:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},causalOrder:k.causalOrder+1}};
   persist(next);book=next;k.causalOrder++;k.personal.consignedIds.push(id);return true;
  })}
- // V11.59.9 : acquisition indirecte, jamais une observation directe.
+ // V11.59.10 : acquisition indirecte, jamais une observation directe.
  // Champ optionnel : absence dans une sauvegarde ancienne = aucune acquisition.
  function validateAcquisitions(k){
   if(!Object.hasOwn(k.personal,'archiveAcquisitions'))return;
@@ -17188,6 +17189,159 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const next=clone(book);next.hypotheses||={};next.hypotheses[id]={hypothesis:copy,consignation};persist(next);
   book=next;k.causalOrder=order;k.personal.claims[k.personal.claims.indexOf(h)]=clone(copy);return true;
  })}
+ // V11.59.10 — une scène locale ; aucune simulation globale ni génération de carte.
+ const PILOT_SUBJECT='quay-tarpaulin-material';
+ function pilotHash(value){let h=2166136261;for(const c of String(value)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+ function pilotCause(seedValue,key){return pilotHash(seedValue+':quay:'+key)%2?'cart':'mooring'}
+ function pilotScene(){return player?.cd115910Scene||null}
+ function pilotAlive(){return alive()&&!battle}
+ function pilotAt(site){return !!site&&Number(player?.depth)===site.depth&&px===site.x&&py===site.y}
+ function validatePilot(s,k,creating=false){
+  if(s===undefined)return;
+  const spot=p=>p&&Number.isInteger(p.x)&&Number.isInteger(p.y)&&p.x>=0&&p.x<13&&p.y>=0&&p.y<13&&Number.isInteger(p.depth)&&p.depth>=0&&p.depth<=1;
+  if(!s||s.schema!==1||s.realityId!==k.world.id||s.observerId!==k.personal.observer.id||!spot(s.site)||!spot(s.destination)||s.destination.depth!==s.site.depth||s.witness?.key!==[s.site.depth,s.site.x,s.site.y].join(':')||typeof s.witness.name!=='string'||!s.witness.name||s.id!==k.world.id+'/quay:'+s.witness.key||s.objective?.cause!==pilotCause(k.world.seed,s.witness.key)||!s.progress||![null,'material','trail'].includes(s.progress.choice)||!['inspected','asked','reached','detailed'].every(key=>typeof s.progress[key]==='boolean')||s.progress.reached&&s.progress.choice!=='trail'||!Array.isArray(s.events))throw new Error('Scène du quai incompatible');
+  if(s.site.x===s.destination.x&&s.site.y===s.destination.y)throw new Error('Destination du quai incompatible');
+  const seen=new Set();let previous=0;
+  for(const e of s.events){
+   const o=k.personal.observations[e?.observationId];
+   if(!e||!['start','inspect','ask','material','trail','arrive','detail'].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(e.action==='ask'){
+    const source=e.knowledge,observed=source?.kind==='direct'?resolveObservation(k,source.id):source?.kind==='indirect'?resolveAcquisition(k,source.id)?.sourceSnapshot.observation:null;
+    if(!pilotRelevant(observed))throw new Error('Provenance de question du quai incompatible');
+   }
+   seen.add(e.action);previous=e.causalOrder;
+  }
+  if(!creating&&(s.events[0]?.action!=='start'||s.progress.inspected!==seen.has('inspect')||s.progress.asked!==seen.has('ask')||s.progress.reached!==seen.has('arrive')||s.progress.detailed!==seen.has('detail')||s.progress.detailed&&s.progress.choice!=='material'||seen.has('material')&&seen.has('trail')||s.progress.choice!==(seen.has('material')?'material':seen.has('trail')?'trail':null)))throw new Error('Progression du quai incompatible');
+ }
+ function pilotRelevant(o){return o?.type==='quay_material_exam'&&o.subject?.id===PILOT_SUBJECT&&o.links?.phenomenon===PILOT_SUBJECT&&o.provenance?.kind==='direct_observation'}
+ function pilotKnowledge(k){
+  const relevant=pilotRelevant;
+  for(const id of k.personal.order){const o=resolveObservation(k,id);if(relevant(o))return {kind:'direct',id}}
+  for(const a of k.personal.archiveAcquisitions||[])if(resolveAcquisition(k,a.id)&&relevant(a.sourceSnapshot.observation))return {kind:'indirect',id:a.id};
+  return null;
+ }
+ function pilotDestination(){
+  const seen=new Set([px+','+py]),q=[{x:px,y:py}],floors=[];let quest=null;
+  for(let i=0;i<q.length;i++)for(const [dx,dy]of [[0,-1],[1,0],[0,1],[-1,0]]){
+   const x=q[i].x+dx,y=q[i].y+dy,t=map?.[y]?.[x],key=x+','+y;
+   if(!t||['wall','water'].includes(t)||seen.has(key))continue;
+   seen.add(key);q.push({x,y});if(t==='quest'&&!quest)quest={x,y};if(t==='floor')floors.push({x,y});
+  }
+  const point=quest||floors[0];return point?{...point,depth:Number(player.depth)}:null;
+ }
+ function pilotOnOrigin(){return pilotAlive()&&pilotAt(pilotScene()?.site)}
+ function pilotRecord(s,action,type,text,kind='direct_observation'){
+  const id=record({type,subject:{kind:'phenomenon',id:PILOT_SUBJECT,label:'Traces sous la bâche du quai'},statement:text,
+   provenance:{kind,event:'quay_'+action,sceneId:s.id,sourceId:kind==='testimony'?s.witness.key:s.id,sourceName:kind==='testimony'?s.witness.name:'Trace matérielle du quai',choice:s.progress.choice},
+   unknownConditions:['contenu_de_la_caisse','identite_du_responsable','portee_dans_une_autre_realite'],links:{place:s.id,npc:s.witness.key,phenomenon:PILOT_SUBJECT}},s.id+':'+action);
+  s.events.push({action,observationId:id,causalOrder:ensure().causalOrder});return id;
+ }
+ function pilotStart(){return documentaryAction('quay-start',k=>{
+  if(!pilotAlive()||!Number.isInteger(player.depth)||player.depth<0||player.depth>1||map?.[py]?.[px]!=='npc'||!player.npc?.cd11080Key||player.npc.cd11080Key!==[player.depth,px,py].join(':'))return false;
+  if(pilotScene()){if(!pilotAt(pilotScene().site))return false;pilotDraw();return pilotScene().id}
+  const destination=pilotDestination();if(!destination)return false;
+  const key=player.npc.cd11080Key,s={schema:1,id:k.world.id+'/quay:'+key,realityId:k.world.id,observerId:k.personal.observer.id,
+   site:{x:px,y:py,depth:player.depth},destination,witness:{key,name:String(player.npc.name),role:String(player.npc.role||'Habitant')},
+   objective:{cause:pilotCause(k.world.seed,key)},progress:{choice:null,inspected:false,asked:false,reached:false,detailed:false},events:[]};
+  validatePilot(s,k,true);player.cd115910Scene=s;
+  pilotRecord(s,'start','quay_witness_report',s.witness.name+' rapporte : « La caisse a glissé avec la marée. Je n’ai vu personne la tirer. » Ce témoin n’a pas forcément vu tout le quai.','testimony');
+  validatePilot(s,k);pilotDraw();return s.id;
+ })}
+ function pilotAct(action,sceneId){return documentaryAction('quay-'+action,k=>{
+  const s=pilotScene();if(!pilotAlive()||!s||s.id!==sceneId)return false;validatePilot(s,k);
+  if(action==='arrive'){
+   if(!pilotAt(s.destination)||s.progress.choice!=='trail'||s.progress.reached)return false;
+   s.progress.reached=true;
+   pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Dans le passage indiqué, deux marques de roues se prolongent sous un auvent ; aucun contenu de caisse n’est visible.':'Dans le passage indiqué, l’eau salée s’arrête au seuil. Une corde mouillée relie encore la bâche au pieu du quai ; rien n’explique le contenu de la caisse.');
+  }else{
+   if(!pilotAt(s.site))return false;
+   if(action==='inspect'){
+    if(s.progress.inspected||s.progress.choice==='trail')return false;s.progress.inspected=true;
+    pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Sous le bord de la bâche, deux stries parallèles et régulières coupent les dépôts salés. La corde porte un nœud desserré. L’auteur du passage n’a pas été vu.':'Sous le bord de la bâche, la corde tendue porte du sel frais. Lorsque l’eau tire sur elle, le tissu bouge ; aucune marque régulière de roues ne se distingue.');
+   }else if(action==='detail'){
+    if(s.progress.choice!=='material'||s.progress.detailed)return false;s.progress.detailed=true;
+    pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Sous la bâche immobilisée, une fibre noire huilée est prise au bord des stries ; cette empreinte fine aurait été effacée par le passage des bottes. Ni le contenu de la caisse ni son auteur ne sont identifiés.':'Sous la bâche immobilisée, des fibres de chanvre sont écrasées dans un arc de sel ; cette empreinte fine aurait été effacée par le passage des bottes. Rien ne permet de conclure sur le contenu de la caisse.');
+   }else if(action==='ask'){
+    const source=pilotKnowledge(k);if(s.progress.asked||!source)return false;s.progress.asked=true;
+    pilotRecord(s,action,'quay_witness_detail',s.witness.name+' précise : « J’étais sous l’auvent. La bâche cachait mes pieds et je ne voyais pas l’entrée du passage. J’ai dit la marée parce que c’était l’heure. » Sa première explication reste un témoignage, pas une conclusion.'+(s.progress.detailed?' À propos du relevé préservé, il ajoute : « Des bâches neuves ont été déposées près du passage. Je ne sais pas qui les a apportées. »':''), 'testimony');
+    s.events.at(-1).knowledge=source;
+   }else if(action==='material'){
+    if(s.progress.choice!==null)return false;s.progress.choice='material';
+    pilotRecord(s,action,'quay_scene_action','L’enquêteur cale le bord de la bâche pour préserver l’empreinte. Le témoin reprend son poste : le trajet accompagné est abandonné. La trace demeure examinable.');
+   }else if(action==='trail'){
+    if(s.progress.choice!==null)return false;s.progress.choice='trail';
+    pilotRecord(s,action,'quay_scene_action','L’enquêteur demande au témoin de montrer le trajet. Le passage de leurs pas brouille la trace fine sous la bâche ; un passage existant est indiqué sur la carte pour une vérification sur place.');
+   }else return false;
+  }
+  validatePilot(s,k);pilotDraw();return true;
+ })}
+ let pilotArchives=false;
+ function pilotDraw(){
+  const s=pilotScene();if(!pilotAlive()||!s||!pilotAt(s.site)&&!pilotAt(s.destination))return false;
+  const k=player.cd11590Knowledge,known=pilotKnowledge(k),p=s.progress;
+  const button=(action,text,disabled=false)=>'<button type="button" data-cd115910="'+action+'" data-scene="'+esc(s.id)+'"'+(disabled?' disabled':'')+'>'+text+'</button>';
+  let body='<div data-cd115910-panel="'+esc(s.id)+'"><h2>SOUS LA BÂCHE DU QUAI</h2><p>Rues noyées de Blackwater · '+esc(s.witness.name)+' ('+esc(s.witness.role)+')</p>';
+  if(pilotAt(s.site)){
+   body+='<p>Une bâche recouvre une caisse. Un sillon traverse le dépôt salé vers le passage. '+esc(s.witness.name)+' affirme : « La caisse a glissé avec la marée. Je n’ai vu personne la tirer. »</p>';
+   if(p.asked)body+='<p><b>Le témoin a précisé sa position :</b> sous l’auvent, il ne voyait pas l’entrée du passage. Son explication reste à examiner.</p>';
+   if(p.inspected){const id=s.events.find(e=>e.action==='inspect')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'L’inspection est conservée dans vos observations.')+'</p>'}
+   body+='<div class="grid2">'+button('inspect',p.inspected?'AMARRAGE DÉJÀ EXAMINÉ':'EXAMINER L’AMARRAGE',p.inspected||p.choice==='trail')+button('ask',p.asked?'PRÉCISION DÉJÀ RECUEILLIE':'QUESTIONNER SUR L’AMARRAGE',p.asked||!known)+'</div>';
+   if(!known&&!p.asked)body+='<p class="small">Pour une question précise : examinez directement l’amarrage, ou étudiez un récit matériel pertinent déjà consigné. Une simple lecture ne suffit pas.</p>';
+   if(p.choice===null)body+='<p><b>Quel suivi privilégier ?</b> Préserver la trace permet un relevé fin, inaccessible après le passage des bottes ; suivre le témoin permet de vérifier un passage mais détruit ce relevé fin. Ce choix ne déclare aucun récit vrai.</p><div class="grid2">'+button('material','PRÉSERVER L’EMPREINTE')+button('trail','SUIVRE LE TRAJET DU TÉMOIN')+'</div>';
+   else body+='<p><b>'+(p.choice==='material'?'Empreinte préservée. Vous pouvez encore examiner l’amarrage ; le trajet accompagné est abandonné.':'Trajet privilégié. L’empreinte initiale est brouillée ; rejoignez le passage cerclé sur la carte pour le vérifier.')+'</b></p>';
+   if(p.choice==='material'){
+    body+='<p>'+button('detail',p.detailed?'EMPREINTE FINE DÉJÀ RELEVÉE':'EXAMINER L’EMPREINTE PRÉSERVÉE',p.detailed)+'</p>';
+    if(p.detailed){const id=s.events.find(e=>e.action==='detail')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'Le relevé fin est conservé dans vos observations.')+'</p>'}
+   }
+   body+='<p>'+button('archives','CONSULTER LES RÉCITS DU QUAI')+'</p>';
+   if(pilotArchives){
+    const entries=Object.values(book.entries).filter(e=>e.observation.type==='quay_material_exam'&&e.observation.subject.id===PILOT_SUBJECT);
+    body+='<div class="entry"><b>Récits consignés — lire n’est pas apprendre</b>'+(entries.length?entries.map(e=>{const o=e.observation,studied=(k.personal.archiveAcquisitions||[]).some(a=>a.archiveId===o.id&&a.sourceVersion===cd11580CanonicalJSON(e));return '<p>'+esc(o.statement)+'<br><small>'+esc(o.observer.name)+' · '+esc(o.reality.id)+'</small><br><button type="button" data-cd115910="study" data-scene="'+esc(s.id)+'" data-archive="'+esc(o.id)+'"'+(studied?' disabled':'')+'>'+(studied?'RÉCIT ÉTUDIÉ':'ÉTUDIER CE RÉCIT')+'</button></p>'}).join(''):'<p>Aucun récit matériel du quai consigné. L’examen direct reste une voie d’enquête.</p>')+'</div>';
+   }
+  }else body+='<p>Vous êtes dans le passage indiqué par le témoin. Cette indication reste à vérifier matériellement.</p>'+button('arrive',p.reached?'PASSAGE DÉJÀ EXAMINÉ':'EXAMINER LE PASSAGE',p.reached);
+  if(p.reached){const id=s.events.find(e=>e.action==='arrive')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'La vérification est conservée dans vos observations.')+'</p>'}
+  body+='<p>'+button('close','REVENIR AU MONDE')+'</p></div>';
+  // Remplacer le dialogue courant, sans passer par la file canonique de modales.
+  const content=document.getElementById('sheetContent'),modal=document.getElementById('modal');
+  content.innerHTML='<div class="row"><b>SOUS LA BÂCHE DU QUAI</b></div>'+body;modal.classList.add('open');modal.style.display='flex';return true;
+ }
+ function pilotClose(){const modal=document.getElementById('modal');modal.classList.remove('open');modal.style.display='none'}
+ function pilotDecorate(){
+  const root=document.getElementById('sheetContent');if(!pilotAlive()||!root?.querySelector('.cdNpcChoices')||map?.[py]?.[px]!=='npc'||!player.npc?.cd11080Key||Number(player.depth)>1)return;
+  const s=pilotScene();if(s&&!pilotAt(s.site))return;
+  if(root.querySelector('[data-cd115910="start"]'))return;
+  const box=document.createElement('div');box.className='entry';box.innerHTML='<b>SOUS LA BÂCHE DU QUAI</b><p>Une caisse recouverte, une trace dans le sel. Cet habitant pense avoir vu ce qui s’est passé.</p><button type="button" data-cd115910="start">'+(s?'REPRENDRE L’ENQUÊTE DU QUAI':'EXAMINER LA TRACE DU QUAI')+'</button>';root.appendChild(box);
+ }
+ const pilotNpcPanel=window.cd18NpcPanel;
+ window.cd18NpcPanel=function(){const out=pilotNpcPanel.apply(this,arguments);pilotDecorate();return out};cd18NpcPanel=window.cd18NpcPanel;
+ const pilotContext=window.renderContext;
+ window.renderContext=function(){const out=pilotContext.apply(this,arguments),s=pilotScene();
+  for(const cell of typeof mapCells!=='undefined'?mapCells:[])cell?.classList?.remove('cd115910-destination');
+  if(pilotAlive()&&s?.progress.choice==='trail'&&!s.progress.reached&&Number(player.depth)===s.destination.depth){
+   const cell=typeof mapCells!=='undefined'?mapCells[s.destination.y*13+s.destination.x]:null;cell?.classList?.add('cd115910-destination');
+   if(pilotAt(s.destination)){const root=document.getElementById('context'),b=document.createElement('button');b.type='button';b.setAttribute('data-cd115910','open');b.setAttribute('data-scene',s.id);b.textContent='VÉRIFIER LE PASSAGE INDIQUÉ';root.style.display='block';root.appendChild(b)}
+  }return out;
+ };renderContext=window.renderContext;
+ document.addEventListener('click',ev=>{
+  const root=document.getElementById('sheetContent'),close=ev.target.closest?.('#modal .close');
+  if(close&&root?.querySelector('[data-cd115910-panel]')){ev.preventDefault();ev.stopImmediatePropagation();pilotClose();return}
+  const b=ev.target.closest?.('[data-cd115910]');if(!b||!b.isConnected)return;
+  ev.preventDefault();ev.stopImmediatePropagation();if(b.disabled||!pilotAlive())return;
+  const action=b.getAttribute('data-cd115910');
+  if(action==='start'){pilotArchives=false;pilotStart();return}
+  const s=pilotScene();if(!s||b.getAttribute('data-scene')!==s.id)return;
+  if(action==='close'){pilotClose();return}
+  if(action==='open'){pilotDraw();return}
+  if(action==='archives'){if(pilotOnOrigin()){pilotArchives=!pilotArchives;pilotDraw()}return}
+  if(action==='study'){
+   if(!pilotOnOrigin())return;const id=b.getAttribute('data-archive'),o=book.entries[id]?.observation;
+   if(o?.type!=='quay_material_exam'||o.subject.id!==PILOT_SUBJECT)return;
+   documentaryAction('quay-study',()=>{const result=studyArchive(id);pilotDraw();return result});return;
+  }
+  pilotAct(action,s.id);
+ },true);
+ window.cd115910Quay=Object.freeze({start:pilotStart,act:pilotAct,open:pilotDraw,view:()=>clone(pilotScene()),eligible:()=>!!player?.cd11590Knowledge&&!!pilotKnowledge(player.cd11590Knowledge)});
+
  // Vue temporaire : sélections et proposition assistée sont un brouillon d’UI.
  // Aucun fait ni état documentaire ne change à l’ouverture ou à la sélection.
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -17314,6 +17468,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
 })();
 </script>
 
+<style>.tile.cd115910-destination{outline:3px solid #d9b56b!important;outline-offset:-4px} [data-cd115910]{touch-action:manipulation} [data-cd115910]:disabled{opacity:.45}</style>
 <script id="cd-pwa-register">
 /* Enregistrement explicite de la couche hors-ligne. Sans ce branchement,
    manifest.json et sw.js existent mais aucun navigateur ne les active. */
