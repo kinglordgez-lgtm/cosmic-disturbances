@@ -16575,6 +16575,7 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   return {open:!!modal?.classList?.contains('open'),html:content?.innerHTML||'',scroll:sheet?.scrollTop||0};
  }
  function writeWindow(ui){
+  window.cdP0Snapshot?.('rendered');
   const modal=document.getElementById('modal'),sheet=document.getElementById('sheet'),content=document.getElementById('sheetContent');
   if(content)content.innerHTML=ui.html;
   if(modal?.classList)modal.classList.toggle('open',ui.open);
@@ -16708,15 +16709,21 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  function resume(){
   try{
   if(localStorage.getItem('cosmic_run_terminal_v1'))return false;
+  window.cdP0Trace?.('resume.begin');
   const point=typeof storage.recover==='function'?storage.recover():storage.read();if(!point)return false;
+  window.cdP0Trace?.('resume.point',point);
   point.snapshot=cd11580MigrateSnapshot(point.snapshot);
+  window.cdP0Trace?.('resume.stage.migrated',point.snapshot);
   cd11290RestoreCore(point.snapshot,{render:false});
+  window.cdP0Snapshot?.('restored');
   cd11290RebuildVisual(point.snapshot);
+  const actual=cd11290CaptureCore();
+  window.cdP0Trace?.('resume.compare',{expected:point.snapshot,actual});
   // Comparaison intégrale : aucune exclusion et aucune tolérance à une mutation.
-  if(cd11580CanonicalJSON(cd11290CaptureCore())!==cd11580CanonicalJSON(point.snapshot))
+  if(cd11580CanonicalJSON(actual)!==cd11580CanonicalJSON(point.snapshot))
    throw new Error('Le rendu a modifié le point de reprise');
-  lastError=null;return true;
-  }catch(e){lastError=String(e.message||e);window.cd11580BlockCheckpoint?.();throw e}
+  window.cdP0Trace?.('resume.succeeded');lastError=null;return true;
+  }catch(e){window.cdP0Trace?.('resume.failed',String(e.message||e));lastError=String(e.message||e);window.cd11580BlockCheckpoint?.();throw e}
  }
  function discard(){storage.discard();lastError=null}
  function commit(){
@@ -16814,13 +16821,15 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    }else if(player&&player.cd11580Death)return false;
    cd11580ActionName=name;cd11580CombatAction=!!battle||name==='enemyTurn';
   }
+  if(outer)window.cdP0Trace?.('action.begin',{name,kind});
   cd11580ActionDepth++;
   let out,ok=false;
   try{out=fn.apply(self,args);if(outer)finish(kind);ok=true;return out}
-  catch(e){faulted=true;throw e}
+  catch(e){if(outer)window.cdP0Trace?.('action.failed',{name,error:String(e.message||e)});faulted=true;throw e}
   finally{
    cd11580ActionDepth--;
    if(outer&&ok){render();if(!faulted&&window.cd11350Suspension)window.cd11350Suspension.commit()}
+   if(outer&&ok)window.cdP0Trace?.('action.end',{name,kind});
   }
  };
  const baseDeath=death;
@@ -17478,6 +17487,106 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   navigator.serviceWorker.register('./sw.js').catch(function(e){console.warn('Service worker indisponible',e)});
  },{once:true});
 })();
+</script>
+<script id="cd-p0-audit-temporaire">
+/* Instrumentation temporaire .10 : mémoire volatile et export local volontaire.
+   Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
+(function(){
+ 'use strict';
+ const BUILD='V11.59.10 / AUDIT-P0-A1';
+ let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
+ const copy=value=>JSON.parse(JSON.stringify(value));
+ function metrics(){
+  return {seed:typeof seed==='undefined'?null:seed,position:typeof px==='undefined'?null:{x:px,y:py},
+   player:typeof player==='undefined'||!player?null:{name:player.char?.name,hp:player.hp,san:player.san,myth:player.myth,xp:player.xp,lvl:player.lvl,depth:player.depth,quest:player.quest},
+   rngState:typeof rng?.getState==='function'?rng.getState():null,battle:typeof battle==='undefined'?null:battle,
+   action:typeof cd11580ActionName==='undefined'?null:cd11580ActionName,rendering:typeof cd11580Rendering==='undefined'?null:cd11580Rendering,
+   viewport:{width:innerWidth,height:innerHeight,orientation:screen?.orientation?.type||null},
+   modal:{open:document.getElementById('modal')?.classList.contains('open'),display:document.getElementById('modal')?.style.display,scroll:document.getElementById('sheet')?.scrollTop}};
+ }
+ function diff(a,b,path='',out=[]){
+  if(cd11580CanonicalJSON(a)===cd11580CanonicalJSON(b))return out;
+  if(!a||!b||typeof a!=='object'||typeof b!=='object'){
+   out.push({path,domain:path==='.ui'||path.startsWith('.ui.')?'presentation':'canonique_ou_module',expected:a,actual:b});return out;
+  }
+  for(const key of new Set([...Object.keys(a),...Object.keys(b)]))diff(a[key],b[key],path+'.'+key,out);
+  return out;
+ }
+ function disk(){
+  const result={};
+  for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(/^cosmic_(suspended_run_|knowledge_|run_terminal_)/.test(key))result[key]=localStorage.getItem(key)}
+  return result;
+ }
+ function trace(type,data){try{
+  const event={order:++order,type,metrics:copy(metrics())};
+  // Capturer les octets déjà présents avant toute récupération/promotion.
+  if(type==='resume.begin')attempt={startOrder:order,storageBefore:disk(),stages:{}};
+  if(type==='resume.point'&&attempt)attempt.point=copy(data);
+  if(type.startsWith('resume.stage.')&&attempt){
+   const name=type.slice('resume.stage.'.length);attempt.stages[name]={state:copy(data),metrics:event.metrics};
+  }
+  if(type==='resume.compare'&&attempt){
+   attempt.expected=copy(data.expected);attempt.actual=copy(data.actual);
+   attempt.differences=diff(data.expected,data.actual);event.differences=attempt.differences;
+   const restored=attempt.stages.restored?.state,rendered=attempt.stages.rendered?.state;
+   attempt.stageDifferences={
+    migration:attempt.point?.snapshot?diff(attempt.point.snapshot,data.expected):[],
+    canonicalRestore:restored?diff(data.expected,restored):[],
+    rendering:restored&&rendered?diff(restored,rendered):[],
+    windowRebuild:rendered?diff(rendered,data.actual):[]
+   };
+  }
+  if(type==='resume.failed'||type==='resume.succeeded'){
+   if(attempt){attempt.result=type;attempt.error=data||null;attempt.endOrder=order;lastAttempt=copy(attempt);if(type==='resume.failed'&&!firstFailure)firstFailure=copy(attempt);attempt=null;}
+  }
+  if(data&&type==='san.write')event.detail=copy(data);
+  if(type==='action.begin'||type==='action.end'||type==='action.failed'||type.startsWith('input.')||type==='snapshot.unavailable')event.detail=copy(data||{});
+  events.push(event);if(events.length>240)events.shift();
+ }catch(_error){lost++}}
+ function report(){
+  const result={format:'cosmic-resume-audit-1',build:BUILD,readOnly:true,generatedAt:new Date().toISOString(),
+   notice:'Instrumentation, pas un correctif. Aucune différence n’est exclue du contrôle. Les écarts de présentation sont étiquetés, jamais tolérés automatiquement.',
+   displayedVersion:document.getElementById('sub')?.textContent,error:document.getElementById('runtimeErrorText')?.textContent,
+   status:window.cd11580Status?.(),suspension:window.cd11350Suspension?.status(),metrics:metrics(),
+   firstFailure,lastAttempt,inProgress:attempt,events,lostAuditEvents:lost};
+  try{result.currentStorage=disk()}catch(e){result.storageReadError=String(e.message||e)}
+  try{result.currentState=window.cd11290CaptureCore()}catch(e){result.stateReadError=String(e.message||e)}
+  return copy(result);
+ }
+ function exportReport(){
+  const text=JSON.stringify(report(),null,2),fileName='Cosmic_Diagnostic_Reprise_'+Date.now()+'.json';
+  const blob=new Blob([text],{type:'application/json'}),link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);link.download=fileName;link.style.display='none';document.getElementById('cdP0AuditControls')?.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(link.href),30000);return text;
+ }
+ window.cdP0Trace=trace;
+ window.cdP0Snapshot=function(stage){try{trace('resume.stage.'+stage,window.cd11290CaptureCore())}catch(e){trace('snapshot.unavailable',{stage,error:String(e.message||e)})}};
+ window.cdP0Audit=Object.freeze({report,exportReport,build:BUILD});
+ // Observer les vrais appels SAN, avec leur origine et leur contexte de transaction.
+ const previousSan=window.cd11580SetSan;
+ window.cd11580SetSan=function(value,source){
+  const before=typeof player==='undefined'?null:player?.san;
+  try{return previousSan.apply(this,arguments)}finally{
+   trace('san.write',{before,after:typeof player==='undefined'?null:player?.san,requested:value,source:String(source||''),stack:new Error('origine SAN').stack});
+  }
+ };cd11580SetSan=window.cd11580SetSan;
+ for(const name of ['pagehide','pageshow'])window.addEventListener(name,()=>trace('lifecycle.'+name),true);
+ for(const name of ['visibilitychange','freeze'])document.addEventListener(name,()=>trace('lifecycle.'+name),true);
+ for(const type of ['pointerup','touchend','click'])window.addEventListener(type,event=>{
+  const button=event.target.closest?.('button');if(!button||button.closest('#cdP0AuditControls'))return;
+  trace('input.'+type,{label:button.textContent?.slice(0,120)});
+ },true);
+ const panel=document.getElementById('runtimeError');
+ if(panel){
+  const controls=document.createElement('div');controls.id='cdP0AuditControls';controls.style.cssText='margin-top:10px;border-top:1px solid #9b5964;padding-top:8px';
+  const text=document.createElement('p');text.textContent='AUDIT P0 ACTIF — diagnostic local, pas un correctif.';text.style.fontSize='12px';controls.appendChild(text);
+  const button=document.createElement('button');button.type='button';button.id='cdP0Export';button.textContent='EXPORTER LE DIAGNOSTIC (.JSON)';button.style.cssText='min-height:44px;padding:8px;margin:4px 0';
+  button.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();try{exportReport();text.textContent='Diagnostic généré localement. Conservez le fichier JSON ; aucune donnée du jeu n’a été effacée.'}catch(e){text.textContent='Export indisponible : '+String(e.message||e)}});
+  controls.appendChild(button);panel.appendChild(controls);
+ }
+ trace('audit.ready');
+})();
+
 </script>
 </body>
 </html>
