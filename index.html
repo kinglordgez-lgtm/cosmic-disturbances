@@ -426,6 +426,7 @@ header{left:18px!important}
 </div></div></div>
 <div id="modal" class="overlay"><div class="sheet" id="sheet"><button class="close" type="button" onclick="closeOverlays()">✕</button><div id="sheetContent"></div></div></div>
 <div id="toast"></div>
+<div style="position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:9998;pointer-events:none;max-width:65vw"><span id="cd1159101Notice" role="status" style="display:none;background:#202632;color:#fff;border:1px solid #657083;border-radius:6px;padding:5px;font-size:11px"></span></div>
 
 <div id="runtimeError" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(80vw,720px);background:#28151a;border:1px solid #9b5964;border-radius:14px;padding:14px;color:#fff;font-family:monospace">
  <b>ERREUR DE JEU</b>
@@ -707,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.10 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.10.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16574,13 +16575,62 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
   const modal=document.getElementById('modal'),sheet=document.getElementById('sheet'),content=document.getElementById('sheetContent');
   return {open:!!modal?.classList?.contains('open'),html:content?.innerHTML||'',scroll:sheet?.scrollTop||0};
  }
+ let visualRestoration=null;
  function writeWindow(ui){
   window.cdP0Snapshot?.('rendered');
   const modal=document.getElementById('modal'),sheet=document.getElementById('sheet'),content=document.getElementById('sheetContent');
-  if(content)content.innerHTML=ui.html;
-  if(modal?.classList)modal.classList.toggle('open',ui.open);
-  if(sheet)sheet.scrollTop=ui.scroll;
+  const requested=ui.scroll===undefined?0:ui.scroll;
+  if(typeof requested!=='number'||!Number.isFinite(requested))throw new Error('Position de lecture invalide');
+  if(!modal||!sheet||!content)throw new Error('Fenêtre de reprise indisponible');
+  content.innerHTML=ui.html;
+  modal.classList.toggle('open',ui.open);modal.style.display=ui.open?'flex':'';
+  const notice=document.getElementById('cd1159101Notice');if(notice)notice.style.display='none';
+  // Lire la géométrie après contenu et ouverture force le layout courant.
+  const clientHeight=sheet.clientHeight,scrollHeight=sheet.scrollHeight;
+  const measured=ui.open&&clientHeight>0&&scrollHeight>=clientHeight;
+  let target=requested,reason='exact',minimum=null,maximum=null;
+  const behavior=sheet.style.scrollBehavior;sheet.style.scrollBehavior='auto';
+  try{
+   if(measured){
+    sheet.scrollTop=0;minimum=sheet.scrollTop;
+    sheet.scrollTop=scrollHeight;maximum=sheet.scrollTop;
+    // clientHeight/scrollHeight sont entiers ; scrollTop peut être fractionnaire.
+    const geometryMaximum=Math.max(0,scrollHeight-clientHeight);
+    if(minimum!==0||!Number.isFinite(maximum)||maximum<0||Math.abs(maximum-geometryMaximum)>1)
+     throw new Error('Limites de défilement incohérentes');
+    target=Math.max(minimum,Math.min(requested,maximum));
+    if(target!==requested)reason='measured-range';
+   }
+   sheet.scrollTop=target;
+   if(!ui.open&&sheet.clientHeight===0&&sheet.scrollHeight===0&&sheet.scrollTop===0&&target!==0){target=0;reason='hidden-window'}
+  }finally{sheet.style.scrollBehavior=behavior}
+  visualRestoration={policy:'bounded-scroll-v1',requested,target,actual:sheet.scrollTop,adjusted:target!==requested,reason,
+   open:ui.open,measured,clientHeight,scrollHeight,minimum,maximum,accepted:false,
+   viewport:{width:innerWidth,height:innerHeight,orientation:screen?.orientation?.type||null}};
  }
+ window.cd11290ExpectedVisual=function(snapshot,proof){
+  const expected=JSON.parse(JSON.stringify(snapshot)),requested=snapshot.ui.scroll===undefined?0:snapshot.ui.scroll;
+  if(!proof||proof.policy!=='bounded-scroll-v1'||proof.requested!==requested||proof.open!==snapshot.ui.open)
+   throw new Error('Justification de reconstruction visuelle absente');
+  let target=requested;
+  if(proof.reason==='measured-range'){
+   if(!proof.measured||!proof.open||proof.minimum!==0||!Number.isFinite(proof.maximum)||proof.clientHeight<=0||
+      Math.abs(proof.maximum-Math.max(0,proof.scrollHeight-proof.clientHeight))>1)
+    throw new Error('Justification de défilement invalide');
+   target=Math.max(0,Math.min(requested,proof.maximum));
+  }else if(proof.reason==='hidden-window'){
+   if(proof.open||proof.clientHeight!==0||proof.scrollHeight!==0||proof.actual!==0)throw new Error('Fenêtre masquée incohérente');
+   target=0;
+  }else if(proof.reason!=='exact')throw new Error('Politique de défilement inconnue');
+  if(proof.target!==target)throw new Error('Position de lecture attendue incohérente');
+  expected.ui.scroll=target;return expected;
+ };
+ window.cd11290ConfirmVisual=function(proof){
+  if(visualRestoration)visualRestoration.accepted=true;
+  const notice=document.getElementById('cd1159101Notice');
+  if(notice&&proof.adjusted){notice.textContent='Position de lecture adaptée à cet écran ('+proof.requested+' → '+proof.target+').';notice.style.display='inline-block'}
+ };
+ window.cd11290VisualStatus=()=>visualRestoration?JSON.parse(JSON.stringify(visualRestoration)):null;
  window.cd11290CaptureCore=function(){
   if(!player||!Array.isArray(map)||typeof rng?.getState!=="function")throw new Error("Run non initialisé");
   if(Number(player.hp)<=0||Number(player.san)<=0||Number(player.myth)>=100||player.cd11580Death)throw new Error("Réalité terminée");
@@ -16619,6 +16669,7 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
  };
  window.cd11290RebuildVisual=function(snapshot){
   render();writeWindow(snapshot.ui);
+  return window.cd11290VisualStatus();
  };
  window.cd11290Registry=function(){return {schema:3,modules:[...modules.keys()],active:false}};
 })();
@@ -16716,12 +16767,14 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   window.cdP0Trace?.('resume.stage.migrated',point.snapshot);
   cd11290RestoreCore(point.snapshot,{render:false});
   window.cdP0Snapshot?.('restored');
-  cd11290RebuildVisual(point.snapshot);
+  const presentation=cd11290RebuildVisual(point.snapshot);
+  const expected=window.cd11290ExpectedVisual(point.snapshot,presentation);
   const actual=cd11290CaptureCore();
-  window.cdP0Trace?.('resume.compare',{expected:point.snapshot,actual});
+  window.cdP0Trace?.('resume.compare',{requested:point.snapshot,expected,actual,presentation});
   // Comparaison intégrale : aucune exclusion et aucune tolérance à une mutation.
-  if(cd11580CanonicalJSON(actual)!==cd11580CanonicalJSON(point.snapshot))
+  if(cd11580CanonicalJSON(actual)!==cd11580CanonicalJSON(expected))
    throw new Error('Le rendu a modifié le point de reprise');
+  window.cd11290ConfirmVisual(presentation);
   window.cdP0Trace?.('resume.succeeded');lastError=null;return true;
   }catch(e){window.cdP0Trace?.('resume.failed',String(e.message||e));lastError=String(e.message||e);window.cd11580BlockCheckpoint?.();throw e}
  }
@@ -16860,7 +16913,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const resume=window.cd11350Suspension.resume;
  window.cd11350Suspension.resume=function(){const out=resume();if(out)faulted=false;return out};
  window.cd11580BlockCheckpoint=()=>{faulted=true};
- window.cd11580Status=()=>({version:'11.59.10',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
+ window.cd11580Status=()=>({version:'11.59.10.1',faulted,actionDepth:cd11580ActionDepth,rendering:cd11580Rendering,transitions:[...cd11580Transitions.keys()]});
 })();
 </script>
 
@@ -17493,7 +17546,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='V11.59.10 / AUDIT-P0-A1';
+ const BUILD='V11.59.10.1 / SCROLL-P0-CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
@@ -17502,7 +17555,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    rngState:typeof rng?.getState==='function'?rng.getState():null,battle:typeof battle==='undefined'?null:battle,
    action:typeof cd11580ActionName==='undefined'?null:cd11580ActionName,rendering:typeof cd11580Rendering==='undefined'?null:cd11580Rendering,
    viewport:{width:innerWidth,height:innerHeight,orientation:screen?.orientation?.type||null},
-   modal:{open:document.getElementById('modal')?.classList.contains('open'),display:document.getElementById('modal')?.style.display,scroll:document.getElementById('sheet')?.scrollTop}};
+   modal:{open:document.getElementById('modal')?.classList.contains('open'),display:document.getElementById('modal')?.style.display,scroll:document.getElementById('sheet')?.scrollTop,clientHeight:document.getElementById('sheet')?.clientHeight,scrollHeight:document.getElementById('sheet')?.scrollHeight}};
  }
  function diff(a,b,path='',out=[]){
   if(cd11580CanonicalJSON(a)===cd11580CanonicalJSON(b))return out;
@@ -17526,18 +17579,19 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    const name=type.slice('resume.stage.'.length);attempt.stages[name]={state:copy(data),metrics:event.metrics};
   }
   if(type==='resume.compare'&&attempt){
-   attempt.expected=copy(data.expected);attempt.actual=copy(data.actual);
+   attempt.requested=copy(data.requested||data.expected);attempt.presentation=copy(data.presentation||null);attempt.expected=copy(data.expected);attempt.actual=copy(data.actual);
    attempt.differences=diff(data.expected,data.actual);event.differences=attempt.differences;
    const restored=attempt.stages.restored?.state,rendered=attempt.stages.rendered?.state;
    attempt.stageDifferences={
-    migration:attempt.point?.snapshot?diff(attempt.point.snapshot,data.expected):[],
+    migration:attempt.point?.snapshot?diff(attempt.point.snapshot,attempt.stages.migrated?.state||attempt.requested):[],
+    presentationPolicy:diff(attempt.requested,data.expected),
     canonicalRestore:restored?diff(data.expected,restored):[],
     rendering:restored&&rendered?diff(restored,rendered):[],
     windowRebuild:rendered?diff(rendered,data.actual):[]
    };
   }
   if(type==='resume.failed'||type==='resume.succeeded'){
-   if(attempt){attempt.result=type;attempt.error=data||null;attempt.endOrder=order;lastAttempt=copy(attempt);if(type==='resume.failed'&&!firstFailure)firstFailure=copy(attempt);attempt=null;}
+   if(attempt){if(type==='resume.succeeded'&&attempt.presentation)attempt.presentation.accepted=true;attempt.result=type;attempt.error=data||null;attempt.endOrder=order;lastAttempt=copy(attempt);if(type==='resume.failed'&&!firstFailure)firstFailure=copy(attempt);attempt=null;}
   }
   if(data&&type==='san.write')event.detail=copy(data);
   if(type==='action.begin'||type==='action.end'||type==='action.failed'||type.startsWith('input.')||type==='snapshot.unavailable')event.detail=copy(data||{});
@@ -17545,7 +17599,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  }catch(_error){lost++}}
  function report(){
   const result={format:'cosmic-resume-audit-1',build:BUILD,readOnly:true,generatedAt:new Date().toISOString(),
-   notice:'Instrumentation, pas un correctif. Aucune différence n’est exclue du contrôle. Les écarts de présentation sont étiquetés, jamais tolérés automatiquement.',
+   notice:'Candidate corrective : canon intégral, UI exacte sauf cible de défilement justifiée par les limites mesurées. Les positions demandée, cible et réelle sont conservées.',
    displayedVersion:document.getElementById('sub')?.textContent,error:document.getElementById('runtimeErrorText')?.textContent,
    status:window.cd11580Status?.(),suspension:window.cd11350Suspension?.status(),metrics:metrics(),
    firstFailure,lastAttempt,inProgress:attempt,events,lostAuditEvents:lost};
@@ -17579,7 +17633,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const panel=document.getElementById('runtimeError');
  if(panel){
   const controls=document.createElement('div');controls.id='cdP0AuditControls';controls.style.cssText='margin-top:10px;border-top:1px solid #9b5964;padding-top:8px';
-  const text=document.createElement('p');text.textContent='AUDIT P0 ACTIF — diagnostic local, pas un correctif.';text.style.fontSize='12px';controls.appendChild(text);
+  const text=document.createElement('p');text.textContent='CANDIDATE SCROLL P0 — diagnostic local actif.';text.style.fontSize='12px';controls.appendChild(text);
   const button=document.createElement('button');button.type='button';button.id='cdP0Export';button.textContent='EXPORTER LE DIAGNOSTIC (.JSON)';button.style.cssText='min-height:44px;padding:8px;margin:4px 0';
   button.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();try{exportReport();text.textContent='Diagnostic généré localement. Conservez le fichier JSON ; aucune donnée du jeu n’a été effacée.'}catch(e){text.textContent='Export indisponible : '+String(e.message||e)}});
   controls.appendChild(button);panel.appendChild(controls);
