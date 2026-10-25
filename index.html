@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.10.1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.10.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -17261,19 +17261,25 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  function validatePilot(s,k,creating=false){
   if(s===undefined)return;
   const spot=p=>p&&Number.isInteger(p.x)&&Number.isInteger(p.y)&&p.x>=0&&p.x<13&&p.y>=0&&p.y<13&&Number.isInteger(p.depth)&&p.depth>=0&&p.depth<=1;
-  if(!s||s.schema!==1||s.realityId!==k.world.id||s.observerId!==k.personal.observer.id||!spot(s.site)||!spot(s.destination)||s.destination.depth!==s.site.depth||s.witness?.key!==[s.site.depth,s.site.x,s.site.y].join(':')||typeof s.witness.name!=='string'||!s.witness.name||s.id!==k.world.id+'/quay:'+s.witness.key||s.objective?.cause!==pilotCause(k.world.seed,s.witness.key)||!s.progress||![null,'material','trail'].includes(s.progress.choice)||!['inspected','asked','reached','detailed'].every(key=>typeof s.progress[key]==='boolean')||s.progress.reached&&s.progress.choice!=='trail'||!Array.isArray(s.events))throw new Error('Scène du quai incompatible');
+  if(!s||s.schema!==1||s.realityId!==k.world.id||s.observerId!==k.personal.observer.id||!spot(s.site)||!spot(s.destination)||s.destination.depth!==s.site.depth||s.witness?.key!==[s.site.depth,s.site.x,s.site.y].join(':')||typeof s.witness.name!=='string'||!s.witness.name||s.id!==k.world.id+'/quay:'+s.witness.key||s.objective?.cause!==pilotCause(k.world.seed,s.witness.key)||!s.progress||![null,'material','trail'].includes(s.progress.choice)||!['inspected','asked','reached','detailed'].every(key=>typeof s.progress[key]==='boolean')||(s.progress.confronted!==undefined&&typeof s.progress.confronted!=='boolean')||s.progress.reached&&s.progress.choice!=='trail'||!Array.isArray(s.events))throw new Error('Scène du quai incompatible');
   if(s.site.x===s.destination.x&&s.site.y===s.destination.y)throw new Error('Destination du quai incompatible');
   const seen=new Set();let previous=0;
   for(const e of s.events){
    const o=k.personal.observations[e?.observationId];
-   if(!e||!['start','inspect','ask','material','trail','arrive','detail'].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront'].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(e.action==='confront'&&(e.knowledge?.material!==s.events.find(x=>x.action==='inspect')?.observationId||e.knowledge?.witness!==s.events.find(x=>x.action==='ask')?.observationId||!s.events.some(x=>x.action==='inspect'&&x.causalOrder<e.causalOrder)||!s.events.some(x=>x.action==='ask'&&x.causalOrder<e.causalOrder)))throw new Error('Confrontation du quai sans sources personnelles');
+   // Les sources nouvelles voyagent avec l'observation consignée ; les archives antérieures restent intactes.
+   if(e.action==='confront'&&o.provenance.basis!==undefined){
+    const basis=o.provenance.basis;
+    if(!basis||!same(basis.material,resolveObservation(k,e.knowledge.material))||!same(basis.witness,resolveObservation(k,e.knowledge.witness)))throw new Error('Sources documentaires de confrontation du quai incompatibles');
+   }
    if(e.action==='ask'){
     const source=e.knowledge,observed=source?.kind==='direct'?resolveObservation(k,source.id):source?.kind==='indirect'?resolveAcquisition(k,source.id)?.sourceSnapshot.observation:null;
     if(!pilotRelevant(observed))throw new Error('Provenance de question du quai incompatible');
    }
    seen.add(e.action);previous=e.causalOrder;
   }
-  if(!creating&&(s.events[0]?.action!=='start'||s.progress.inspected!==seen.has('inspect')||s.progress.asked!==seen.has('ask')||s.progress.reached!==seen.has('arrive')||s.progress.detailed!==seen.has('detail')||s.progress.detailed&&s.progress.choice!=='material'||seen.has('material')&&seen.has('trail')||s.progress.choice!==(seen.has('material')?'material':seen.has('trail')?'trail':null)))throw new Error('Progression du quai incompatible');
+  if(!creating&&(s.events[0]?.action!=='start'||s.progress.inspected!==seen.has('inspect')||s.progress.asked!==seen.has('ask')||s.progress.reached!==seen.has('arrive')||s.progress.detailed!==seen.has('detail')||!!s.progress.confronted!==seen.has('confront')||s.progress.detailed&&s.progress.choice!=='material'||seen.has('material')&&seen.has('trail')||s.progress.choice!==(seen.has('material')?'material':seen.has('trail')?'trail':null)))throw new Error('Progression du quai incompatible');
  }
  function pilotRelevant(o){return o?.type==='quay_material_exam'&&o.subject?.id===PILOT_SUBJECT&&o.links?.phenomenon===PILOT_SUBJECT&&o.provenance?.kind==='direct_observation'}
  function pilotKnowledge(k){
@@ -17292,9 +17298,9 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const point=quest||floors[0];return point?{...point,depth:Number(player.depth)}:null;
  }
  function pilotOnOrigin(){return pilotAlive()&&pilotAt(pilotScene()?.site)}
- function pilotRecord(s,action,type,text,kind='direct_observation'){
+ function pilotRecord(s,action,type,text,kind='direct_observation',documentarySource={}){
   const id=record({type,subject:{kind:'phenomenon',id:PILOT_SUBJECT,label:'Traces sous la bâche du quai'},statement:text,
-   provenance:{kind,event:'quay_'+action,sceneId:s.id,sourceId:kind==='testimony'?s.witness.key:s.id,sourceName:kind==='testimony'?s.witness.name:'Trace matérielle du quai',choice:s.progress.choice},
+   provenance:{kind,event:'quay_'+action,sceneId:s.id,sourceId:kind==='testimony'?s.witness.key:s.id,sourceName:kind==='testimony'?s.witness.name:'Trace matérielle du quai',choice:s.progress.choice,...clone(documentarySource)},
    unknownConditions:['contenu_de_la_caisse','identite_du_responsable','portee_dans_une_autre_realite'],links:{place:s.id,npc:s.witness.key,phenomenon:PILOT_SUBJECT}},s.id+':'+action);
   s.events.push({action,observationId:id,causalOrder:ensure().causalOrder});return id;
  }
@@ -17304,7 +17310,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const destination=pilotDestination();if(!destination)return false;
   const key=player.npc.cd11080Key,s={schema:1,id:k.world.id+'/quay:'+key,realityId:k.world.id,observerId:k.personal.observer.id,
    site:{x:px,y:py,depth:player.depth},destination,witness:{key,name:String(player.npc.name),role:String(player.npc.role||'Habitant')},
-   objective:{cause:pilotCause(k.world.seed,key)},progress:{choice:null,inspected:false,asked:false,reached:false,detailed:false},events:[]};
+   objective:{cause:pilotCause(k.world.seed,key)},progress:{choice:null,inspected:false,asked:false,reached:false,detailed:false,confronted:false},events:[]};
   validatePilot(s,k,true);player.cd115910Scene=s;
   pilotRecord(s,'start','quay_witness_report',s.witness.name+' rapporte : « La caisse a glissé avec la marée. Je n’ai vu personne la tirer. » Ce témoin n’a pas forcément vu tout le quai.','testimony');
   validatePilot(s,k);pilotDraw();return s.id;
@@ -17327,6 +17333,13 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
     const source=pilotKnowledge(k);if(s.progress.asked||!source)return false;s.progress.asked=true;
     pilotRecord(s,action,'quay_witness_detail',s.witness.name+' précise : « J’étais sous l’auvent. La bâche cachait mes pieds et je ne voyais pas l’entrée du passage. J’ai dit la marée parce que c’était l’heure. » Sa première explication reste un témoignage, pas une conclusion.'+(s.progress.detailed?' À propos du relevé préservé, il ajoute : « Des bâches neuves ont été déposées près du passage. Je ne sais pas qui les a apportées. »':''), 'testimony');
     s.events.at(-1).knowledge=source;
+   }else if(action==='confront'){
+    if(s.progress.confronted||!s.progress.inspected||!s.progress.asked)return false;
+    const material=s.events.find(e=>e.action==='inspect')?.observationId,witness=s.events.find(e=>e.action==='ask')?.observationId;
+    if(!material||!witness||!resolveObservation(k,material)||!resolveObservation(k,witness))return false;
+    s.progress.confronted=true;
+    pilotRecord(s,action,'quay_witness_detail',s.witness.name+' regarde le relevé et reconnaît : « Je n’ai pas vu la caisse bouger. J’ai seulement supposé que la marée l’avait déplacée. » Cette réponse précise les limites de son témoignage ; elle ne prouve pas la cause du déplacement.','testimony',{basis:{material:resolveObservation(k,material),witness:resolveObservation(k,witness)}});
+    s.events.at(-1).knowledge={material,witness};
    }else if(action==='material'){
     if(s.progress.choice!==null)return false;s.progress.choice='material';
     pilotRecord(s,action,'quay_scene_action','L’enquêteur cale le bord de la bâche pour préserver l’empreinte. Le témoin reprend son poste : le trajet accompagné est abandonné. La trace demeure examinable.');
@@ -17349,6 +17362,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    if(p.inspected){const id=s.events.find(e=>e.action==='inspect')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'L’inspection est conservée dans vos observations.')+'</p>'}
    body+='<div class="grid2">'+button('inspect',p.inspected?'AMARRAGE DÉJÀ EXAMINÉ':'EXAMINER L’AMARRAGE',p.inspected||p.choice==='trail')+button('ask',p.asked?'PRÉCISION DÉJÀ RECUEILLIE':'QUESTIONNER SUR L’AMARRAGE',p.asked||!known)+'</div>';
    if(!known&&!p.asked)body+='<p class="small">Pour une question précise : examinez directement l’amarrage, ou étudiez un récit matériel pertinent déjà consigné. Une simple lecture ne suffit pas.</p>';
+   if(p.inspected&&p.asked){body+='<p>'+button('confront',p.confronted?'TÉMOIGNAGE DÉJÀ CONFRONTÉ':'CONFRONTER CALMEMENT LES DEUX RÉCITS',!!p.confronted)+'</p>';if(p.confronted){const id=s.events.find(e=>e.action==='confront')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'La réponse du témoin est conservée parmi vos observations.')+'</p>'}}
    if(p.choice===null)body+='<p><b>Quel suivi privilégier ?</b> Préserver la trace permet un relevé fin, inaccessible après le passage des bottes ; suivre le témoin permet de vérifier un passage mais détruit ce relevé fin. Ce choix ne déclare aucun récit vrai.</p><div class="grid2">'+button('material','PRÉSERVER L’EMPREINTE')+button('trail','SUIVRE LE TRAJET DU TÉMOIN')+'</div>';
    else body+='<p><b>'+(p.choice==='material'?'Empreinte préservée. Vous pouvez encore examiner l’amarrage ; le trajet accompagné est abandonné.':'Trajet privilégié. L’empreinte initiale est brouillée ; rejoignez le passage cerclé sur la carte pour le vérifier.')+'</b></p>';
    if(p.choice==='material'){
@@ -17546,7 +17560,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='V11.59.10.1 / SCROLL-P0-CANDIDATE';
+ const BUILD='V11.59.10.2 / QUAY-CONFRONT-AUDITED-CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
