@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.10.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.10.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -17266,7 +17266,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const seen=new Set();let previous=0;
   for(const e of s.events){
    const o=k.personal.observations[e?.observationId];
-   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront',...MEMORY_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront','cordage-check',...MEMORY_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
    if(e.action==='confront'&&(e.knowledge?.material!==s.events.find(x=>x.action==='inspect')?.observationId||e.knowledge?.witness!==s.events.find(x=>x.action==='ask')?.observationId||!s.events.some(x=>x.action==='inspect'&&x.causalOrder<e.causalOrder)||!s.events.some(x=>x.action==='ask'&&x.causalOrder<e.causalOrder)))throw new Error('Confrontation du quai sans sources personnelles');
    // Les sources nouvelles voyagent avec l'observation consignée ; les archives antérieures restent intactes.
    if(e.action==='confront'&&o.provenance.basis!==undefined){
@@ -17280,6 +17280,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    seen.add(e.action);previous=e.causalOrder;
   }
   validatePilotMemory(s,k);
+  validatePilotCordage(s,k);
   if(!creating&&(s.events[0]?.action!=='start'||s.progress.inspected!==seen.has('inspect')||s.progress.asked!==seen.has('ask')||s.progress.reached!==seen.has('arrive')||s.progress.detailed!==seen.has('detail')||!!s.progress.confronted!==seen.has('confront')||s.progress.detailed&&s.progress.choice!=='material'||seen.has('material')&&seen.has('trail')||s.progress.choice!==(seen.has('material')?'material':seen.has('trail')?'trail':null)))throw new Error('Progression du quai incompatible');
  }
  // V11.59.10.3 — mémoire locale optionnelle. Aucune initialisation en lecture.
@@ -17361,6 +17362,47 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   return html+'</div>';
  }
 
+ // V11.59.10.4 — état physique local, uniquement matérialisé par une action.
+ // Les deux configurations sont déjà décrites par l'inspection .10 (nœud desserré / corde tendue).
+ // Le contrôle porte sur une traction actuelle, jamais sur la cause passée.
+ function pilotCordageBefore(s){return {knot:s.objective.cause==='cart'?'loose':'taut',tarpBraced:s.progress.choice==='material',fineTrace:s.progress.choice==='material'?'recorded_preserved':'previously_disturbed',intervention:'none'}}
+ function pilotCordageAfter(s){return {...pilotCordageBefore(s),tarpBraced:false,knot:'tested',fineTrace:s.progress.choice==='material'?'recorded_disturbed_by_test':'previously_disturbed',intervention:'single_controlled_pull',freshMark:'investigator_friction_mark'}}
+ function pilotCordageSources(s,k){
+  const get=a=>{const e=s.events.find(e=>e.action===a);return e?resolveObservation(k,e.observationId):null};
+  const inspection=get('inspect'),material=pilotMaterial(s,k),witness=get('ask');
+  if(!inspection||!material||!witness||!pilotRelevant(inspection)||witness.provenance.kind!=='testimony')return null;
+  return {inspection:clone(inspection),material:clone(material),witness:clone(witness),declarations:s.events.map(e=>resolveObservation(k,e.observationId)).filter(o=>o?.provenance.kind==='testimony').map(clone)};
+ }
+ function pilotCordageExperiment(s,k,beforeOrder=Infinity){
+  // Figer le contexte au moment du contrôle, même si une déclaration est recueillie ensuite.
+  const earlier={...s,events:s.events.filter(e=>e.causalOrder<beforeOrder)};
+  return {protocol:'single_controlled_pull_v1',conditions:{temporaryBraceRemoved:s.progress.choice==='material',traction:'manual_limited',waterForce:'not_measured'},actor:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},sceneId:s.id,
+   basis:pilotCordageSources(earlier,k),before:pilotCordageBefore(s),after:pilotCordageAfter(s),
+   result:s.objective.cause==='cart'?'slack_taken_up_no_tarp_motion':'tension_moves_tarp_salt_arc',
+   comparison:'compatibility_to_examine_not_past_cause',witnessInformed:false};
+ }
+ function validatePilotCordage(s,k){
+  const e=s.events.find(e=>e.action==='cordage-check'),c=s.cordageCheck;
+  if(c===undefined){if(e)throw new Error('Contrôle du cordage absent');return}
+  const expected=e&&pilotCordageExperiment(s,k,e.causalOrder),o=e&&resolveObservation(k,e.observationId);
+  if(!e||!expected.basis||!c||c.schema!==1||c.observationId!==e.observationId||c.causalOrder!==e.causalOrder||!same(c.experiment,expected)||o.type!=='quay_cordage_check'||o.provenance.kind!=='direct_observation'||!same(o.provenance.experiment,expected))throw new Error('Contrôle du cordage incompatible');
+ }
+ function pilotCordageAct(s,k){
+  if(s.cordageCheck||s.events.some(e=>e.action==='cordage-check')||!pilotCordageSources(s,k))return false;
+  const experiment=pilotCordageExperiment(s,k),motion=experiment.result==='tension_moves_tarp_salt_arc';
+  const text='L’enquêteur effectue une seule traction contrôlée sur le cordage, en retirant le calage éventuel, sans ouvrir la caisse. '+(motion?'La tension se transmet à la bâche : son bord bouge et les fibres tracent un arc neuf dans le sel.':'Le nœud desserré absorbe la traction : la bâche ne se déplace pas ; une marque de frottement neuve apparaît au nœud.')+(s.progress.choice==='material'?' Le calage et le relevé antérieur sont documentés ; la manipulation brouille désormais la trace fine sur place.':' Le passage avait déjà brouillé la trace fine ; cette marque supplémentaire provient de l’essai.')+' Ce résultat actuel permet de comparer le relevé au récit de la marée, sans établir ce qui a déplacé la caisse auparavant. Martha n’a pas reçu ce résultat.';
+  const id=pilotRecord(s,'cordage-check','quay_cordage_check',text,'direct_observation',{experiment});
+  s.cordageCheck={schema:1,observationId:id,causalOrder:k.causalOrder,experiment:clone(experiment)};return true;
+ }
+ function pilotCordagePanel(s,k,button){
+  const c=s.cordageCheck,eligible=!!pilotCordageSources(s,k);
+  let html='<div class="entry"><b>CONTRE-VÉRIFIER LE CORDAGE</b><p>Conserver le relevé sans manipuler laisse la trace en place. Retirer le calage éventuel puis effectuer une traction contrôlée peut éprouver le comportement actuel du cordage, mais laisse une marque nouvelle et brouille la trace fine. Elle ne reconstitue pas la cause passée et ne communique rien à Martha.</p>';
+  html+='<p>'+button('cordage-check',c?'CORDAGE DÉJÀ CONTRE-VÉRIFIÉ':'EFFECTUER UNE TRACTION CONTRÔLÉE',!!c||!eligible)+'</p>';
+  if(!eligible&&!c)html+='<p class="small">Il faut avoir personnellement examiné l’amarrage, relevé l’empreinte fine ou le passage, puis recueilli les précisions du témoin. Lire des archives ne remplace pas ces constats locaux.</p>';
+  if(c)html+='<p>'+esc(k.personal.observations[c.observationId]?.statement||'Le contrôle est conservé dans vos observations.')+'</p><p class="small">Observation personnelle disponible pour une hypothèse ou une révision volontaire. Consignation facultative dans le diagnostic de connaissance. Les anciennes déclarations et le relevé original restent intacts.</p>';
+  return html+'</div>';
+ }
+
  function pilotRelevant(o){return o?.type==='quay_material_exam'&&o.subject?.id===PILOT_SUBJECT&&o.links?.phenomenon===PILOT_SUBJECT&&o.provenance?.kind==='direct_observation'}
  function pilotKnowledge(k){
   const relevant=pilotRelevant;
@@ -17404,7 +17446,9 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Dans le passage indiqué, deux marques de roues se prolongent sous un auvent ; aucun contenu de caisse n’est visible.':'Dans le passage indiqué, l’eau salée s’arrête au seuil. Une corde mouillée relie encore la bâche au pieu du quai ; rien n’explique le contenu de la caisse.');
   }else{
    if(!pilotAt(s.site))return false;
-   if(MEMORY_ACTIONS.includes(action)){
+   if(action==='cordage-check'){
+    if(!pilotCordageAct(s,k))return false;
+   }else if(MEMORY_ACTIONS.includes(action)){
     if(!pilotMemoryAct(s,k,action))return false;
    }else if(action==='inspect'){
     if(s.progress.inspected||s.progress.choice==='trail')return false;s.progress.inspected=true;
@@ -17442,17 +17486,18 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(pilotAt(s.site)){
    body+='<p>Une bâche recouvre une caisse. Un sillon traverse le dépôt salé vers le passage. '+esc(s.witness.name)+' affirme : « La caisse a glissé avec la marée. Je n’ai vu personne la tirer. »</p>';
    if(p.asked)body+='<p><b>Le témoin a précisé sa position :</b> sous l’auvent, il ne voyait pas l’entrée du passage. Son explication reste à examiner.</p>';
-   if(p.inspected){const id=s.events.find(e=>e.action==='inspect')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'L’inspection est conservée dans vos observations.')+'</p>'}
+   if(p.inspected){const id=s.events.find(e=>e.action==='inspect')?.observationId;body+='<p><small>EXAMEN INITIAL CONSERVÉ</small><br>'+esc(k.personal.observations[id]?.statement||'L’inspection est conservée dans vos observations.')+'</p>'}
    body+='<div class="grid2">'+button('inspect',p.inspected?'AMARRAGE DÉJÀ EXAMINÉ':'EXAMINER L’AMARRAGE',p.inspected||p.choice==='trail')+button('ask',p.asked?'PRÉCISION DÉJÀ RECUEILLIE':'QUESTIONNER SUR L’AMARRAGE',p.asked||!known)+'</div>';
    if(!known&&!p.asked)body+='<p class="small">Pour une question précise : examinez directement l’amarrage, ou étudiez un récit matériel pertinent déjà consigné. Une simple lecture ne suffit pas.</p>';
    if(p.inspected&&p.asked){body+='<p>'+button('confront',p.confronted?'TÉMOIGNAGE DÉJÀ CONFRONTÉ':'CONFRONTER CALMEMENT LES DEUX RÉCITS',!!p.confronted)+'</p>';if(p.confronted){const id=s.events.find(e=>e.action==='confront')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'La réponse du témoin est conservée parmi vos observations.')+'</p>'}}
    if(p.choice===null)body+='<p><b>Quel suivi privilégier ?</b> Préserver la trace permet un relevé fin, inaccessible après le passage des bottes ; suivre le témoin permet de vérifier un passage mais détruit ce relevé fin. Ce choix ne déclare aucun récit vrai.</p><div class="grid2">'+button('material','PRÉSERVER L’EMPREINTE')+button('trail','SUIVRE LE TRAJET DU TÉMOIN')+'</div>';
-   else body+='<p><b>'+(p.choice==='material'?'Empreinte préservée. Vous pouvez encore examiner l’amarrage ; le trajet accompagné est abandonné.':'Trajet privilégié. L’empreinte initiale est brouillée ; rejoignez le passage cerclé sur la carte pour le vérifier.')+'</b></p>';
+   else body+='<p><b>'+(s.cordageCheck?'Cordage manipulé : une marque de votre essai est désormais présente. Le relevé antérieur reste conservé, sans restaurer la trace fine sur place.':p.choice==='material'?'Empreinte préservée. Vous pouvez encore examiner l’amarrage ; le trajet accompagné est abandonné.':'Trajet privilégié. L’empreinte initiale est brouillée ; rejoignez le passage cerclé sur la carte pour le vérifier.')+'</b></p>';
    if(p.choice==='material'){
     body+='<p>'+button('detail',p.detailed?'EMPREINTE FINE DÉJÀ RELEVÉE':'EXAMINER L’EMPREINTE PRÉSERVÉE',p.detailed)+'</p>';
-    if(p.detailed){const id=s.events.find(e=>e.action==='detail')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'Le relevé fin est conservé dans vos observations.')+'</p>'}
+    if(p.detailed){const id=s.events.find(e=>e.action==='detail')?.observationId;body+='<p><small>RELEVÉ ANTÉRIEUR CONSERVÉ</small><br>'+esc(k.personal.observations[id]?.statement||'Le relevé fin est conservé dans vos observations.')+'</p>'}
    }
    body+=pilotMemoryPanel(s,k,button);
+   body+=pilotCordagePanel(s,k,button);
    body+='<p>'+button('archives','CONSULTER LES RÉCITS DU QUAI')+'</p>';
    if(pilotArchives){
     const entries=Object.values(book.entries).filter(e=>e.observation.type==='quay_material_exam'&&e.observation.subject.id===PILOT_SUBJECT);
@@ -17644,7 +17689,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='V11.59.10.3 / WITNESS-MEMORY-CANDIDATE';
+ const BUILD='V11.59.10.4 / CORDAGE-CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
