@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.10.2 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.10.3 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -17266,7 +17266,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const seen=new Set();let previous=0;
   for(const e of s.events){
    const o=k.personal.observations[e?.observationId];
-   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront'].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront',...MEMORY_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
    if(e.action==='confront'&&(e.knowledge?.material!==s.events.find(x=>x.action==='inspect')?.observationId||e.knowledge?.witness!==s.events.find(x=>x.action==='ask')?.observationId||!s.events.some(x=>x.action==='inspect'&&x.causalOrder<e.causalOrder)||!s.events.some(x=>x.action==='ask'&&x.causalOrder<e.causalOrder)))throw new Error('Confrontation du quai sans sources personnelles');
    // Les sources nouvelles voyagent avec l'observation consignée ; les archives antérieures restent intactes.
    if(e.action==='confront'&&o.provenance.basis!==undefined){
@@ -17279,8 +17279,88 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    }
    seen.add(e.action);previous=e.causalOrder;
   }
+  validatePilotMemory(s,k);
   if(!creating&&(s.events[0]?.action!=='start'||s.progress.inspected!==seen.has('inspect')||s.progress.asked!==seen.has('ask')||s.progress.reached!==seen.has('arrive')||s.progress.detailed!==seen.has('detail')||!!s.progress.confronted!==seen.has('confront')||s.progress.detailed&&s.progress.choice!=='material'||seen.has('material')&&seen.has('trail')||s.progress.choice!==(seen.has('material')?'material':seen.has('trail')?'trail':null)))throw new Error('Progression du quai incompatible');
  }
+ // V11.59.10.3 — mémoire locale optionnelle. Aucune initialisation en lecture.
+ const MEMORY_ACTIONS=['memory-recall','memory-share','memory-react'];
+ function pilotMaterial(s,k){
+  const event=s.events.find(e=>e.action==='detail')||s.events.find(e=>e.action==='arrive');
+  const o=event&&resolveObservation(k,event.observationId);
+  return pilotRelevant(o)&&o.provenance.sceneId===s.id&&o.links.place===s.id?o:null;
+ }
+ function pilotWitnessContext(s,k,before=Infinity){
+  const m=s.witnessMemory,material=pilotMaterial(s,k),earlier=s.events.filter(e=>e.causalOrder<before);
+  const declarations=earlier.map(e=>resolveObservation(k,e.observationId)).filter(o=>o?.provenance.kind==='testimony');
+  const exposures=[];
+  for(const e of earlier){
+   if(e.action==='confront'){
+    const o=resolveObservation(k,e.knowledge?.material);if(o)exposures.push({channel:'confrontation_initiale',status:'releve_initial_presente',observation:clone(o),causalOrder:e.causalOrder});
+   }
+   if(e.action==='ask'){
+    const d=earlier.find(x=>x.action==='detail'&&x.causalOrder<e.causalOrder);
+    if(d)exposures.push({channel:'ancienne_question_contextuelle',status:'etendue_non_documentee',observation:clone(resolveObservation(k,d.observationId)),causalOrder:e.causalOrder});
+   }
+  }
+  const received=(m?.received||[]).filter(x=>x.causalOrder<before);
+  const relation=received.length?'after_explicit_disclosure':exposures.some(x=>x.observation?.id===material?.id)?'prior_context_uncertain':'before_explicit_disclosure';
+  return {witness:clone(s.witness),reality:{id:k.world.id,seed:k.world.seed},
+   firsthandExperience:{status:'not_independently_documented',observations:[]},
+   priorDeclarations:clone(declarations),priorMaterialExposure:exposures,communications:clone(received),materialUnderDiscussion:clone(material),
+   relationToMaterial:relation,independentCorroboration:false};
+ }
+ function validatePilotMemory(s,k){
+  const events=s.events.filter(e=>MEMORY_ACTIONS.includes(e.action)),m=s.witnessMemory;
+  if(m===undefined){if(events.length)throw new Error('Mémoire du quai absente');return}
+  const material=pilotMaterial(s,k),share=events.find(e=>e.action==='memory-share'),recall=events.find(e=>e.action==='memory-recall'),react=events.find(e=>e.action==='memory-react');
+  if(!m||m.schema!==1||m.sceneId!==s.id||m.realityId!==k.world.id||!same(m.witness,s.witness)||m.investigatorId!==k.personal.observer.id||!material||m.materialId!==material.id||m.startedAt!==events[0]?.causalOrder||!same(m.firsthandExperience,{status:'not_independently_documented',observations:[]})||!Array.isArray(m.received)||!Array.isArray(m.statements)||!Array.isArray(m.deductions))throw new Error('Mémoire locale du quai incompatible');
+  const receives=[];if(share)receives.push({observationId:share.observationId,source:clone(material),from:clone(k.personal.observer),to:clone(s.witness),reality:{id:k.world.id,seed:k.world.seed},causalOrder:share.causalOrder});
+  if(!same(m.received,receives)||recall&&share&&recall.causalOrder>share.causalOrder||react&&(!share||react.causalOrder<share.causalOrder))throw new Error('Ordre de transmission du quai incompatible');
+  const statements=events.filter(e=>e.action!=='memory-share').map(e=>({observationId:e.observationId,causalOrder:e.causalOrder,mode:e.action==='memory-recall'?'before_disclosure':'after_disclosure'}));
+  const deductions=react?[{observationId:react.observationId,basedOn:share.observationId,status:'supposition_du_temoin'}]:[];
+  if(!same(m.statements,statements)||!same(m.deductions,deductions))throw new Error('Déclarations du quai incompatibles');
+  for(const e of s.events){
+   const o=resolveObservation(k,e.observationId);if(e.causalOrder<m.startedAt)continue;
+   if(o.provenance.kind==='testimony'||MEMORY_ACTIONS.includes(e.action)){
+    if(!same(o.provenance.witnessContext,pilotWitnessContext(s,k,e.causalOrder)))throw new Error('Provenance de mémoire du quai incompatible');
+   }
+   if(e.action==='memory-share'){
+    if(o.type!=='quay_material_transmission'||o.provenance.kind!=='direct_observation'||!same(o.provenance.communication,receives[0]))throw new Error('Transmission du quai incompatible');
+   }else if(e.action==='memory-recall'||e.action==='memory-react'){
+    if(o.type!=='quay_witness_memory'||o.provenance.kind!=='testimony'||o.provenance.sourceId!==s.witness.key||o.provenance.sourceName!==s.witness.name)throw new Error('Réponse du quai incompatible');
+    if(e.action==='memory-react'&&!same(o.provenance.deduction,deductions[0]))throw new Error('Déduction du quai incompatible');
+   }
+  }
+ }
+ function pilotMemoryAct(s,k,action){
+  const material=pilotMaterial(s,k),old=s.witnessMemory;
+  if(!material||action==='memory-recall'&&(old?.received.length||s.events.some(e=>e.action===action))||action==='memory-share'&&old?.received.length||action==='memory-react'&&(!old?.received.length||s.events.some(e=>e.action===action)))return false;
+  const m=s.witnessMemory||={schema:1,sceneId:s.id,realityId:k.world.id,witness:clone(s.witness),investigatorId:k.personal.observer.id,materialId:material.id,startedAt:k.causalOrder+1,firsthandExperience:{status:'not_independently_documented',observations:[]},received:[],statements:[],deductions:[]};
+  const before=pilotWitnessContext(s,k);
+  if(action==='memory-share'){
+   const communication={observationId:k.world.id+'/observation:'+(k.causalOrder+1),source:clone(material),from:clone(k.personal.observer),to:clone(s.witness),reality:{id:k.world.id,seed:k.world.seed},causalOrder:k.causalOrder+1};
+   pilotRecord(s,action,'quay_material_transmission',k.personal.observer.name+' montre volontairement à '+s.witness.name+' le relevé : « '+material.statement+' » Cette communication ne transforme pas le relevé en souvenir vécu par le témoin.','direct_observation',{sourceId:k.personal.observer.id,sourceName:k.personal.observer.name,witnessContext:before,communication});
+   m.received.push(communication);
+  }else{
+   const after=action==='memory-react',order=k.causalOrder+1,id=k.world.id+'/observation:'+order;
+   const deduction=after?{observationId:id,basedOn:m.received[0].observationId,status:'supposition_du_temoin'}:null;
+   const text=after?s.witness.name+' répond : « Ce doute vient du relevé que vous m’avez montré, pas d’une scène que j’aurais vue. Je ne peux pas présenter mon explication de la marée comme un fait observé. » Cette interprétation dépend de l’information reçue ; ce n’est pas une corroboration indépendante.':s.witness.name+' répond avant cette transmission explicite : « Je n’ai pas vu le déplacement ; mon explication restait une supposition. Je peux seulement redire le point de vue que je vous ai décrit. »'+(before.relationToMaterial==='prior_context_uncertain'?' Le même relevé avait déjà été évoqué : l’indépendance de cette réponse n’est pas établie.':' La réponse précède la présentation de ce relevé précis ; elle ne constitue pas une nouvelle preuve indépendante.');
+   pilotRecord(s,action,'quay_witness_memory',text,'testimony',{witnessContext:before,...(after?{deduction}: {})});
+   m.statements.push({observationId:id,causalOrder:order,mode:after?'after_disclosure':'before_disclosure'});if(after)m.deductions.push(deduction);
+  }
+  return true;
+ }
+ function pilotMemoryPanel(s,k,button){
+  const material=pilotMaterial(s,k);if(!material)return '';
+  const m=s.witnessMemory,shared=!!m?.received.length,asked=s.events.some(e=>e.action==='memory-recall'),reacted=s.events.some(e=>e.action==='memory-react');
+  let html='<div class="entry"><b>LE RELEVÉ ET LE TÉMOIN</b><p>Vous disposez d’un relevé précis. Vous pouvez interroger le témoin sans le montrer, ou le lui communiquer. Après révélation, sa réaction dépendra de cette information ; une réponse antérieure ne pourra plus être recueillie.</p>';
+  if(s.progress.confronted)html+='<p class="small">L’examen initial de l’amarrage a déjà été confronté. Cette proposition concerne le relevé plus précis obtenu ensuite ; les anciennes déclarations restent conservées.</p>';
+  html+='<p>'+esc(material.statement)+'</p><div class="grid2">'+button('memory-recall',shared?'RÉPONSE ANTÉRIEURE INACCESSIBLE':asked?'RÉPONSE ANTÉRIEURE RECUEILLIE':'INTERROGER SANS MONTRER CE RELEVÉ',shared||asked)+button('memory-share',shared?'RELEVÉ DÉJÀ COMMUNIQUÉ':'MONTRER CE RELEVÉ',shared)+'</div>';
+  if(shared)html+='<p>'+button('memory-react',reacted?'RÉACTION DÉJÀ RECUEILLIE':'RECUEILLIR SA RÉACTION AU RELEVÉ',reacted)+'</p><p class="small">Le témoin connaît maintenant ce relevé par votre transmission. Sa réaction ne sera pas une confirmation indépendante.</p>';
+  for(const e of s.events.filter(e=>e.action==='memory-recall'||e.action==='memory-react'))html+='<p>'+esc(k.personal.observations[e.observationId]?.statement||'')+'</p>';
+  return html+'</div>';
+ }
+
  function pilotRelevant(o){return o?.type==='quay_material_exam'&&o.subject?.id===PILOT_SUBJECT&&o.links?.phenomenon===PILOT_SUBJECT&&o.provenance?.kind==='direct_observation'}
  function pilotKnowledge(k){
   const relevant=pilotRelevant;
@@ -17299,6 +17379,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  }
  function pilotOnOrigin(){return pilotAlive()&&pilotAt(pilotScene()?.site)}
  function pilotRecord(s,action,type,text,kind='direct_observation',documentarySource={}){
+  if(kind==='testimony'&&s.witnessMemory)documentarySource={witnessContext:pilotWitnessContext(s,ensure()),...documentarySource};
   const id=record({type,subject:{kind:'phenomenon',id:PILOT_SUBJECT,label:'Traces sous la bâche du quai'},statement:text,
    provenance:{kind,event:'quay_'+action,sceneId:s.id,sourceId:kind==='testimony'?s.witness.key:s.id,sourceName:kind==='testimony'?s.witness.name:'Trace matérielle du quai',choice:s.progress.choice,...clone(documentarySource)},
    unknownConditions:['contenu_de_la_caisse','identite_du_responsable','portee_dans_une_autre_realite'],links:{place:s.id,npc:s.witness.key,phenomenon:PILOT_SUBJECT}},s.id+':'+action);
@@ -17323,7 +17404,9 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Dans le passage indiqué, deux marques de roues se prolongent sous un auvent ; aucun contenu de caisse n’est visible.':'Dans le passage indiqué, l’eau salée s’arrête au seuil. Une corde mouillée relie encore la bâche au pieu du quai ; rien n’explique le contenu de la caisse.');
   }else{
    if(!pilotAt(s.site))return false;
-   if(action==='inspect'){
+   if(MEMORY_ACTIONS.includes(action)){
+    if(!pilotMemoryAct(s,k,action))return false;
+   }else if(action==='inspect'){
     if(s.progress.inspected||s.progress.choice==='trail')return false;s.progress.inspected=true;
     pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Sous le bord de la bâche, deux stries parallèles et régulières coupent les dépôts salés. La corde porte un nœud desserré. L’auteur du passage n’a pas été vu.':'Sous le bord de la bâche, la corde tendue porte du sel frais. Lorsque l’eau tire sur elle, le tissu bouge ; aucune marque régulière de roues ne se distingue.');
    }else if(action==='detail'){
@@ -17369,6 +17452,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
     body+='<p>'+button('detail',p.detailed?'EMPREINTE FINE DÉJÀ RELEVÉE':'EXAMINER L’EMPREINTE PRÉSERVÉE',p.detailed)+'</p>';
     if(p.detailed){const id=s.events.find(e=>e.action==='detail')?.observationId;body+='<p>'+esc(k.personal.observations[id]?.statement||'Le relevé fin est conservé dans vos observations.')+'</p>'}
    }
+   body+=pilotMemoryPanel(s,k,button);
    body+='<p>'+button('archives','CONSULTER LES RÉCITS DU QUAI')+'</p>';
    if(pilotArchives){
     const entries=Object.values(book.entries).filter(e=>e.observation.type==='quay_material_exam'&&e.observation.subject.id===PILOT_SUBJECT);
@@ -17560,7 +17644,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='V11.59.10.2 / QUAY-CONFRONT-AUDITED-CANDIDATE';
+ const BUILD='V11.59.10.3 / WITNESS-MEMORY-CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
