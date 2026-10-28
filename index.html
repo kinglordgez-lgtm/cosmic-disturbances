@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.10.4 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.10.5 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -17266,7 +17266,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const seen=new Set();let previous=0;
   for(const e of s.events){
    const o=k.personal.observations[e?.observationId];
-   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront','cordage-check',...MEMORY_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront','cordage-check','cordage-share','cordage-react',...MEMORY_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
    if(e.action==='confront'&&(e.knowledge?.material!==s.events.find(x=>x.action==='inspect')?.observationId||e.knowledge?.witness!==s.events.find(x=>x.action==='ask')?.observationId||!s.events.some(x=>x.action==='inspect'&&x.causalOrder<e.causalOrder)||!s.events.some(x=>x.action==='ask'&&x.causalOrder<e.causalOrder)))throw new Error('Confrontation du quai sans sources personnelles');
    // Les sources nouvelles voyagent avec l'observation consignée ; les archives antérieures restent intactes.
    if(e.action==='confront'&&o.provenance.basis!==undefined){
@@ -17281,6 +17281,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   }
   validatePilotMemory(s,k);
   validatePilotCordage(s,k);
+  validatePilotCordageDialogue(s,k);
   if(!creating&&(s.events[0]?.action!=='start'||s.progress.inspected!==seen.has('inspect')||s.progress.asked!==seen.has('ask')||s.progress.reached!==seen.has('arrive')||s.progress.detailed!==seen.has('detail')||!!s.progress.confronted!==seen.has('confront')||s.progress.detailed&&s.progress.choice!=='material'||seen.has('material')&&seen.has('trail')||s.progress.choice!==(seen.has('material')?'material':seen.has('trail')?'trail':null)))throw new Error('Progression du quai incompatible');
  }
  // V11.59.10.3 — mémoire locale optionnelle. Aucune initialisation en lecture.
@@ -17399,7 +17400,73 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   let html='<div class="entry"><b>CONTRE-VÉRIFIER LE CORDAGE</b><p>Conserver le relevé sans manipuler laisse la trace en place. Retirer le calage éventuel puis effectuer une traction contrôlée peut éprouver le comportement actuel du cordage, mais laisse une marque nouvelle et brouille la trace fine. Elle ne reconstitue pas la cause passée et ne communique rien à Martha.</p>';
   html+='<p>'+button('cordage-check',c?'CORDAGE DÉJÀ CONTRE-VÉRIFIÉ':'EFFECTUER UNE TRACTION CONTRÔLÉE',!!c||!eligible)+'</p>';
   if(!eligible&&!c)html+='<p class="small">Il faut avoir personnellement examiné l’amarrage, relevé l’empreinte fine ou le passage, puis recueilli les précisions du témoin. Lire des archives ne remplace pas ces constats locaux.</p>';
-  if(c)html+='<p>'+esc(k.personal.observations[c.observationId]?.statement||'Le contrôle est conservé dans vos observations.')+'</p><p class="small">Observation personnelle disponible pour une hypothèse ou une révision volontaire. Consignation facultative dans le diagnostic de connaissance. Les anciennes déclarations et le relevé original restent intacts.</p>';
+  if(c)html+='<p><small>CONSTAT CONSERVÉ À L’INSTANT DE L’ESSAI</small><br>'+esc(k.personal.observations[c.observationId]?.statement||'Le contrôle est conservé dans vos observations.')+'</p><p class="small">Observation personnelle disponible pour une hypothèse ou une révision volontaire. Consignation facultative dans le diagnostic de connaissance. Les anciennes déclarations et le relevé original restent intacts.</p>';
+  if(c&&s.cordageDialogue?.received.length)html+='<p class="small">L’absence de communication indiquée dans ce constat décrit l’instant de l’essai. Une transmission ultérieure est enregistrée ci-dessous.</p>';
+  return html+'</div>';
+ }
+
+ // V11.59.10.5 — réception du résultat, distincte de l'ancien relevé partagé.
+ // Facultatif dans les sauvegardes .4 ; aucune création lors d'une lecture.
+ function pilotCordageResult(s,k){
+  const o=resolveObservation(k,s.cordageCheck?.observationId);
+  return o?.type==='quay_cordage_check'&&o.provenance.kind==='direct_observation'&&o.provenance.sceneId===s.id?o:null;
+ }
+ function pilotCordageDialogueContext(s,k,before=Infinity){
+  return {witness:clone(s.witness),reality:{id:k.world.id,seed:k.world.seed},
+   priorWitnessContext:pilotWitnessContext(s,k,before),
+   resultCommunications:clone((s.cordageDialogue?.received||[]).filter(c=>c.causalOrder<before)),
+   reception:'investigator_report',firsthandExperience:{status:'not_independently_documented',observations:[]},independentCorroboration:false};
+ }
+ function pilotCordageReception(s,k,e,source){
+  return {observationId:e.observationId,source:clone(source),from:clone(k.personal.observer),to:clone(s.witness),reality:{id:k.world.id,seed:k.world.seed},causalOrder:e.causalOrder,channel:'investigator_report'};
+ }
+ function validatePilotCordageDialogue(s,k){
+  const events=s.events.filter(e=>e.action==='cordage-share'||e.action==='cordage-react'),m=s.cordageDialogue;
+  if(m===undefined){if(events.length)throw new Error('Transmission du cordage absente');return}
+  const source=pilotCordageResult(s,k),share=events.find(e=>e.action==='cordage-share'),react=events.find(e=>e.action==='cordage-react');
+  if(!m||m.schema!==1||m.sceneId!==s.id||m.realityId!==k.world.id||m.investigatorId!==k.personal.observer.id||!same(m.witness,s.witness)||!source||m.sourceObservationId!==source.id||!share||m.startedAt!==share.causalOrder||share.causalOrder<=source.causalOrder||react&&react.causalOrder<=share.causalOrder)throw new Error('Mémoire de transmission du cordage incompatible');
+  const received=[pilotCordageReception(s,k,share,source)],statements=react?[{observationId:react.observationId,causalOrder:react.causalOrder,mode:'after_cordage_disclosure'}]:[];
+  if(!same(m.received,received)||!same(m.statements,statements))throw new Error('Réception du cordage incompatible');
+  for(const e of s.events.filter(e=>e.causalOrder>m.startedAt)){
+   const o=resolveObservation(k,e.observationId);
+   if(o.provenance.kind==='testimony'&&!same(o.provenance.cordageContext,pilotCordageDialogueContext(s,k,e.causalOrder)))throw new Error('Connaissance reçue du cordage absente du témoignage');
+  }
+  for(const e of events){
+   const o=resolveObservation(k,e.observationId);
+   if(!same(o.provenance.cordageContext,pilotCordageDialogueContext(s,k,e.causalOrder)))throw new Error('Contexte de transmission du cordage incompatible');
+   if(e.action==='cordage-share'){
+    if(o.type!=='quay_cordage_transmission'||o.provenance.kind!=='direct_observation'||o.provenance.sourceId!==k.personal.observer.id||o.provenance.sourceName!==k.personal.observer.name||!same(o.provenance.communication,received[0]))throw new Error('Provenance de transmission du cordage incompatible');
+   }else{
+    const inference={basedOn:share.observationId,status:'interpretation_du_temoin',independentCorroboration:false};
+    if(o.type!=='quay_cordage_reaction'||o.provenance.kind!=='testimony'||o.provenance.sourceId!==s.witness.key||o.provenance.sourceName!==s.witness.name||!same(o.provenance.inference,inference))throw new Error('Réaction au cordage incompatible');
+   }
+  }
+ }
+ function pilotCordageDialogueAct(s,k,action){
+  const source=pilotCordageResult(s,k),m=s.cordageDialogue;
+  if(!source||action==='cordage-share'&&(m||s.events.some(e=>e.action===action))||action==='cordage-react'&&(!m?.received.length||m.statements.length||s.events.some(e=>e.action===action)))return false;
+  const context=pilotCordageDialogueContext(s,k);
+  if(action==='cordage-share'){
+   const e={observationId:k.world.id+'/observation:'+(k.causalOrder+1),causalOrder:k.causalOrder+1},communication=pilotCordageReception(s,k,e,source);
+   const id=pilotRecord(s,action,'quay_cordage_transmission',k.personal.observer.name+' raconte volontairement à '+s.witness.name+' le protocole et le résultat de sa traction contrôlée. Il distingue le relevé initial, la trace fine antérieure et la marque qu’il a lui-même produite. Le témoin reçoit son récit de l’essai ; il n’en devient pas un observateur direct.','direct_observation',{sourceId:k.personal.observer.id,sourceName:k.personal.observer.name,cordageContext:context,communication});
+   s.cordageDialogue={schema:1,sceneId:s.id,realityId:k.world.id,investigatorId:k.personal.observer.id,witness:clone(s.witness),sourceObservationId:source.id,startedAt:e.causalOrder,received:[communication],statements:[]};
+   return id;
+  }
+  const prior=context.priorWitnessContext,oldReport=prior.communications.length>0,earlierLimit=s.events.some(e=>e.action==='confront'||e.action==='memory-react');
+  const motion=source.provenance.experiment.result==='tension_moves_tarp_salt_arc';
+  const text=s.witness.name+' répond : « Je connais cet essai parce que vous venez de me le raconter, pas parce que je l’ai vu. '+(oldReport?'Vous m’aviez déjà montré votre relevé ; ce résultat de manipulation est une information nouvelle. ':prior.priorMaterialExposure.length?'L’examen initial avait déjà été évoqué ; votre essai reste une information distincte. ':'Je distingue votre ancien constat du résultat que vous me rapportez maintenant. ')+(earlierLimit?'Je maintiens la limite de ma déclaration précédente : je n’ai pas vu la caisse se déplacer. ':'Mon explication par la marée reste ce que j’avais supposé, pas un déplacement que j’aurais observé.')+' '+(motion?'Si votre traction a fait bouger la bâche, cela décrit ce qui s’est produit pendant votre essai.':'Si votre traction a seulement repris le jeu du nœud, cela décrit son état pendant votre essai.')+' La marque que vous avez créée ne peut pas devenir une trace ancienne. Cela ne me permet pas d’affirmer ce qui a déplacé la caisse auparavant. » Réaction à un récit reçu, sans corroboration indépendante.';
+  const inference={basedOn:m.received[0].observationId,status:'interpretation_du_temoin',independentCorroboration:false};
+  const id=pilotRecord(s,action,'quay_cordage_reaction',text,'testimony',{cordageContext:context,inference});
+  m.statements.push({observationId:id,causalOrder:k.causalOrder,mode:'after_cordage_disclosure'});return id;
+ }
+ function pilotCordageDialoguePanel(s,k,button){
+  if(!pilotCordageResult(s,k))return '';
+  const m=s.cordageDialogue,shared=!!m?.received.length,reacted=!!m?.statements.length;
+  let html='<div class="entry"><b>RACONTER L’ESSAI AU TÉMOIN</b><p>Vous pouvez garder ce résultat personnel, ou en communiquer volontairement le protocole et les limites. Le relevé initial, la trace fine et votre marque d’intervention restent distincts.</p><p>'+button('cordage-share',shared?'RÉSULTAT DE L’ESSAI DÉJÀ COMMUNIQUÉ':'COMMUNIQUER LE RÉSULTAT DE L’ESSAI',shared)+'</p>';
+  if(shared){
+   html+='<p>'+esc(s.witness.name)+' connaît désormais votre récit de l’essai. Cela ne lui donne aucun souvenir vécu de la manipulation.</p><p>'+button('cordage-react',reacted?'RÉACTION À L’ESSAI DÉJÀ RECUEILLIE':'RECUEILLIR SA RÉACTION À L’ESSAI',reacted)+'</p>';
+   if(reacted)html+='<p>'+esc(resolveObservation(k,m.statements[0].observationId)?.statement||'')+'</p>';
+  }else html+='<p class="small">Résultat non communiqué. La consultation de cette fenêtre ne transmet rien.</p>';
   return html+'</div>';
  }
 
@@ -17421,6 +17488,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  }
  function pilotOnOrigin(){return pilotAlive()&&pilotAt(pilotScene()?.site)}
  function pilotRecord(s,action,type,text,kind='direct_observation',documentarySource={}){
+  if(kind==='testimony'&&s.cordageDialogue)documentarySource={cordageContext:pilotCordageDialogueContext(s,ensure()),...documentarySource};
   if(kind==='testimony'&&s.witnessMemory)documentarySource={witnessContext:pilotWitnessContext(s,ensure()),...documentarySource};
   const id=record({type,subject:{kind:'phenomenon',id:PILOT_SUBJECT,label:'Traces sous la bâche du quai'},statement:text,
    provenance:{kind,event:'quay_'+action,sceneId:s.id,sourceId:kind==='testimony'?s.witness.key:s.id,sourceName:kind==='testimony'?s.witness.name:'Trace matérielle du quai',choice:s.progress.choice,...clone(documentarySource)},
@@ -17446,7 +17514,9 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Dans le passage indiqué, deux marques de roues se prolongent sous un auvent ; aucun contenu de caisse n’est visible.':'Dans le passage indiqué, l’eau salée s’arrête au seuil. Une corde mouillée relie encore la bâche au pieu du quai ; rien n’explique le contenu de la caisse.');
   }else{
    if(!pilotAt(s.site))return false;
-   if(action==='cordage-check'){
+   if(action==='cordage-share'||action==='cordage-react'){
+    if(!pilotCordageDialogueAct(s,k,action))return false;
+   }else if(action==='cordage-check'){
     if(!pilotCordageAct(s,k))return false;
    }else if(MEMORY_ACTIONS.includes(action)){
     if(!pilotMemoryAct(s,k,action))return false;
@@ -17498,6 +17568,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    }
    body+=pilotMemoryPanel(s,k,button);
    body+=pilotCordagePanel(s,k,button);
+   body+=pilotCordageDialoguePanel(s,k,button);
    body+='<p>'+button('archives','CONSULTER LES RÉCITS DU QUAI')+'</p>';
    if(pilotArchives){
     const entries=Object.values(book.entries).filter(e=>e.observation.type==='quay_material_exam'&&e.observation.subject.id===PILOT_SUBJECT);
@@ -17689,7 +17760,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='V11.59.10.4 / CORDAGE-CANDIDATE';
+ const BUILD='V11.59.10.5 / CORDAGE-DISCLOSURE-CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
