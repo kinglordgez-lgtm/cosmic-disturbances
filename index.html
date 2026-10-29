@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.10.5 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO 11.59.10.6 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -17470,6 +17470,50 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   return html+'</div>';
  }
 
+ // .6 : navigation locale uniquement dans le HTML sauvegardé de la fenêtre.
+ // Aucun brouillon documentaire parallèle, aucune nouvelle déclaration du témoin.
+ function pilotComparisonReaction(s,k){
+  const e=s.events.find(e=>e.action==='cordage-react'),o=resolveObservation(k,e?.observationId);
+  return o?.type==='quay_cordage_reaction'&&o.provenance.sceneId===s.id&&o.provenance.kind==='testimony'&&o.provenance.sourceId===s.witness.key&&o.provenance.inference?.independentCorroboration===false&&o.provenance.cordageContext?.independentCorroboration===false&&same(o.provenance.cordageContext,pilotCordageDialogueContext(s,k,o.causalOrder))?o:null;
+ }
+ function pilotComparisonHypotheses(s,k){
+  return k.personal.claims.filter(h=>h.author.id===k.personal.observer.id&&h.origin.id===k.world.id&&h.evidence.some(e=>{
+   if(e.sourceKind==='indirect_archive_acquisition')return false;
+   const o=resolveObservation(k,e.observationId);
+   return o&&same(e.observation,o)&&['quay_material_exam','quay_cordage_check'].includes(o.type)&&o.provenance.kind==='direct_observation'&&o.provenance.sceneId===s.id;
+  }));
+ }
+ function pilotComparisonPanel(s,k,id){
+  const o=pilotComparisonReaction(s,k);if(!o)return '';
+  const attrs=' data-scene="'+esc(s.id)+'" data-reaction="'+esc(o.id)+'"';
+  const btn=(action,text,h='',disabled=false)=>'<button type="button" data-cd115910="'+action+'"'+attrs+' data-hypothesis="'+esc(h)+'"'+(disabled?' disabled':'')+'>'+text+'</button>';
+  let html='<div class="entry"><b>CONFRONTER UNE HYPOTHÈSE À CETTE RÉACTION</b><p>TÉMOIGNAGE INFORMÉ — NON INDÉPENDANT. Vous comparez vos documents ; vous ne communiquez pas votre hypothèse au témoin.</p>';
+  const list=pilotComparisonHypotheses(s,k),h=list.find(h=>h.id===id);
+  if(!id)return html+btn('hypotheses','CHOISIR UNE HYPOTHÈSE PERSONNELLE')+'</div>';
+  if(!h){
+   html+='<p>Choisissez une hypothèse personnelle actuelle comportant un constat matériel de ce quai.</p>';
+   html+=list.length?list.map(h=>'<p>'+btn('hypothesis-select',esc(h.proposition),h.id)+'</p>').join(''):'<p>Aucune hypothèse personnelle éligible. Aucune hypothèse n’est créée automatiquement.</p>';
+  }else{
+   html+='<p><b>'+esc(h.proposition)+'</b><br><small>'+esc(h.id)+' · '+esc(h.author.name)+' · '+esc(h.origin.id)+'</small></p>';
+   for(const e of h.evidence)html+='<p><small>JUSTIFICATION EXISTANTE · '+(e.relation==='favorable'?'FAVORABLE — À EXAMINER':'CONTRADICTION APPARENTE')+'</small><br>'+esc(e.observation.statement)+'<br><small>'+esc(e.observationId)+'</small></p>';
+   html+='<p><b>Réaction à comparer</b><br>'+esc(o.statement)+'<br><small>'+esc(o.id)+' · déclaration de '+esc(o.provenance.sourceName)+' entendue par '+esc(o.observer.name)+' · '+esc(o.reality.id)+'</small></p><p>Traction contrôlée → récit volontaire de l’enquêteur → réaction de Martha. Elle n’a pas personnellement observé l’essai. Ni compatibilité ni contradiction apparente ne prouvent la cause passée.</p>';
+   const linked=h.evidence.some(e=>e.observationId===o.id);
+   html+=linked?'<p><b>DÉJÀ RATTACHÉE À CETTE HYPOTHÈSE</b></p>':btn('hypothesis-favorable','RATTACHER COMME FAVORABLE',h.id)+btn('hypothesis-contradictory','RATTACHER COMME CONTRADICTION APPARENTE',h.id);
+   html+='<p>'+btn('hypothesis-decline','NE PAS RATTACHER',h.id)+'</p><p>'+btn('hypotheses','CHOISIR UNE AUTRE HYPOTHÈSE')+'</p>';
+   html+='<details><summary>Historique documentaire</summary>'+h.history.map(e=>'<p>'+esc(e.event)+' · '+esc(e.causalOrder)+' · '+esc(e.actor.name)+' · '+esc(e.reality.id)+(e.reason?' · '+esc(e.reason):'')+'</p>').join('')+'</details>';
+  }
+  return html+'</div>';
+ }
+ function pilotComparisonAttach(sceneId,hypothesisId,reactionId,role){return documentaryAction('quay-hypothesis-review',k=>{
+  const s=pilotScene();if(!pilotOnOrigin()||!s||s.id!==sceneId||!['favorable','contradictory'].includes(role))return false;
+  validatePilot(s,k);
+  const o=pilotComparisonReaction(s,k),h=pilotComparisonHypotheses(s,k).find(h=>h.id===hypothesisId);
+  if(!o||o.id!==reactionId||!h)return false;
+  const reason=role==='favorable'?'Réaction informée jugée compatible avec la proposition par l’enquêteur ; récit reçu de sa part, sans corroboration indépendante.':'Contradiction apparente relevée par l’enquêteur ; réaction à son récit reçu, sans corroboration indépendante ni cause passée établie.';
+  const result=attachEvidence(h.id,o.id,role,reason);
+  if(result)pilotDraw(h.id);return result;
+ })}
+
  function pilotRelevant(o){return o?.type==='quay_material_exam'&&o.subject?.id===PILOT_SUBJECT&&o.links?.phenomenon===PILOT_SUBJECT&&o.provenance?.kind==='direct_observation'}
  function pilotKnowledge(k){
   const relevant=pilotRelevant;
@@ -17548,7 +17592,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   validatePilot(s,k);pilotDraw();return true;
  })}
  let pilotArchives=false;
- function pilotDraw(){
+ function pilotDraw(comparisonId=""){
   const s=pilotScene();if(!pilotAlive()||!s||!pilotAt(s.site)&&!pilotAt(s.destination))return false;
   const k=player.cd11590Knowledge,known=pilotKnowledge(k),p=s.progress;
   const button=(action,text,disabled=false)=>'<button type="button" data-cd115910="'+action+'" data-scene="'+esc(s.id)+'"'+(disabled?' disabled':'')+'>'+text+'</button>';
@@ -17569,6 +17613,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    body+=pilotMemoryPanel(s,k,button);
    body+=pilotCordagePanel(s,k,button);
    body+=pilotCordageDialoguePanel(s,k,button);
+   body+=pilotComparisonPanel(s,k,comparisonId);
    body+='<p>'+button('archives','CONSULTER LES RÉCITS DU QUAI')+'</p>';
    if(pilotArchives){
     const entries=Object.values(book.entries).filter(e=>e.observation.type==='quay_material_exam'&&e.observation.subject.id===PILOT_SUBJECT);
@@ -17609,6 +17654,16 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(action==='close'){pilotClose();return}
   if(action==='open'){pilotDraw();return}
   if(action==='archives'){if(pilotOnOrigin()){pilotArchives=!pilotArchives;pilotDraw()}return}
+  if(['hypotheses','hypothesis-select','hypothesis-decline','hypothesis-favorable','hypothesis-contradictory'].includes(action)){
+   if(!pilotOnOrigin())return;
+   const k=player.cd11590Knowledge,o=pilotComparisonReaction(s,k);if(!o||b.getAttribute('data-reaction')!==o.id)return;
+   const id=b.getAttribute('data-hypothesis');
+   if(action==='hypotheses'){pilotDraw('@choose');return}
+   if(!pilotComparisonHypotheses(s,k).some(h=>h.id===id))return;
+   if(action==='hypothesis-select'){pilotDraw(id);return}
+   if(action==='hypothesis-decline'){pilotDraw();return}
+   pilotComparisonAttach(s.id,id,o.id,action==='hypothesis-favorable'?'favorable':'contradictory');return;
+  }
   if(action==='study'){
    if(!pilotOnOrigin())return;const id=b.getAttribute('data-archive'),o=book.entries[id]?.observation;
    if(o?.type!=='quay_material_exam'||o.subject.id!==PILOT_SUBJECT)return;
@@ -17616,7 +17671,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   }
   pilotAct(action,s.id);
  },true);
- window.cd115910Quay=Object.freeze({start:pilotStart,act:pilotAct,open:pilotDraw,view:()=>clone(pilotScene()),eligible:()=>!!player?.cd11590Knowledge&&!!pilotKnowledge(player.cd11590Knowledge)});
+ window.cd115910Quay=Object.freeze({start:pilotStart,act:pilotAct,open:pilotDraw,review:pilotComparisonAttach,view:()=>clone(pilotScene()),eligible:()=>!!player?.cd11590Knowledge&&!!pilotKnowledge(player.cd11590Knowledge)});
 
  // Vue temporaire : sélections et proposition assistée sont un brouillon d’UI.
  // Aucun fait ni état documentaire ne change à l’ouverture ou à la sélection.
@@ -17760,7 +17815,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='V11.59.10.5 / CORDAGE-DISCLOSURE-CANDIDATE';
+ const BUILD='V11.59.10.6 / HYPOTHESIS-COMPARISON-CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
