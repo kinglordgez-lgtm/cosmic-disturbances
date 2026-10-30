@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO SPATIAL-1 NAV-1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO SPATIAL-2 CORE-1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -16917,6 +16917,18 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
 })();
 </script>
 
+<script id="cd-spatial-core1-evaluator">
+(function(){
+ 'use strict';
+ // Fonction pure : aucune lecture du jeu, du DOM, du stockage ou du PRNG.
+ window.cdSpatialEvaluate=function(profile,position,target){
+  if(!profile||!Array.isArray(profile.positions)||!profile.positions.includes(position)||!profile.targets?.[target])throw new Error('Profil ou position spatiale invalide');
+  const v=profile.targets[target].views?.[position]||{};
+  return {position,visible:v.visible===true,accessible:v.accessible===true,examinable:v.visible===true&&v.accessible===true&&v.examinable===true,moves:(profile.edges?.[position]||[]).filter(p=>profile.positions.includes(p)).slice()};
+ };
+})();
+</script>
+
 <script id="cd-v11590-knowledge">
 /* V11.59.0 — faits du monde / observations personnelles / Livre consigné.
    Aucune RNG, aucune promotion documentaire, aucune passerelle vers les bonus
@@ -17652,6 +17664,40 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   }
   pilotAct(action,s.id);
  },true);
+ // CORE-1 : état prospectif séparé du quai historique.
+ const CORE1_PROFILE=Object.freeze({id:'vestibule-grille-v1',positions:['threshold','side'],edges:{threshold:['side'],side:['threshold']},targets:{plaque:{views:{threshold:{visible:true,accessible:false,examinable:false},side:{visible:true,accessible:true,examinable:true}}}}});
+ function coreSite(){const s=player?.cdSpatial2Core1;return s&&s.site.x===px&&s.site.y===py&&s.site.depth===player.depth}
+ function coreEligible(){return alive()&&!battle&&map?.[py]?.[px]==='npc'&&!!pilotScene()&&!pilotAt(pilotScene().site)}
+ function validateCore1(k,s=player?.cdSpatial2Core1){
+  if(!s)return;
+  if(s.schema!==1||s.realityId!==k.world.id||s.observerId!==k.personal.observer.id||s.profileId!==CORE1_PROFILE.id||!CORE1_PROFILE.positions.includes(s.position)||s.revision!==1||!same(s.objective,{plaque:{crossedLines:true,interruptedJunction:true}})||!Number.isInteger(s.site?.x)||!Number.isInteger(s.site?.y)||!Number.isInteger(s.site?.depth))throw new Error('Scène CORE-1 incompatible');
+  if(s.observationId){const o=k.personal.observations[s.observationId];if(!o||o.type!=='spatial_core_examination'||o.provenance.sceneId!==s.id||o.provenance.position!=='side'||o.provenance.target!=='plaque'||o.provenance.profileId!==s.profileId||o.provenance.materialRevision!==1)throw new Error('Provenance CORE-1 incompatible')}
+ }
+ function coreDraw(){const s=player?.cdSpatial2Core1;if(!s||!coreSite()||!coreEligible())return false;
+  const e=window.cdSpatialEvaluate(CORE1_PROFILE,s.position,'plaque');
+  const b=(a,t,disabled=false)=>'<button type="button" data-core1="'+a+'"'+(disabled?' disabled':'')+'>'+t+'</button>';
+  document.getElementById('sheetContent').innerHTML='<h2>LE VESTIBULE À GRILLE</h2><p>Une plaque est visible derrière une grille. Un passage latéral permet de rejoindre son autre côté. Aucun lien avec le quai ou les paroles de Martha n’est établi.</p><p>Position : '+(s.position==='side'?'auprès de la plaque':'devant la grille')+'</p>'+b('threshold','REVENIR DEVANT LA GRILLE',s.position==='threshold')+b('side','EMPRUNTER LE PASSAGE LATÉRAL',s.position==='side')+b('examine',s.observationId?'PLAQUE DÉJÀ EXAMINÉE':'EXAMINER LA PLAQUE',!e.examinable||!!s.observationId)+(s.observationId?'<p>Vous avez relevé : deux traits gravés se croisent, avec une interruption à leur jonction. Leur signification reste inconnue.</p>':'<p>'+(e.examinable?'La plaque est à portée d’examen.':'La grille empêche de l’atteindre depuis cette position ; les traits fins ne sont pas lisibles.')+'</p>')+b('close','REVENIR AU MONDE');
+  const m=document.getElementById('modal');m.classList.add('open');m.style.display='flex';return true;
+ }
+ function coreAct(action){return documentaryAction('core1-'+action,k=>{
+  if(!coreEligible())return false;
+  let s=player.cdSpatial2Core1;
+  if(action==='open'&&!s){s={schema:1,id:k.world.id+'/core1:'+player.depth+':'+px+':'+py,realityId:k.world.id,observerId:k.personal.observer.id,profileId:CORE1_PROFILE.id,revision:1,objective:{plaque:{crossedLines:true,interruptedJunction:true}},site:{x:px,y:py,depth:player.depth},position:'threshold',observationId:null};player.cdSpatial2Core1=s}
+  if(!s||!coreSite())return false;validateCore1(k);
+  if(action==='open'){coreDraw();return true}
+  if(action==='threshold'||action==='side'){
+   if(!window.cdSpatialEvaluate(CORE1_PROFILE,s.position,'plaque').moves.includes(action))return false;
+   s.position=action;coreDraw();return true;
+  }
+  if(action!=='examine'||s.observationId||!window.cdSpatialEvaluate(CORE1_PROFILE,s.position,'plaque').examinable)return false;
+  s.observationId=record({type:'spatial_core_examination',subject:{kind:'object',id:s.id+'/plaque',label:'Plaque gravée du vestibule'},statement:'À portée de la plaque, deux traits gravés se croisent, avec une interruption à leur jonction. Leur signification reste inconnue.',provenance:{kind:'direct_observation',event:'core1_examine',sceneId:s.id,profileId:s.profileId,position:s.position,target:'plaque',materialRevision:s.revision,perceivedState:clone(s.objective.plaque)},unknownConditions:['signification_des_traits','auteur_de_la_gravure'],links:{place:s.id}},s.id+':plaque:examine:v1');validateCore1(k);coreDraw();return true;
+ })}
+ const coreContext=window.renderContext;
+ window.renderContext=function(){const out=coreContext.apply(this,arguments);if(coreEligible()&&(!player.cdSpatial2Core1||coreSite())){const root=document.getElementById('context'),b=document.createElement('button');b.type='button';b.dataset.core1='open';b.textContent='VISITER LE VESTIBULE À GRILLE';root.appendChild(b);root.style.display='block'}return out};renderContext=window.renderContext;
+ document.addEventListener('click',ev=>{if(ev.target.closest?.('#modal .close')&&document.querySelector('#sheetContent [data-core1]')){ev.preventDefault();ev.stopImmediatePropagation();pilotClose();return}const b=ev.target.closest?.('[data-core1]');if(!b||!b.isConnected)return;ev.preventDefault();ev.stopImmediatePropagation();if(b.disabled)return;if(b.dataset.core1==='close'){pilotClose();return}coreAct(b.dataset.core1)},true);
+ const coreMigration=window.cd11590MigrateSnapshot;window.cd11590MigrateSnapshot=function(snapshot){const out=coreMigration(snapshot);validateCore1(out.player.cd11590Knowledge,out.player.cdSpatial2Core1||null);return out};
+ window.cdSpatialCore1=Object.freeze({act:coreAct,open:coreDraw,view:()=>clone(player?.cdSpatial2Core1||null)});
+
  window.cd115910Quay=Object.freeze({start:pilotStart,act:pilotAct,open:pilotDraw,view:()=>clone(pilotScene()),eligible:()=>!!player?.cd11590Knowledge&&!!pilotKnowledge(player.cd11590Knowledge)});
 
  // Vue temporaire : sélections et proposition assistée sont un brouillon d’UI.
@@ -17796,7 +17842,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='SPATIAL-1 NAV-1 / CANDIDATE';
+ const BUILD='SPATIAL-2 CORE-1 / CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
