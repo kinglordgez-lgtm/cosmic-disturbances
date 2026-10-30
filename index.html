@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO 11.59.10.6 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO SPATIAL-1 NAV-1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -17252,6 +17252,38 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   book=next;k.causalOrder=order;k.personal.claims[k.personal.claims.indexOf(h)]=clone(copy);return true;
  })}
  // V11.59.10 — une scène locale ; aucune simulation globale ni génération de carte.
+
+ // Spatial laboratory branch: present geometry only, never Martha's past.
+ const SPATIAL_ACTIONS=['awning-inner-before','awning-edge-before','awning-inner-after','awning-edge-after'];
+ function spatialVisibility(position){return {passage:position==='inner'?'masked':'visible',tarpEdge:position==='inner'?'partial':'visible',fineTrace:'not_resolvable',occluder:'return_of_shelter',profile:'quay_awning_v1'}}
+ function spatialMaterial(s){return s.cordageCheck?clone(s.cordageCheck.experiment.after):{knot:'not_resolvable_from_this_position',tarpBraced:s.progress.choice==='material',fineTrace:s.progress.choice==='trail'?'previously_disturbed':s.progress.choice==='material'?'preserved':'not_examined',intervention:'none'}}
+ function validateSpatial(s,k){
+  const events=s.events.filter(e=>SPATIAL_ACTIONS.includes(e.action)),v=s.spatialSurvey;
+  if(v===undefined){if(events.length)throw new Error('Relevé spatial absent');return}
+  if(v.schema!==1||!['inner','edge'].includes(v.position)||v.profile!=='quay_awning_v1'||!v.observations)throw new Error('Relevé spatial incompatible');
+  const expected={};
+  for(const e of events){const [,position,phase]=e.action.split('-'),o=resolveObservation(k,e.observationId),x=o?.provenance.spatial;
+   if(!x||o.type!=='quay_spatial_observation'||o.provenance.kind!=='direct_observation'||x.position!==position||x.phase!==phase||!same(x.visibility,spatialVisibility(position))||phase!==(s.events.some(t=>t.action==='cordage-check'&&t.causalOrder<e.causalOrder)?'after':'before'))throw new Error('Provenance spatiale incompatible');
+   const source=phase==='after'?s:{...s,cordageCheck:null,progress:{...s.progress,choice:o.provenance.choice}};
+   if(!same(x.material,spatialMaterial(source))||x.experimentId!==(phase==='after'?s.cordageCheck.observationId:null))throw new Error('État matériel spatial incompatible');
+   expected[position+':'+phase]=e.observationId;
+  }
+  if(!same(expected,v.observations)||!events.length)throw new Error('Liens spatiaux incompatibles');
+ }
+ function spatialAct(s,k,position){
+  const phase=s.cordageCheck?'after':'before',key=position+':'+phase;
+  if(s.spatialSurvey?.observations[key]){s.spatialSurvey.position=position;return true}
+  const physical=spatialMaterial(s);
+  const spatial={position,phase,visibility:spatialVisibility(position),material:physical,experimentId:s.cordageCheck?.observationId||null,scope:'present_scene_not_past_witness_position'};
+  const text=position==='inner'?'Depuis le fond de l’auvent, le retour de l’abri masque l’entrée du passage ; le bord de la bâche n’est visible qu’en partie.':'Depuis le bord de l’auvent, l’entrée du passage et le bord extérieur de la bâche sont visibles.';
+  const id=pilotRecord(s,'awning-'+position+'-'+phase,'quay_spatial_observation',text+' Les traces fines ne sont pas discernables à cette distance. Ce constat décrit le quai actuel, pas ce que Martha voyait auparavant.','direct_observation',{spatial});
+  s.spatialSurvey||={schema:1,profile:'quay_awning_v1',position,observations:{}};
+  s.spatialSurvey.position=position;s.spatialSurvey.observations[key]=id;return true;
+ }
+ function spatialPanel(s){const phase=s.cordageCheck?'after':'before',v=s.spatialSurvey;
+  return '<div class="entry"><b>LE POINT DE VUE DEPUIS L’AUVENT</b><p>Le retour de l’abri masque une partie du quai. Ces deux positions locales n’impliquent aucune manipulation des traces. Vous observez le lieu actuel.</p>'+['inner','edge'].map(pos=>'<button type="button" data-cd115910="awning-'+pos+'" data-scene="'+esc(s.id)+'">'+(pos==='inner'?'SE PLACER SOUS L’AUVENT':'SE DÉCALER AU BORD')+(v?.observations[pos+':'+phase]?' — CONSTAT CONSERVÉ':' ET OBSERVER')+'</button>').join('')+(v?.observations[v.position+':'+phase]?'<p>'+esc(player.cd11590Knowledge.personal.observations[v.observations[v.position+':'+phase]].statement)+'</p>':'')+(v?'<p>Position actuelle : '+(v.position==='inner'?'sous l’auvent':'au bord')+'</p>':'')+'</div>';
+ }
+
  const PILOT_SUBJECT='quay-tarpaulin-material';
  function pilotHash(value){let h=2166136261;for(const c of String(value)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
  function pilotCause(seedValue,key){return pilotHash(seedValue+':quay:'+key)%2?'cart':'mooring'}
@@ -17266,7 +17298,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const seen=new Set();let previous=0;
   for(const e of s.events){
    const o=k.personal.observations[e?.observationId];
-   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront','cordage-check','cordage-share','cordage-react',...MEMORY_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront','cordage-check','cordage-share','cordage-react',...MEMORY_ACTIONS,...SPATIAL_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
    if(e.action==='confront'&&(e.knowledge?.material!==s.events.find(x=>x.action==='inspect')?.observationId||e.knowledge?.witness!==s.events.find(x=>x.action==='ask')?.observationId||!s.events.some(x=>x.action==='inspect'&&x.causalOrder<e.causalOrder)||!s.events.some(x=>x.action==='ask'&&x.causalOrder<e.causalOrder)))throw new Error('Confrontation du quai sans sources personnelles');
    // Les sources nouvelles voyagent avec l'observation consignée ; les archives antérieures restent intactes.
    if(e.action==='confront'&&o.provenance.basis!==undefined){
@@ -17279,6 +17311,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    }
    seen.add(e.action);previous=e.causalOrder;
   }
+  validateSpatial(s,k);
   validatePilotMemory(s,k);
   validatePilotCordage(s,k);
   validatePilotCordageDialogue(s,k);
@@ -17470,50 +17503,6 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   return html+'</div>';
  }
 
- // .6 : navigation locale uniquement dans le HTML sauvegardé de la fenêtre.
- // Aucun brouillon documentaire parallèle, aucune nouvelle déclaration du témoin.
- function pilotComparisonReaction(s,k){
-  const e=s.events.find(e=>e.action==='cordage-react'),o=resolveObservation(k,e?.observationId);
-  return o?.type==='quay_cordage_reaction'&&o.provenance.sceneId===s.id&&o.provenance.kind==='testimony'&&o.provenance.sourceId===s.witness.key&&o.provenance.inference?.independentCorroboration===false&&o.provenance.cordageContext?.independentCorroboration===false&&same(o.provenance.cordageContext,pilotCordageDialogueContext(s,k,o.causalOrder))?o:null;
- }
- function pilotComparisonHypotheses(s,k){
-  return k.personal.claims.filter(h=>h.author.id===k.personal.observer.id&&h.origin.id===k.world.id&&h.evidence.some(e=>{
-   if(e.sourceKind==='indirect_archive_acquisition')return false;
-   const o=resolveObservation(k,e.observationId);
-   return o&&same(e.observation,o)&&['quay_material_exam','quay_cordage_check'].includes(o.type)&&o.provenance.kind==='direct_observation'&&o.provenance.sceneId===s.id;
-  }));
- }
- function pilotComparisonPanel(s,k,id){
-  const o=pilotComparisonReaction(s,k);if(!o)return '';
-  const attrs=' data-scene="'+esc(s.id)+'" data-reaction="'+esc(o.id)+'"';
-  const btn=(action,text,h='',disabled=false)=>'<button type="button" data-cd115910="'+action+'"'+attrs+' data-hypothesis="'+esc(h)+'"'+(disabled?' disabled':'')+'>'+text+'</button>';
-  let html='<div class="entry"><b>CONFRONTER UNE HYPOTHÈSE À CETTE RÉACTION</b><p>TÉMOIGNAGE INFORMÉ — NON INDÉPENDANT. Vous comparez vos documents ; vous ne communiquez pas votre hypothèse au témoin.</p>';
-  const list=pilotComparisonHypotheses(s,k),h=list.find(h=>h.id===id);
-  if(!id)return html+btn('hypotheses','CHOISIR UNE HYPOTHÈSE PERSONNELLE')+'</div>';
-  if(!h){
-   html+='<p>Choisissez une hypothèse personnelle actuelle comportant un constat matériel de ce quai.</p>';
-   html+=list.length?list.map(h=>'<p>'+btn('hypothesis-select',esc(h.proposition),h.id)+'</p>').join(''):'<p>Aucune hypothèse personnelle éligible. Aucune hypothèse n’est créée automatiquement.</p>';
-  }else{
-   html+='<p><b>'+esc(h.proposition)+'</b><br><small>'+esc(h.id)+' · '+esc(h.author.name)+' · '+esc(h.origin.id)+'</small></p>';
-   for(const e of h.evidence)html+='<p><small>JUSTIFICATION EXISTANTE · '+(e.relation==='favorable'?'FAVORABLE — À EXAMINER':'CONTRADICTION APPARENTE')+'</small><br>'+esc(e.observation.statement)+'<br><small>'+esc(e.observationId)+'</small></p>';
-   html+='<p><b>Réaction à comparer</b><br>'+esc(o.statement)+'<br><small>'+esc(o.id)+' · déclaration de '+esc(o.provenance.sourceName)+' entendue par '+esc(o.observer.name)+' · '+esc(o.reality.id)+'</small></p><p>Traction contrôlée → récit volontaire de l’enquêteur → réaction de Martha. Elle n’a pas personnellement observé l’essai. Ni compatibilité ni contradiction apparente ne prouvent la cause passée.</p>';
-   const linked=h.evidence.some(e=>e.observationId===o.id);
-   html+=linked?'<p><b>DÉJÀ RATTACHÉE À CETTE HYPOTHÈSE</b></p>':btn('hypothesis-favorable','RATTACHER COMME FAVORABLE',h.id)+btn('hypothesis-contradictory','RATTACHER COMME CONTRADICTION APPARENTE',h.id);
-   html+='<p>'+btn('hypothesis-decline','NE PAS RATTACHER',h.id)+'</p><p>'+btn('hypotheses','CHOISIR UNE AUTRE HYPOTHÈSE')+'</p>';
-   html+='<details><summary>Historique documentaire</summary>'+h.history.map(e=>'<p>'+esc(e.event)+' · '+esc(e.causalOrder)+' · '+esc(e.actor.name)+' · '+esc(e.reality.id)+(e.reason?' · '+esc(e.reason):'')+'</p>').join('')+'</details>';
-  }
-  return html+'</div>';
- }
- function pilotComparisonAttach(sceneId,hypothesisId,reactionId,role){return documentaryAction('quay-hypothesis-review',k=>{
-  const s=pilotScene();if(!pilotOnOrigin()||!s||s.id!==sceneId||!['favorable','contradictory'].includes(role))return false;
-  validatePilot(s,k);
-  const o=pilotComparisonReaction(s,k),h=pilotComparisonHypotheses(s,k).find(h=>h.id===hypothesisId);
-  if(!o||o.id!==reactionId||!h)return false;
-  const reason=role==='favorable'?'Réaction informée jugée compatible avec la proposition par l’enquêteur ; récit reçu de sa part, sans corroboration indépendante.':'Contradiction apparente relevée par l’enquêteur ; réaction à son récit reçu, sans corroboration indépendante ni cause passée établie.';
-  const result=attachEvidence(h.id,o.id,role,reason);
-  if(result)pilotDraw(h.id);return result;
- })}
-
  function pilotRelevant(o){return o?.type==='quay_material_exam'&&o.subject?.id===PILOT_SUBJECT&&o.links?.phenomenon===PILOT_SUBJECT&&o.provenance?.kind==='direct_observation'}
  function pilotKnowledge(k){
   const relevant=pilotRelevant;
@@ -17558,7 +17547,9 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Dans le passage indiqué, deux marques de roues se prolongent sous un auvent ; aucun contenu de caisse n’est visible.':'Dans le passage indiqué, l’eau salée s’arrête au seuil. Une corde mouillée relie encore la bâche au pieu du quai ; rien n’explique le contenu de la caisse.');
   }else{
    if(!pilotAt(s.site))return false;
-   if(action==='cordage-share'||action==='cordage-react'){
+   if(action==='awning-inner'||action==='awning-edge'){
+    spatialAct(s,k,action==='awning-inner'?'inner':'edge');
+   }else if(action==='cordage-share'||action==='cordage-react'){
     if(!pilotCordageDialogueAct(s,k,action))return false;
    }else if(action==='cordage-check'){
     if(!pilotCordageAct(s,k))return false;
@@ -17592,12 +17583,13 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   validatePilot(s,k);pilotDraw();return true;
  })}
  let pilotArchives=false;
- function pilotDraw(comparisonId=""){
+ function pilotDraw(){
   const s=pilotScene();if(!pilotAlive()||!s||!pilotAt(s.site)&&!pilotAt(s.destination))return false;
   const k=player.cd11590Knowledge,known=pilotKnowledge(k),p=s.progress;
   const button=(action,text,disabled=false)=>'<button type="button" data-cd115910="'+action+'" data-scene="'+esc(s.id)+'"'+(disabled?' disabled':'')+'>'+text+'</button>';
   let body='<div data-cd115910-panel="'+esc(s.id)+'"><h2>SOUS LA BÂCHE DU QUAI</h2><p>Rues noyées de Blackwater · '+esc(s.witness.name)+' ('+esc(s.witness.role)+')</p>';
   if(pilotAt(s.site)){
+   body+=spatialPanel(s);
    body+='<p>Une bâche recouvre une caisse. Un sillon traverse le dépôt salé vers le passage. '+esc(s.witness.name)+' affirme : « La caisse a glissé avec la marée. Je n’ai vu personne la tirer. »</p>';
    if(p.asked)body+='<p><b>Le témoin a précisé sa position :</b> sous l’auvent, il ne voyait pas l’entrée du passage. Son explication reste à examiner.</p>';
    if(p.inspected){const id=s.events.find(e=>e.action==='inspect')?.observationId;body+='<p><small>EXAMEN INITIAL CONSERVÉ</small><br>'+esc(k.personal.observations[id]?.statement||'L’inspection est conservée dans vos observations.')+'</p>'}
@@ -17613,7 +17605,6 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    body+=pilotMemoryPanel(s,k,button);
    body+=pilotCordagePanel(s,k,button);
    body+=pilotCordageDialoguePanel(s,k,button);
-   body+=pilotComparisonPanel(s,k,comparisonId);
    body+='<p>'+button('archives','CONSULTER LES RÉCITS DU QUAI')+'</p>';
    if(pilotArchives){
     const entries=Object.values(book.entries).filter(e=>e.observation.type==='quay_material_exam'&&e.observation.subject.id===PILOT_SUBJECT);
@@ -17654,16 +17645,6 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(action==='close'){pilotClose();return}
   if(action==='open'){pilotDraw();return}
   if(action==='archives'){if(pilotOnOrigin()){pilotArchives=!pilotArchives;pilotDraw()}return}
-  if(['hypotheses','hypothesis-select','hypothesis-decline','hypothesis-favorable','hypothesis-contradictory'].includes(action)){
-   if(!pilotOnOrigin())return;
-   const k=player.cd11590Knowledge,o=pilotComparisonReaction(s,k);if(!o||b.getAttribute('data-reaction')!==o.id)return;
-   const id=b.getAttribute('data-hypothesis');
-   if(action==='hypotheses'){pilotDraw('@choose');return}
-   if(!pilotComparisonHypotheses(s,k).some(h=>h.id===id))return;
-   if(action==='hypothesis-select'){pilotDraw(id);return}
-   if(action==='hypothesis-decline'){pilotDraw();return}
-   pilotComparisonAttach(s.id,id,o.id,action==='hypothesis-favorable'?'favorable':'contradictory');return;
-  }
   if(action==='study'){
    if(!pilotOnOrigin())return;const id=b.getAttribute('data-archive'),o=book.entries[id]?.observation;
    if(o?.type!=='quay_material_exam'||o.subject.id!==PILOT_SUBJECT)return;
@@ -17671,7 +17652,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   }
   pilotAct(action,s.id);
  },true);
- window.cd115910Quay=Object.freeze({start:pilotStart,act:pilotAct,open:pilotDraw,review:pilotComparisonAttach,view:()=>clone(pilotScene()),eligible:()=>!!player?.cd11590Knowledge&&!!pilotKnowledge(player.cd11590Knowledge)});
+ window.cd115910Quay=Object.freeze({start:pilotStart,act:pilotAct,open:pilotDraw,view:()=>clone(pilotScene()),eligible:()=>!!player?.cd11590Knowledge&&!!pilotKnowledge(player.cd11590Knowledge)});
 
  // Vue temporaire : sélections et proposition assistée sont un brouillon d’UI.
  // Aucun fait ni état documentaire ne change à l’ouverture ou à la sélection.
@@ -17815,7 +17796,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='V11.59.10.6 / HYPOTHESIS-COMPARISON-CANDIDATE';
+ const BUILD='SPATIAL-1 NAV-1 / CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
@@ -17911,5 +17892,40 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
 })();
 
 </script>
+
+<style id="cd-spatial-legacy-style">
+/* Les actions de rattachement .6 ne font pas partie de cette branche. */
+[data-cd115910="hypotheses"],[data-cd115910="hypothesis-select"],
+[data-cd115910="hypothesis-decline"],[data-cd115910="hypothesis-favorable"],
+[data-cd115910="hypothesis-contradictory"]{display:none!important}
+#cdSpatialLegacyNav{position:fixed;z-index:1001;left:5%;right:5%;bottom:12px;bottom:max(12px,env(safe-area-inset-bottom));padding:10px;background:#101923;color:#eee;border:1px solid #d9b56b;border-radius:8px;font-size:13px;max-height:45vh;overflow:auto}
+#cdSpatialLegacyNav[hidden]{display:none!important}
+#cdSpatialLegacyNav button{touch-action:manipulation;margin:4px}
+</style>
+<script id="cd-spatial-legacy-navigation">
+/* SPATIAL-1 NAV-1 : adaptation de présentation hors du snapshot ui.html.
+   Aucune restauration, écriture de stockage ou action documentaire. */
+(function(){
+ const actions=['hypotheses','hypothesis-select','hypothesis-decline','hypothesis-favorable','hypothesis-contradictory'];
+ const selector=actions.map(a=>'[data-cd115910="'+a+'"]' ).join(',');
+ const modal=document.getElementById('modal'),root=document.getElementById('sheetContent');
+ if(!modal||!root)return;
+ const nav=document.createElement('aside');nav.id='cdSpatialLegacyNav';nav.hidden=true;
+ nav.setAttribute('aria-label','Navigation compatible SPATIAL-1');
+ nav.innerHTML='<b>Interaction héritée de V11.59.10.6</b><p>Les commandes de confrontation propres à cette version ne sont pas disponibles dans SPATIAL-1. Vos données documentaires restent conservées.</p><button type="button" data-spatial-legacy="scene">OUVRIR LA SCÈNE SPATIAL-1</button><button type="button" data-spatial-legacy="world">REVENIR AU MONDE</button>';
+ document.body.appendChild(nav);
+ function refresh(){nav.hidden=!(modal.classList.contains('open')&&root.querySelector('[data-cd115910-panel]')&&root.querySelector(selector))}
+ const observer=new MutationObserver(refresh);
+ observer.observe(root,{childList:true,subtree:true});observer.observe(modal,{attributes:true,attributeFilter:['class']});refresh();
+ nav.addEventListener('click',ev=>{
+  const b=ev.target.closest?.('[data-spatial-legacy]');if(!b||!nav.contains(b))return;
+  ev.preventDefault();ev.stopImmediatePropagation();refresh();if(nav.hidden)return;
+  if(b.getAttribute('data-spatial-legacy')==='scene')window.cd115910Quay?.open();
+  else root.querySelector('[data-cd115910="close"]')?.click();
+  refresh();
+ });
+})();
+</script>
+
 </body>
 </html>
