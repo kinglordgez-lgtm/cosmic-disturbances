@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO SPATIAL-2 CORE-1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO SPATIAL-2 ACCESS-1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -17695,6 +17695,28 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const coreContext=window.renderContext;
  window.renderContext=function(){const out=coreContext.apply(this,arguments);if(coreEligible()&&(!player.cdSpatial2Core1||coreSite())){const root=document.getElementById('context'),b=document.createElement('button');b.type='button';b.dataset.core1='open';b.textContent='VISITER LE VESTIBULE À GRILLE';root.appendChild(b);root.style.display='block'}return out};renderContext=window.renderContext;
  document.addEventListener('click',ev=>{if(ev.target.closest?.('#modal .close')&&document.querySelector('#sheetContent [data-core1]')){ev.preventDefault();ev.stopImmediatePropagation();pilotClose();return}const b=ev.target.closest?.('[data-core1]');if(!b||!b.isConnected)return;ev.preventDefault();ev.stopImmediatePropagation();if(b.disabled)return;if(b.dataset.core1==='close'){pilotClose();return}coreAct(b.dataset.core1)},true);
+
+ // ACCESS-1 : présentation uniquement, actions CORE-1 réutilisées.
+ function accessDialogue(){
+  const root=document.getElementById('sheetContent');if(!root?.querySelector('.cdNpcChoices'))return;
+  if(root.querySelector('[data-access1-info]'))return;
+  const info=document.createElement('div');info.className='entry';info.dataset.access1Info='';
+  if(coreEligible()&&(!player.cdSpatial2Core1||coreSite())){
+   const b=document.createElement('button');b.type='button';b.dataset.core1='open';b.textContent='EXPLORER LE VESTIBULE À GRILLE';info.appendChild(b);
+  }else if(player.cdSpatial2Core1){info.textContent='Le vestibule déjà découvert se trouve à la profondeur '+player.cdSpatial2Core1.site.depth+'. Cet habitant ne propose pas cet accès ; aucun trajet de retour n’est garanti.'}else{info.textContent='Un accès au vestibule à grille peut être recherché auprès d’un autre habitant que Martha Bell. Aucun trajet ni emplacement précis n’est garanti.'}
+  if(info.childNodes.length)root.appendChild(info);
+ }
+ const accessNpc=window.cd18NpcPanel;window.cd18NpcPanel=function(){const out=accessNpc.apply(this,arguments);accessDialogue();return out};cd18NpcPanel=window.cd18NpcPanel;
+ const accessTitles=new WeakMap();
+ function accessMarker(){
+  const cells=typeof mapCells!=='undefined'?mapCells:[];
+  for(const cell of cells){if(cell&&(cell.classList.contains('core-access-site')||accessTitles.has(cell))){cell.classList.remove('core-access-site');if(accessTitles.has(cell)){const t=accessTitles.get(cell);if(t===null)cell.removeAttribute('title');else cell.setAttribute('title',t);accessTitles.delete(cell)}}}
+  const s=player?.cdSpatial2Core1;if(!s||s.site.depth!==player.depth)return;
+  const cell=cells[s.site.y*13+s.site.x];if(!cell||!['☺','☉','☠'].includes(cell.textContent.trim())||cell.hidden||cell.getAttribute('aria-hidden')==='true'||/\b(fog|unknown|hidden|unseen)\b/.test(cell.className))return;
+  const style=getComputedStyle(cell);if(style.display==='none'||style.visibility==='hidden'||style.opacity==='0')return;
+  accessTitles.set(cell,cell.getAttribute('title'));cell.classList.add('core-access-site');cell.title='Vestibule à grille découvert';
+ }
+ const accessContext=window.renderContext;window.renderContext=function(){const out=accessContext.apply(this,arguments);accessMarker();return out};renderContext=window.renderContext;
  const coreMigration=window.cd11590MigrateSnapshot;window.cd11590MigrateSnapshot=function(snapshot){const out=coreMigration(snapshot);validateCore1(out.player.cd11590Knowledge,out.player.cdSpatial2Core1||null);return out};
  window.cdSpatialCore1=Object.freeze({act:coreAct,open:coreDraw,view:()=>clone(player?.cdSpatial2Core1||null)});
 
@@ -17842,7 +17864,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='SPATIAL-2 CORE-1 / CANDIDATE';
+ const BUILD='SPATIAL-2 ACCESS-1 / CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
@@ -17973,5 +17995,6 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
 })();
 </script>
 
+<style>.tile.core-access-site{box-shadow:inset 0 0 0 3px #d9b56b!important}</style>
 </body>
 </html>
