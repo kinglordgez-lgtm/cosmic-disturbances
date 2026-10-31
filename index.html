@@ -708,7 +708,7 @@ function initMapDOM(){
 function render(){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py))return;
  initMapDOM();
- document.getElementById("sub").textContent=`PROTO SPATIAL-2 ACCESS-1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
+ document.getElementById("sub").textContent=`PROTO SPATIAL-2 TRACE-1 · BLACKWATER · SEED ${seed} · PROF. ${player.depth}`;
  document.getElementById("hud").innerHTML=`PV <span class=hp>${player.hp}/${player.maxhp}</span> · SAN <span class=san>${player.san}/${player.maxsan}</span> · MYTHE <span class=myth>${player.myth}%</span><br>ATQ ${player.atk} · DEF ${player.def} · Niv. ${player.lvl} · XP ${player.xp}/${typeof cd10930Need==='function'?cd10930Need(player.lvl):10}<br>${player.char.name} · ${player.char.job}${player.quest&&!player.quest.done?`<br><span class=gold>QUÊTE : ${player.quest.title}</span>`:""}`;
 
  for(let y=0;y<13;y++)for(let x=0;x<13;x++){
@@ -3498,12 +3498,14 @@ function cd50Place(){
 }
 function cd50Ensure(){if(player&&cd50Depth!==player.depth)cd50Place()}
 function cd50Here(){return cd50Secret&&cd50Secret.x===px&&cd50Secret.y===py&&!cd50Secret.found}
-function cd50Reveal(){
+function cd50Reveal(outcome){
  if(!cd50Here())return false;
  const s=CD50_SECRETS.find(x=>x.id===cd50Secret.id);cd50Secret.found=true;
  log("SECRET — "+s.name+" : "+s.text);toast("SECRET DÉCOUVERT");
  const skill=s.id==="circle"||s.id==="rift"?"Occultisme":"Observation";
- if(skillCheck(skill,8)){
+ const success=skillCheck(skill,8);
+ if(outcome&&typeof outcome==='object'){outcome.started=true;outcome.success=success;}
+ if(success){
    if(s.id==="cache"){loot();loot();log("La cache contient deux objets.")}
    else if(s.id==="circle"){cd11580SetSan(Math.min(player.maxsan||100,player.san+2),'san:3476');cd11580SetMyth(Math.min(100,(player.myth||0)+1),'myth:3476',false);log("Le motif révèle un savoir dangereux : +2 SAN, compréhension du Mythe.")}
    else if(s.id==="bones"){player.xp=(player.xp||0)+5;log("Vous reconstituez l'histoire du lieu. +5 XP.")}
@@ -17720,6 +17722,90 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const coreMigration=window.cd11590MigrateSnapshot;window.cd11590MigrateSnapshot=function(snapshot){const out=coreMigration(snapshot);validateCore1(out.player.cd11590Knowledge,out.player.cdSpatial2Core1||null);return out};
  window.cdSpatialCore1=Object.freeze({act:coreAct,open:coreDraw,view:()=>clone(player?.cdSpatial2Core1||null)});
 
+ // TRACE-1 : un profil prospectif sur la cache existante, sans génération de carte.
+ const TRACE1_PROFILE=Object.freeze({id:'cache-joint-v1',positions:['front','joint'],edges:{front:['joint'],joint:['front']},targets:{surface:{views:{front:{visible:true,accessible:false,examinable:false},joint:{visible:true,accessible:true,examinable:true}}},cavity:{views:{front:{visible:false,accessible:false,examinable:false},joint:{visible:false,accessible:false,examinable:false}}}}});
+ function traceWall(){for(const [dx,dy]of [[0,-1],[1,0],[0,1],[-1,0]])if(map?.[py+dy]?.[px+dx]==='wall')return {x:px+dx,y:py+dy};return null}
+ function traceId(k=player?.cd11590Knowledge){return k?.world.id+'/trace1:'+player?.depth+':'+px+':'+py}
+ function traceCurrent(){return player?.cdSpatialTrace1?.scenes?.[traceId()]||null}
+ function traceEligible(){return alive()&&!battle&&Number(player.depth)>=2&&cd50Depth===player.depth&&cd50Here()&&cd50Secret.id==='cache'&&map?.[py]?.[px]==='floor'&&!!traceWall()}
+ function traceOnSite(){const s=traceCurrent();return alive()&&!battle&&!!s&&s.site.depth===player.depth&&s.site.x===px&&s.site.y===py&&map?.[s.wall.y]?.[s.wall.x]==='wall'}
+ function traceProfile(s){const p=clone(TRACE1_PROFILE);if(s.attempt?.success)p.targets.cavity.views.joint={visible:true,accessible:true,examinable:true};return p}
+ function validateTrace(k,holder=player?.cdSpatialTrace1){
+  if(holder===undefined)return;
+  if(holder.schema!==1||!holder.scenes||typeof holder.scenes!=='object'||Array.isArray(holder.scenes))throw new Error('Scènes TRACE-1 incompatibles');
+  for(const [id,s]of Object.entries(holder.scenes)){
+   if(s.schema!==1||s.id!==id||s.profileId!==TRACE1_PROFILE.id||s.realityId!==k.world.id||s.observerId!==k.personal.observer.id||id!==k.world.id+'/trace1:'+s.site?.depth+':'+s.site?.x+':'+s.site?.y||!TRACE1_PROFILE.positions.includes(s.position)||!Number.isInteger(s.site?.x)||!Number.isInteger(s.site?.y)||!Number.isInteger(s.site?.depth)||s.site.depth<2||!Number.isInteger(s.wall?.x)||!Number.isInteger(s.wall?.y)||Math.abs(s.wall.x-s.site.x)+Math.abs(s.wall.y-s.site.y)!==1||!s.observations||!Array.isArray(s.events))throw new Error('Identité TRACE-1 incompatible');
+   if(!['intact','altered'].includes(s.surface)||s.revision!==(s.surface==='intact'?1:2)||!!s.attempt!==(s.surface==='altered'))throw new Error('État matériel TRACE-1 incompatible');
+   if(s.site.x<0||s.site.x>12||s.site.y<0||s.site.y>12||s.wall.x<0||s.wall.x>12||s.wall.y<0||s.wall.y>12)throw new Error('Ancrage TRACE-1 incompatible');
+   if(s.attempt&&(!s.attempt.started||typeof s.attempt.success!=='boolean'||!same(s.attempt.actor,k.personal.observer)||!same(s.attempt.reality,{id:k.world.id,seed:k.world.seed})||s.attempt.beforeRevision!==1||s.attempt.afterRevision!==2||s.attempt.action!=='opening_attempt'||!Number.isSafeInteger(s.attempt.causalOrder)||s.attempt.causalOrder>k.causalOrder||!same(s.events,[s.attempt])))throw new Error('Intervention TRACE-1 incompatible');
+   if(!s.attempt&&s.events.length)throw new Error('Historique TRACE-1 incompatible');
+   for(const [phase,oid]of Object.entries(s.observations)){
+    const o=k.personal.observations[oid],r=phase==='before'?1:phase==='after'?2:0;
+    if(!r||!o||o.type!=='spatial_trace_examination'||o.observer.id!==s.observerId||o.reality.id!==s.realityId||o.provenance.sceneId!==id||o.provenance.position!=='joint'||o.provenance.target!=='surface'||o.provenance.materialRevision!==r||o.provenance.phase!==phase||o.provenance.profileId!==s.profileId||!same(o.provenance.wall,s.wall)||!same(o.provenance.perceivedState,r===1?{surface:'intact',fineStriae:2,hiddenContact:'not_visible'}:{surface:'altered',cause:'investigator_intervention',openingSucceeded:s.attempt?.success})||r===2&&!s.attempt||s.attempt&&(r===1?o.causalOrder>=s.attempt.causalOrder:o.causalOrder<=s.attempt.causalOrder))throw new Error('Provenance TRACE-1 incompatible');
+   }
+  }
+ }
+ function traceDraw(){const s=traceCurrent();if(!traceOnSite())return false;
+  const e=window.cdSpatialEvaluate(traceProfile(s),s.position,'surface'),phase=s.attempt?'after':'before';
+  const b=(a,t,disabled=false)=>'<button type="button" data-trace1="'+a+'" data-trace-scene="'+s.id+'"'+(disabled?' disabled':'')+'>'+t+'</button>';
+  let text='<h2>LE PAN DE MUR</h2><p>Une partie du joint est visible. Vous pouvez l’approcher de côté sans déplacer la matière.</p><p>Position : '+(s.position==='front'?'face au pan de mur':'au droit du joint')+'</p>';
+  if(!e.examinable)text+='<p>Le joint est visible, mais ses détails ne sont pas examinables depuis cette position.</p>';
+  else text+='<p>La surface du joint est à portée d’examen. Le contact dans l’épaisseur ne permet pas de reconstituer un état ancien après manipulation.</p>';
+  if(s.observations[phase])text+='<p>'+esc(player.cd11590Knowledge.personal.observations[s.observations[phase]].statement)+'</p>';
+  if(s.attempt)text+='<p>JOINT ALTÉRÉ PAR VOTRE INTERVENTION. '+(s.attempt.success?'L’ouverture a donné accès au contenu.':'La tentative n’a pas donné accès au contenu.')+' La configuration initiale ne peut pas être rétablie par consultation.</p>';
+  text+=b('front','FACE AU PAN DE MUR',s.position==='front')+b('joint','SE PLACER AU DROIT DU JOINT',s.position==='joint')+b('examine',s.observations[phase]?'RELEVÉ DÉJÀ ACQUIS':'EXAMINER LE JOINT',!e.examinable||!!s.observations[phase]);
+  text+='<p>Gratter pour tenter d’ouvrir déplacera le dépôt, même en cas d’échec. Test et ressources de la cache inchangés ; une perte de SAN reste possible. Les détails non relevés ne seront pas reconstruits.</p>';
+  text+=b('intervene',s.attempt?'TENTATIVE DÉJÀ EFFECTUÉE':'GRATTER POUR TENTER D’OUVRIR',s.position!=='joint'||!!s.attempt)+b('close',s.attempt?'REVENIR AU MONDE':'LAISSER LE JOINT INTACT — REVENIR AU MONDE');
+  document.getElementById('sheetContent').innerHTML=text;const m=document.getElementById('modal');m.classList.add('open');m.style.display='flex';return true;
+ }
+ const traceResolve=cd50Reveal;
+ function traceAct(action){return documentaryAction('trace1-'+action,k=>{
+  let s=traceCurrent();if(!s){if(action!=='open'||!traceEligible())return false;
+   s={schema:1,id:traceId(k),profileId:TRACE1_PROFILE.id,realityId:k.world.id,observerId:k.personal.observer.id,site:{depth:player.depth,x:px,y:py},wall:traceWall(),position:'front',revision:1,surface:'intact',observations:{},events:[],attempt:null};
+   player.cdSpatialTrace1||={schema:1,scenes:{}};player.cdSpatialTrace1.scenes[s.id]=s;
+  }
+  if(!traceOnSite())return false;validateTrace(k);
+  if(action==='open'){traceDraw();return true}
+  if(['front','joint'].includes(action)){if(!window.cdSpatialEvaluate(traceProfile(s),s.position,'surface').moves.includes(action))return false;s.position=action;traceDraw();return true}
+  if(action==='examine'){
+   const phase=s.attempt?'after':'before';if(s.observations[phase]||!window.cdSpatialEvaluate(traceProfile(s),s.position,'surface').examinable)return false;
+   const perceivedState=s.attempt?{surface:'altered',cause:'investigator_intervention',openingSucceeded:s.attempt.success}:{surface:'intact',fineStriae:2,hiddenContact:'not_visible'};
+   s.observations[phase]=record({type:'spatial_trace_examination',subject:{kind:'place',id:s.id+'/surface',label:'Joint du pan de mur'},statement:s.attempt?'Après votre grattage, le dépôt du joint est déplacé. Ce relevé décrit la marque de votre intervention, pas la configuration ancienne.':'Sur la partie accessible du joint, une mince couche est interrompue par deux stries ; leur prolongement dans l’épaisseur n’est pas visible. Auteur, âge et cause restent inconnus.',provenance:{kind:'direct_observation',event:'trace1_examine',sceneId:s.id,profileId:s.profileId,position:s.position,target:'surface',wall:clone(s.wall),materialRevision:s.revision,phase,perceivedState},unknownConditions:['auteur_du_depot','date_du_depot','cause_des_stries','contact_initial_masque'],links:{place:s.id}},s.id+':surface:'+phase);
+   validateTrace(k);traceDraw();return true;
+  }
+  if(action!=='intervene'||s.position!=='joint'||s.attempt||!traceEligible())return false;
+  s.surface='altered';s.revision=2;
+  s.attempt={action:'opening_attempt',actor:clone(k.personal.observer),reality:{id:k.world.id,seed:k.world.seed},causalOrder:++k.causalOrder,beforeRevision:1,afterRevision:2,started:false,success:null};s.events.push(s.attempt);
+  if(traceResolve(s.attempt)!==true||!s.attempt.started)throw new Error('Résolution TRACE-1 non effectuée');
+  if(!alive())return true;
+  // Les ressources de la résolution peuvent donner de l’XP (ex. sac organisé).
+  // Réutiliser la progression canonique immédiatement, jamais au rendu.
+  if(Number(player.xp)>=cd10930Need(player.lvl)){
+   if(document.querySelector('#sheetContent [data-trace1]'))pilotClose();
+   cd10930ProcessXP();
+  }
+  validateTrace(k);
+  // Un panneau historique (rival) ouvert par la résolution reste prioritaire.
+  if(document.querySelector('#sheetContent [data-trace1]'))traceDraw();return true;
+ })}
+ const traceInvestigate=window.investigate;window.investigate=function(){if(traceEligible()||traceOnSite())return traceAct('open');return traceInvestigate.apply(this,arguments)};investigate=window.investigate;
+ cd50Reveal=function(){if(traceEligible()||traceOnSite())return traceAct('open');return traceResolve.apply(this,arguments)};window.cd50Reveal=cd50Reveal;
+ const traceContext=window.renderContext;window.renderContext=function(){const out=traceContext.apply(this,arguments);if(traceEligible()||traceOnSite()){const root=document.getElementById('context'),b=document.createElement('button');b.type='button';b.dataset.trace1='open';b.textContent=traceCurrent()?'REVENIR AU PAN DE MUR':'EXAMINER LE PAN DE MUR';root.appendChild(b);root.style.display='block'}return out};renderContext=window.renderContext;
+ let traceOpeningClick=false;
+ for(const name of ['touchstart','pointerdown','keydown'])document.addEventListener(name,()=>{traceOpeningClick=false},{capture:true,passive:true});
+ function traceWorldGesture(ev){const b=ev.target.closest?.('#actionBtn,#center');if(!b||(!traceEligible()&&!traceOnSite()))return;const own=!!document.querySelector('#sheetContent [data-trace1]'),opened=document.getElementById('modal')?.classList.contains('open');if(opened&&!own)return;ev.preventDefault();ev.stopImmediatePropagation();if(ev.type==='pointerup')traceOpeningClick=true;if(!opened)traceAct('open')}
+ document.addEventListener('pointerup',traceWorldGesture,true);
+ document.addEventListener('click',ev=>{
+  if(traceOpeningClick){traceOpeningClick=false;ev.preventDefault();ev.stopImmediatePropagation();return}
+  const b=ev.target.closest?.('[data-trace1]'),cross=ev.target.closest?.('#modal .close');
+  if(cross&&document.querySelector('#sheetContent [data-trace1]')){ev.preventDefault();ev.stopImmediatePropagation();pilotClose();return}
+  if(!b){traceWorldGesture(ev);return}if(!b.isConnected)return;ev.preventDefault();ev.stopImmediatePropagation();if(b.disabled)return;
+  if(b.dataset.trace1==='close'){pilotClose();return}
+  const s=traceCurrent();if(b.dataset.trace1!=='open'&&(!s||b.dataset.traceScene!==s.id))return;traceAct(b.dataset.trace1);
+ },true);
+ const traceMigration=window.cd11590MigrateSnapshot;window.cd11590MigrateSnapshot=function(snapshot){const out=traceMigration(snapshot);validateTrace(out.player.cd11590Knowledge,out.player.cdSpatialTrace1);return out};
+ window.cdSpatialTrace1=Object.freeze({act:traceAct,view:()=>clone(traceCurrent()),eligible:traceEligible});
+
  window.cd115910Quay=Object.freeze({start:pilotStart,act:pilotAct,open:pilotDraw,view:()=>clone(pilotScene()),eligible:()=>!!player?.cd11590Knowledge&&!!pilotKnowledge(player.cd11590Knowledge)});
 
  // Vue temporaire : sélections et proposition assistée sont un brouillon d’UI.
@@ -17864,7 +17950,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    Aucun registre canonique, clé de stockage, bonus ou mécanisme de récupération. */
 (function(){
  'use strict';
- const BUILD='SPATIAL-2 ACCESS-1 / CANDIDATE';
+ const BUILD='SPATIAL-2 TRACE-1 / CANDIDATE';
  let order=0,attempt=null,firstFailure=null,lastAttempt=null,events=[],lost=0;
  const copy=value=>JSON.parse(JSON.stringify(value));
  function metrics(){
