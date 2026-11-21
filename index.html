@@ -403,6 +403,151 @@ header{left:18px!important}
 </style>
 </head>
 <body>
+<script id="cd-game-storage">
+let checkpointReadOnly=false, checkpointSuspended=false;
+// Les anciennes pages ne connaissent pas ces clés. Le verrou couvre tous
+// les écrivains de ce format, y compris les écritures auxiliaires et le Livre.
+const saveGuardPrefix='cd-save-guard-v1:';
+const saveGuardReadyKey=saveGuardPrefix+'ready';
+let saveGuardOwnsLock=false,saveGuardStarted=false;
+function saveGuardKeys(prefix){
+ const disk=window.localStorage,keys=[];
+ for(let i=0;i<disk.length;i++){
+  const key=disk.key(i);
+  if(key?.startsWith(prefix))keys.push(key.slice(prefix.length));
+ }
+ return keys.sort();
+}
+function saveGuardAssertOwner(){
+ if(!saveGuardOwnsLock)throw new Error('Écriture refusée. Rouvrez la page pour vérifier le point de reprise.');
+}
+function saveGuardLegacy(){
+ const disk=window.localStorage;
+ return saveGuardKeys('cosmic_').map(name=>['cosmic_'+name,disk.getItem('cosmic_'+name)]);
+}
+function saveGuardSame(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function saveGuardSnapshot(){
+ const disk=window.localStorage;
+ const keys=[...saveGuardKeys('cosmic_').map(name=>'cosmic_'+name),
+  ...saveGuardKeys(saveGuardPrefix).map(name=>saveGuardPrefix+name)].sort();
+ return keys.map(key=>[key,disk.getItem(key)]);
+}
+function saveGuardExport(){
+ const entries=saveGuardSnapshot();
+ if(entries.some(([,raw])=>raw===null)||!saveGuardSame(entries,saveGuardSnapshot()))
+  throw new Error('Sauvegarde en cours de modification. Réessayez l’export.');
+ const report={format:'cosmic-save-backup-1',at:new Date().toISOString(),origin:location.origin,
+  path:location.pathname,entries};
+ const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download='COSMIC_SAUVEGARDES_'+Date.now()+'.json';
+ document.body.append(link);
+ try{link.click()}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+ return entries;
+}
+async function saveGuardApproveImport(){
+ if(window.localStorage.getItem(saveGuardReadyKey)!==null||
+    saveGuardKeys(saveGuardPrefix+'cosmic_').length||!saveGuardLegacy().length)return null;
+ const panel=document.getElementById('saveGuardImport');
+ const download=document.getElementById('saveGuardBackup');
+ const proceed=document.getElementById('saveGuardImportConfirm');
+ const status=document.getElementById('saveGuardImportStatus');
+ panel.hidden=false;
+ let exported=null;
+ download.onclick=()=>{
+  try{
+   const entries=saveGuardExport();
+   exported=entries.filter(([key])=>key.startsWith('cosmic_'));
+   proceed.disabled=false;
+   status.textContent='Enregistrez le JSON dans Fichiers. Fermez les anciennes pages du jeu avant de continuer.';
+  }catch(error){exported=null;proceed.disabled=true;status.textContent=error.message}
+ };
+ return new Promise(resolve=>{
+  proceed.onclick=()=>{
+   try{
+    saveGuardAssertOwner();
+    if(!exported||!saveGuardSame(exported,saveGuardLegacy()))
+     throw new Error('Les données historiques ont changé. Exportez à nouveau avant de continuer.');
+    panel.hidden=true;download.onclick=null;proceed.onclick=null;
+    resolve(exported);
+   }catch(error){exported=null;proceed.disabled=true;status.textContent=error.message}
+  };
+ });
+}
+function saveGuardInitialize(approved){
+ const disk=window.localStorage,ready=disk.getItem(saveGuardReadyKey);
+ const imported=saveGuardKeys(saveGuardPrefix+'cosmic_');
+ if(ready==='1')return;
+ if(ready!==null||imported.length)throw new Error('Copie de sauvegarde incomplète. Les données sont conservées.');
+ const legacy=()=>saveGuardKeys('cosmic_').map(name=>{
+  const key='cosmic_'+name;
+  return [key,disk.getItem(key)];
+ });
+ const source=legacy();
+ if(source.length&&(!approved||!saveGuardSame(source,approved)))
+  throw new Error('Export et confirmation nécessaires avant la copie des sauvegardes.');
+ if(source.some(([,raw])=>raw===null))throw new Error('La sauvegarde d’origine est en cours de modification.');
+ for(const [key,raw] of source)disk.setItem(saveGuardPrefix+key,raw);
+ if(source.some(([key,raw])=>disk.getItem(saveGuardPrefix+key)!==raw)||
+    JSON.stringify(legacy())!==JSON.stringify(source))
+  throw new Error('Copie de sauvegarde non confirmée. Les données sont conservées.');
+ disk.setItem(saveGuardReadyKey,'1');
+ if(disk.getItem(saveGuardReadyKey)!=='1')throw new Error('Initialisation de la sauvegarde non confirmée.');
+}
+function startSaveGuard(){
+ if(saveGuardStarted)return;
+ saveGuardStarted=true;
+ try{
+  if(!navigator.locks?.request)throw new Error('Verrou de sauvegarde indisponible. Les données restent intactes.');
+  navigator.locks.request('cosmic-disturbances/save-guard-v1',{mode:'exclusive',ifAvailable:true},async lock=>{
+   if(!lock)throw new Error('Cette sauvegarde est ouverte dans une autre page. Fermez cette page puis actualisez ici.');
+   let release;
+   const lifetime=new Promise(resolve=>{release=resolve});
+   const retire=()=>{saveGuardOwnsLock=false;release()};
+   // Les gestionnaires de pause du jeu sont déjà en place.
+   window.addEventListener('pagehide',retire,{once:true});
+   window.addEventListener('pageshow',event=>{
+    if(event.persisted&&!saveGuardOwnsLock)showRuntimeError(new Error('Page historique. Actualisez pour reprendre.'));
+   });
+   saveGuardOwnsLock=true;
+   try{
+    const approved=await Promise.race([saveGuardApproveImport(),lifetime.then(()=>{throw new Error('Page fermée avant confirmation. Rouvrez pour reprendre.');})]);
+    saveGuardAssertOwner();
+    saveGuardInitialize(approved);
+    window.cd11590LoadBook();
+    if(validateCore())bootGame();
+    await lifetime;
+   }finally{
+    retire();
+    window.removeEventListener('pagehide',retire);
+   }
+  }).catch(showRuntimeError);
+ }catch(error){showRuntimeError(error)}
+}
+const localStorage={
+ get length(){return saveGuardKeys(saveGuardPrefix+'cosmic_').length},
+ key(index){const name=saveGuardKeys(saveGuardPrefix+'cosmic_')[index];return name===undefined?null:'cosmic_'+name},
+ getItem(key){return window.localStorage.getItem(saveGuardPrefix+key)},
+ setItem(key,value){
+  saveGuardAssertOwner();
+  if(checkpointReadOnly||checkpointSuspended)throw new Error('Écriture nécessaire à la reprise. Les copies restent en place.');
+  window.localStorage.setItem(saveGuardPrefix+key,value);
+ },
+ removeItem(key){
+  saveGuardAssertOwner();
+  if(checkpointReadOnly||checkpointSuspended)throw new Error('Suppression interdite pendant la reprise.');
+  window.localStorage.removeItem(saveGuardPrefix+key);
+ }
+};
+</script>
+<div id="saveGuardImport" hidden style="position:fixed;inset:0;z-index:100001;background:#12151c;color:#fff;overflow:auto;padding:20px;font:16px system-ui;box-sizing:border-box">
+ <h2>Conserver vos sauvegardes</h2>
+ <p>Une sauvegarde historique est présente. Enregistrez sa copie dans Fichiers avant de reprendre avec WORLD-QUEST.</p>
+ <p>La reprise utilisera de nouvelles clés protégées. Les données historiques resteront disponibles pour l’ancienne version. Fermez les anciennes pages du jeu pour éviter deux progressions séparées.</p>
+ <button id="saveGuardBackup" style="min-height:44px">1 · EXPORTER LES SAUVEGARDES</button>
+ <p id="saveGuardImportStatus" role="status">La copie attend votre confirmation.</p>
+ <button id="saveGuardImportConfirm" disabled style="min-height:44px">2 · COPIE ENREGISTRÉE — REPRENDRE</button>
+</div>
 <div id="game">
 <header><h1>☄ COSMIC DISTURBANCES</h1><div id="sub"></div></header>
 <div id="hud"></div>
@@ -423,6 +568,7 @@ header{left:18px!important}
 <button onclick="openInventory()">🎒 INVENTAIRE</button><button onclick="openCharacter()">👤 PERSONNAGE</button><button onclick="cd23OpenCodex()">📖 BESTIAIRE</button>
 <button onclick="openGuide()">📚 GUIDE OBJETS</button><button onclick="cd23OpenAchievements()">🏆 SUCCÈS</button><button onclick="openQuest()">❗ QUÊTE</button>
 <button onclick="newRun()">☠ NOUVELLE RÉALITÉ</button>
+<button onclick="try{saveGuardExport()}catch(e){showRuntimeError(e)}">EXPORTER LES SAUVEGARDES</button>
 </div></div></div>
 <div id="modal" class="overlay"><div class="sheet" id="sheet"><button class="close" type="button" onclick="closeOverlays()">✕</button><div id="sheetContent"></div></div></div>
 <div id="toast"></div>
@@ -430,6 +576,7 @@ header{left:18px!important}
 
 <div id="runtimeError" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(80vw,720px);background:#28151a;border:1px solid #9b5964;border-radius:14px;padding:14px;color:#fff;font-family:monospace">
  <b>ERREUR DE JEU</b>
+ <button onclick="try{saveGuardExport()}catch(e){showRuntimeError(e)}" style="min-height:42px">EXPORTER LES SAUVEGARDES</button>
  <div id="runtimeErrorText" style="margin:8px 0;white-space:pre-wrap"></div>
  <button onclick="recoverGame()" style="min-height:42px;padding:8px 12px">REPRENDRE</button>
 </div>
@@ -918,8 +1065,7 @@ function death(){battle=false;enemy=null;log("☠ Vous êtes mort.");toast("Vous
 
 function move(dx,dy){
  if(!player||!Array.isArray(map)||!Number.isInteger(px)||!Number.isInteger(py)||!Array.isArray(map[py])){
-   try{newRun()}catch(e){console.error(e);showRuntimeError(e)}
-   return
+   throw new Error('État de la session indisponible. Rechargez pour tenter la reprise.');
  }
  if(battle){
    toast("Combat en cours — attaquez ou fuyez");
@@ -937,6 +1083,7 @@ function move(dx,dy){
    if(!battle&&rng()<.10)spawnEnemy();
    cdAtmosphere();
    cd12Tick();
+   if(dx||dy)window.cd115910QuayStep?.();
    if(cd12BossChance())return;
    if(typeof cd13ZoneEvent==="function")cd13ZoneEvent();
    if(typeof cd15Event==="function")cd15Event();
@@ -1027,8 +1174,8 @@ function bootGame(){
    }else render();
  }catch(e){console.error(e);showRuntimeError(e)}
 }
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bootGame,{once:true});
-else bootGame();
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",startSaveGuard,{once:true});
+else startSaveGuard();
 
 function showRuntimeError(err){
  const p=document.getElementById("runtimeError");
@@ -1064,7 +1211,7 @@ function validateCore(){
  }
  return true;
 }
-window.addEventListener("load",()=>{validateCore();bootGame()});
+window.addEventListener("load",startSaveGuard);
 
 
 setInterval(()=>{
@@ -16698,54 +16845,52 @@ window.cd11210State=function(){return {bestiaireUnifie:true,dossiers:sync()}};
    throw new Error('Point de suspension incompatible');
   return {sequence:e.sequence,snapshot};
  }
- function read(){return decode(localStorage.getItem(CURRENT))}
- function recover(){
-  const currentRaw=localStorage.getItem(CURRENT),pendingRaw=localStorage.getItem(PENDING);
-  let current=null,pending=null,currentError=null,pendingError=null;
-  try{current=decode(currentRaw)}catch(e){currentError=e}
-  try{pending=decode(pendingRaw)}catch(e){pendingError=e}
-  if(pending&&(!current||pending.sequence>=current.sequence)){
-   // PENDING a déjà été relu et contrôlé : une coupure a pu survenir juste
-   // avant sa promotion. La reprise reste possible même si la promotion échoue.
-   try{
-    localStorage.setItem(CURRENT,pendingRaw);
-    if(localStorage.getItem(CURRENT)!==pendingRaw)throw new Error('Promotion du point temporaire non vérifiée');
-    localStorage.removeItem(PENDING);
-   }catch(e){}
-   return {...pending,recoveredFrom:'pending'};
+ let baseline=null;
+ function read(){
+  saveGuardAssertOwner();
+  const raw=localStorage.getItem(CURRENT),point=decode(raw);
+  baseline=raw;
+  return point;
+ }
+ function writableCurrent(){
+  saveGuardAssertOwner();
+  const raw=localStorage.getItem(CURRENT);
+  if(raw!==baseline||localStorage.getItem(PENDING)!==null){
+   checkpointSuspended=true;
+   throw new Error('Point de reprise concurrent ou obsolète. Les copies ont été conservées.');
   }
-  if(current){
-   if(pendingRaw!==null)try{localStorage.removeItem(PENDING)}catch(e){}
-   return {...current,recoveredFrom:'current'};
-  }
-  if(currentError||pendingError)throw new Error('Aucun point de suspension valide');
-  return null;
+  return raw;
  }
  function write(snapshot){
   if(!snapshot||snapshot.schema!==3||!snapshot.player||Number(snapshot.player.hp)<=0||Number(snapshot.player.san)<=0||Number(snapshot.player.myth)>=100||snapshot.player.cd11580Death)
    throw new Error('Run actif requis');
-  const current=read(),body=JSON.stringify(snapshot);
+  const raw=writableCurrent(),current=decode(raw),body=JSON.stringify(snapshot);
   if(current&&JSON.stringify(current.snapshot)===body){
    // iOS peut émettre pointerup + click puis visibilitychange + pagehide pour
    // une seule action. Un état strictement identique ne doit pas réécrire le disque.
-   if(localStorage.getItem(PENDING)!==null)try{localStorage.removeItem(PENDING)}catch(e){}
    return current.sequence;
   }
   const sequence=(current?.sequence||0)+1;
   const value=JSON.stringify({format:1,sequence,body,checksum:hash(body)});
   if(value.length>MAX_CHARS)throw new Error('Point de suspension trop volumineux');
-  localStorage.setItem(PENDING,value);
-  if(localStorage.getItem(PENDING)!==value)throw new Error('Point temporaire non vérifié');
-  localStorage.setItem(CURRENT,value);
-  if(localStorage.getItem(CURRENT)!==value)throw new Error('Point courant non vérifié');
-  localStorage.removeItem(PENDING);
+  try{
+   localStorage.setItem(PENDING,value);
+   if(localStorage.getItem(PENDING)!==value)throw new Error('Point temporaire non vérifié');
+   if(localStorage.getItem(CURRENT)!==raw)throw new Error('Point courant remplacé pendant la promotion');
+   localStorage.setItem(CURRENT,value);
+   if(localStorage.getItem(CURRENT)!==value||localStorage.getItem(PENDING)!==value)
+    throw new Error('Promotion du point de reprise non confirmée');
+   baseline=value;
+   localStorage.removeItem(PENDING);
+  }catch(error){checkpointSuspended=true;throw error}
   return sequence;
  }
  function discard(){
+  writableCurrent();
   localStorage.removeItem(CURRENT);
-  localStorage.removeItem(PENDING);
+  baseline=null;
  }
-window.cd11340CheckpointStorage={write,read,recover,discard,
+window.cd11340CheckpointStorage={write,read,discard,assertWritable:writableCurrent,
   status:()=>({active:false,current:localStorage.getItem(CURRENT)!==null,
    pending:localStorage.getItem(PENDING)!==null,maxChars:MAX_CHARS,
    currentChars:(localStorage.getItem(CURRENT)||'').length})};
@@ -16760,10 +16905,14 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  if(!storage||typeof cd11290CaptureCore!=='function'||typeof cd11290RestoreCore!=='function')return;
  function suspend(){return storage.write(cd11290CaptureCore())}
  function resume(){
+  saveGuardAssertOwner();
+  if(checkpointSuspended)throw new Error('Reprise suspendue. Actualisez pour examiner de nouveau les copies.');
+  checkpointReadOnly=true;
   try{
-  if(localStorage.getItem('cosmic_run_terminal_v1'))return false;
   window.cdP0Trace?.('resume.begin');
-  const point=typeof storage.recover==='function'?storage.recover():storage.read();if(!point)return false;
+  if(storage.status().pending)throw new Error('Point temporaire présent. Reprise suspendue pour préserver CURRENT et PENDING.');
+  if(localStorage.getItem('cosmic_run_terminal_v1')!==null)return false;
+  const point=storage.read();if(!point)return false;
   window.cdP0Trace?.('resume.point',point);
   point.snapshot=cd11580MigrateSnapshot(point.snapshot);
   window.cdP0Trace?.('resume.stage.migrated',point.snapshot);
@@ -16777,8 +16926,9 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(cd11580CanonicalJSON(actual)!==cd11580CanonicalJSON(expected))
    throw new Error('Le rendu a modifié le point de reprise');
   window.cd11290ConfirmVisual(presentation);
-  window.cdP0Trace?.('resume.succeeded');lastError=null;return true;
-  }catch(e){window.cdP0Trace?.('resume.failed',String(e.message||e));lastError=String(e.message||e);window.cd11580BlockCheckpoint?.();throw e}
+  window.cdP0Trace?.('resume.succeeded');lastError=null;checkpointSuspended=false;return true;
+  }catch(e){window.cdP0Trace?.('resume.failed',String(e.message||e));lastError=String(e.message||e);checkpointSuspended=true;window.cd11580BlockCheckpoint?.();throw e}
+  finally{checkpointReadOnly=false}
  }
  function discard(){storage.discard();lastError=null}
  function commit(){
@@ -16797,15 +16947,17 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  }
  window.cd11350Boot=function(){
   const terminal=localStorage.getItem('cosmic_run_terminal_v1');
-  if(ENABLED&&terminal){
-   if(bootAttempted)return true;bootAttempted=true;
-   try{window.cd10920RestoreTerminal(JSON.parse(terminal))}catch(e){lastError=String(e.message||e);showRuntimeError(e)}
+  if(ENABLED&&terminal!==null&&!storage.status().pending){
+   if(bootAttempted)return true;
+   bootAttempted=true;checkpointReadOnly=true;
+   try{window.cd10920RestoreTerminal(JSON.parse(terminal))}catch(e){checkpointSuspended=true;lastError=String(e.message||e);showRuntimeError(e)}
+   finally{checkpointReadOnly=false}
    return true;
   }
   if(!ENABLED||(!storage.status().current&&!storage.status().pending))return false;
   if(bootAttempted)return true;
   bootAttempted=true;
-  try{return resume()}catch(e){
+  try{if(!resume())throw new Error('Le point de reprise n’est plus accessible.');return true}catch(e){
    lastError=String(e&&e.message||e);
    if(typeof showRuntimeError==='function')showRuntimeError(e);
    return true; // Un point invalide ne déclenche jamais une nouvelle réalité silencieuse.
@@ -16871,6 +17023,8 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const outer=cd11580ActionDepth===0;
   if(name!=='newRun'&&player?.cd11580Death)return false;
   if(outer){
+   if(checkpointSuspended)throw new Error('Démarrage ou action refusé pour préserver la partie et les copies de reprise.');
+   window.cd11340CheckpointStorage.assertWritable();
    if(name==='newRun'){
     localStorage.removeItem('cosmic_run_terminal_v1');faulted=false;
    }else if(player&&player.cd11580Death)return false;
@@ -16950,7 +17104,10 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(Object.hasOwn(v,'hypotheses'))validateHypothesisArchive(v.hypotheses);
   return v;
  }
- try{const raw=localStorage.getItem(KEY);if(raw!==null)book=clone(validateBook(JSON.parse(raw)))}catch(e){bookError=e}
+ window.cd11590LoadBook=function(){
+  saveGuardAssertOwner();
+  try{const raw=localStorage.getItem(KEY);if(raw!==null)book=clone(validateBook(JSON.parse(raw)))}catch(e){bookError=e}
+ };
  function requireBook(){if(bookError)throw bookError}
  function persist(v){
   requireBook();validateBook(v);const raw=JSON.stringify(v);
@@ -17089,8 +17246,8 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const baseNew=window.newRun;
  window.newRun=function(){
   requireBook();if(cd11580Rendering)throw new Error('Nouvelle réalité demandée pendant le rendu');
-  const next=clone(book);next.realitySerial++;persist(next);
   return cd11580Action('newRun',function(){
+  const next=clone(book);next.realitySerial++;persist(next);
   book=next;pendingReality='reality:'+book.realitySerial;lastEnemy=null;
   try{const out=baseNew.apply(this,arguments);ensure();return out}finally{pendingReality=null}
  },[...arguments],this)};newRun=window.newRun;
@@ -17312,7 +17469,7 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const seen=new Set();let previous=0;
   for(const e of s.events){
    const o=k.personal.observations[e?.observationId];
-   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront','cordage-check','cordage-share','cordage-react',...MEMORY_ACTIONS,...SPATIAL_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
+   if(!e||!['start','inspect','ask','material','trail','arrive','detail','confront','cordage-check','cordage-share','cordage-react','cordage-witness-post','cordage-return','relay-inspect','relay-revised','passage-delay',...MEMORY_ACTIONS,...SPATIAL_ACTIONS].includes(e.action)||seen.has(e.action)||!Number.isSafeInteger(e.causalOrder)||e.causalOrder<=previous||e.causalOrder>k.causalOrder||!o||o.causalOrder!==e.causalOrder||o.provenance?.sceneId!==s.id||o.links?.place!==s.id||k.personal.eventKeys[s.id+':'+e.action]!==e.observationId)throw new Error('Historique du quai incompatible');
    if(e.action==='confront'&&(e.knowledge?.material!==s.events.find(x=>x.action==='inspect')?.observationId||e.knowledge?.witness!==s.events.find(x=>x.action==='ask')?.observationId||!s.events.some(x=>x.action==='inspect'&&x.causalOrder<e.causalOrder)||!s.events.some(x=>x.action==='ask'&&x.causalOrder<e.causalOrder)))throw new Error('Confrontation du quai sans sources personnelles');
    // Les sources nouvelles voyagent avec l'observation consignée ; les archives antérieures restent intactes.
    if(e.action==='confront'&&o.provenance.basis!==undefined){
@@ -17329,6 +17486,12 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   validatePilotMemory(s,k);
   validatePilotCordage(s,k);
   validatePilotCordageDialogue(s,k);
+  validatePilotWitnessPost(s,k);
+  validateQuayWatch(s,k);
+  validateQuayRelay(s,k,spot);
+  validateQuayRevision(s,k,spot);
+  validatePassageDelay(s,k);
+  validateQuayFallback(s,k);
   if(!creating&&(s.events[0]?.action!=='start'||s.progress.inspected!==seen.has('inspect')||s.progress.asked!==seen.has('ask')||s.progress.reached!==seen.has('arrive')||s.progress.detailed!==seen.has('detail')||!!s.progress.confronted!==seen.has('confront')||s.progress.detailed&&s.progress.choice!=='material'||seen.has('material')&&seen.has('trail')||s.progress.choice!==(seen.has('material')?'material':seen.has('trail')?'trail':null)))throw new Error('Progression du quai incompatible');
  }
  // V11.59.10.3 — mémoire locale optionnelle. Aucune initialisation en lecture.
@@ -17506,12 +17669,445 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   const id=pilotRecord(s,action,'quay_cordage_reaction',text,'testimony',{cordageContext:context,inference});
   m.statements.push({observationId:id,causalOrder:k.causalOrder,mode:'after_cordage_disclosure'});return id;
  }
+ // Q3 : le témoin choisit une veille locale d’après le récit reçu.
+ // Le poste est dérivé de la réception canonique, sans nouvelle mémoire persistante.
+ function pilotWitnessPost(s,before=Infinity){
+  const receipt=s.cordageDialogue?.received.find(r=>r.causalOrder<before);
+  if(!receipt)return null;
+  const motion=receipt.source.provenance.experiment.result==='tension_moves_tarp_salt_arc';
+  return {position:motion?'awning-edge':'awning-inner',transmissionId:receipt.observationId};
+ }
+ function pilotWitnessPostText(s,post){
+  return post.position==='awning-edge'
+   ?s.witness.name+' s’est placé au bord de l’auvent et surveille la bâche.'
+   :s.witness.name+' reste sous l’auvent, à distance du nœud.';
+ }
+ function validatePilotWitnessPost(s,k){
+  const event=s.events.find(e=>e.action==='cordage-witness-post');
+  if(!event)return;
+  const post=pilotWitnessPost(s,event.causalOrder),o=resolveObservation(k,event.observationId);
+  if(!post||o.type!=='quay_witness_post'||o.provenance.kind!=='direct_observation'||
+   !same(o.provenance.witnessPost,post)||o.statement!==pilotWitnessPostText(s,post)||
+   o.context.position?.x!==s.site.x||o.context.position?.y!==s.site.y||o.context.depth!==s.site.depth)
+   throw new Error('Observation du poste du témoin incompatible');
+ }
+ // Q2–Q6 : source locale, décision sur la mémoire du témoin et effet différé.
+ // L’ordre 1–4 est propre à cette scène et ne consomme aucun rang documentaire.
+ function quayWatchFact(s){
+  return {id:s.id+'/cordage-shift',type:'quay_cordage_shift',site:clone(s.site),
+   state:{cordage:'displaced',trace:'fresh_drag_mark'},origin:'local_world_event'};
+ }
+ function quayWatchState(s,phase,cutoff){
+  const fact=quayWatchFact(s),watch={phase,eventId:fact.id};
+  if(phase<2)return watch;
+  watch.cutoff=cutoff;
+  const received=pilotWitnessPost(s,cutoff+1);
+  const guiding=s.events.some(e=>e.action==='trail'&&e.causalOrder<=cutoff);
+  // Le trajet accompagné éloigne le témoin du quai. À défaut, il occupe
+  // le poste de QUAI-1 ou son poste initial au bord de l’auvent.
+  const position=guiding?'passage':received?.position||'awning-edge';
+  watch.witness={key:s.witness.key,position,knowledge:null};
+  if(position==='awning-edge'&&spatialVisibility('edge').tarpEdge==='visible'){
+   watch.witness.knowledge={kind:'direct_observation',sourceId:fact.id,trace:fact.state.trace};
+  }else if(received){
+   watch.witness.knowledge={kind:'investigator_report',sourceId:received.transmissionId};
+  }
+  if(phase<3)return watch;
+  const knowledge=watch.witness.knowledge;
+  watch.decision=!knowledge?null:{
+   position:knowledge.kind==='direct_observation'?'awning-inner':'awning-edge',
+   basis:knowledge.sourceId
+  };
+  if(phase===4)watch.result=watch.decision?{position:watch.decision.position}:null;
+  return watch;
+ }
+ function validateQuayWatch(s,k){
+  const watch=s.cordageWatch,fact=quayWatchFact(s),event=s.events.find(e=>e.action==='cordage-return');
+  if(watch===undefined){
+   if(event||Object.hasOwn(k.world.facts,fact.id))throw new Error('État différé du quai absent');
+   return;
+  }
+  if(!watch||![1,2,3,4].includes(watch.phase)||
+   (watch.phase>=2&&(!Number.isSafeInteger(watch.cutoff)||watch.cutoff<s.events[0].causalOrder||watch.cutoff>k.causalOrder))||
+   !same(k.world.facts[fact.id],fact)||!same(watch,quayWatchState(s,watch.phase,watch.cutoff)))
+   throw new Error('État différé du quai incompatible');
+  if(!event)return;
+  const o=resolveObservation(k,event.observationId);
+  if(watch.phase!==4||event.causalOrder<=watch.cutoff||o.type!=='quay_cordage_return'||
+   o.provenance.kind!=='direct_observation'||!same(o.provenance.localTrace,quayWatchTrace(watch))||
+   !same(o.context.position,{x:s.site.x,y:s.site.y})||o.context.depth!==s.site.depth||
+   o.statement!==quayWatchText(s,watch))
+   throw new Error('Provenance du retour au quai incompatible');
+ }
+ function quayWatchTrace(watch){
+  return {trace:'fresh_drag_mark',post:watch.result?.position??null};
+ }
+ function quayWatchText(s,watch){
+  const prefix='Une traînée fraîche coupe le sel près du pieu. Le cordage a changé de place. ';
+  if(!watch.result)return prefix+'Vous n’observez aucun changement de poste de veille.';
+  return prefix+s.witness.name+(watch.result.position==='awning-inner'?' veille depuis le fond de l’auvent.':' veille depuis le bord de l’auvent.');
+ }
+ window.cd115910QuayStep=function(){
+  const s=pilotScene();
+  if(!cd11580ActionDepth||cd11580Rendering||!pilotAlive()||!s||pilotAt(s.site))return;
+  if(s.cordageWatch?.phase===4){
+   if(Number(player.depth)===s.site.depth)advanceQuayFallback(s);
+   advanceQuayRelay(s);return
+  }
+  const k=ensure(),phase=(s.cordageWatch?.phase??0)+1;
+  if(phase===1){
+   const fact=quayWatchFact(s);k.world.facts[fact.id]=fact;
+   if(s.passageEpisode)k.world.facts[s.passageEpisode.id]=quayPassage(s);
+  }
+  s.cordageWatch=quayWatchState(s,phase,phase===2?k.causalOrder:s.cordageWatch?.cutoff);
+  if(phase===2&&s.revisionPlan&&!['echo','rumour'].includes(s.revisionPlan.mode)&&Number(player.depth)===s.site.depth){
+   const p=s.revisionPlan.site;
+   if(map?.[p.y]?.[p.x]==='floor'&&map?.[s.site.y]?.[s.site.x]==='npc')s.revisionView=revisionView(s,k);
+  }
+ };
+ // Le relais utilise la même horloge de déplacement que la veille de QUAI-2.
+ const RELAY_RANGE=6, RELAY_MAX_WAIT=3, RELAY_MAX_TICKS=14;
+ const RELAY_POLICIES=['exact','partial','mistaken'];
+ function quayKey(p){return [p.depth,p.x,p.y].join(':')}
+ function relayPassable(tile){return !!tile&&!["wall","water","exit"].includes(tile)}
+ function quayRoutes(origin){
+  const queue=[{site:origin,distance:0,first:null}],seen=new Set([quayKey(origin)]);
+  for(const node of queue){
+   if(node.distance===RELAY_RANGE)continue;
+   for(const [dx,dy]of [[0,-1],[1,0],[0,1],[-1,0]]){
+    const site={x:node.site.x+dx,y:node.site.y+dy,depth:origin.depth},tile=map?.[site.y]?.[site.x],key=quayKey(site);
+    if(!relayPassable(tile)||seen.has(key))continue;
+    seen.add(key);queue.push({site,distance:node.distance+1,first:node.first||site});
+   }
+  }
+  return queue;
+ }
+ function relayPolicy(seedValue,s){
+  return RELAY_POLICIES[pilotHash(seedValue+':relay:'+s.witness.key)%RELAY_POLICIES.length];
+ }
+ function relayPlan(s,seedValue){
+  const match=quayRoutes(s.site).find(({site,distance})=>distance&&map[site.y][site.x]==='npc');
+  return match?{site:match.site,key:quayKey(match.site),policy:relayPolicy(seedValue,s)}:null;
+ }
+ function relayPayload(knowledge,policy){
+  if(knowledge?.kind!=='direct_observation')return null;
+  // Une interprétation erronée de l’âge peut circuler sans devenir un fait.
+  const age=policy==='exact'&&knowledge.trace==='fresh_drag_mark'?'fresh':policy==='mistaken'?'old':null;
+  return {claim:'drag_mark',age,kind:policy==='mistaken'?'interpretation':'reported_observation'};
+ }
+ function relayPost(receipt){
+  return receipt.payload.age==='fresh'?'cordage':receipt.payload.age==='old'?'access':'threshold';
+ }
+ function relayInitial(site){
+  return {position:clone(site),waits:0,log:[]};
+ }
+ // Le même réducteur valide le journal au chargement et construit l’état en jeu.
+ // Les pas et blocages historiques sont des faits datés, indépendants de la carte actuelle.
+ function relayReduce(s,r,input,revision=false){
+  const start=revision?s.relay.effect.at:4;
+  const last=r.log.at(-1),tick=(last?.tick??start)+1,n=r.log.length;
+  const add=(kind,data={})=>r.log.push({order:r.log.length+1,tick,kind,...data});
+  switch(last?.kind){
+   case undefined:{
+    if(revision){
+     const evidence=revisionEvidence(s);
+     if(!evidence){add('no-source');break}
+     r.source=evidence.source;
+     r.message={id:s.id+'/relay:2',from:s.revisionPlan.key,to:s.relayPlan.key,
+      parent:r.source.id,root:evidence.root,observedAt:r.source.at,context:s.cordageWatch.eventId+'@2',payload:evidence.payload};
+    }else{
+     const knowledge=s.cordageWatch.witness.knowledge,payload=relayPayload(knowledge,s.relayPlan.policy);
+     if(!payload){add('no-source');break}
+     if(s.passageEpisode)payload.passageWarning={site:clone(s.passageEpisode.site),claim:'dangerous',kind:'interpretation'};
+     r.source={id:s.id+'/cordage-direct:2',observer:s.witness.key,at:2,
+      position:s.cordageWatch.witness.position,...clone(knowledge)};
+     r.message={id:s.id+'/relay:1',from:r.source.observer,to:s.relayPlan.key,
+      parent:r.source.id,root:r.source.sourceId,observedAt:r.source.at,payload};
+    }
+    add('queued',{messageId:r.message.id});break;
+   }
+   case 'diverted':
+    if(input?.kind!=='delay'||!same(input.site,s.relayPlan.site))break;
+    r.passage.delay={id:s.id+'/missed-meeting:1',at:tick,site:clone(input.site),actor:s.revisionPlan.key,
+     causedBy:r.passage.order.id};
+    // A est resté au poste après la remise. Il constate l'absence et marque le rendez-vous.
+    r.passage.witness={id:s.id+'/absence-view:1',observer:s.witness.key,site:clone(input.site),
+     at:tick,sourceId:r.passage.delay.id,kind:'direct_observation',observation:'absent_at_rendezvous',
+     interpretation:'reason_unknown'};
+    add('delay',{factId:r.passage.delay.id,site:clone(input.site)});break;
+   case 'queued':case 'walk':case 'blocked':case 'delay':{
+    if(input?.kind==='blocked'){
+     r.waits++;
+     add('blocked',{reason:'local_route_unavailable'});
+     if(r.waits===RELAY_MAX_WAIT||tick-start>=RELAY_MAX_TICKS)add('expired',{messageId:r.message.id,reason:r.waits===RELAY_MAX_WAIT?'blocked':'route_timeout'});
+     break;
+    }
+    const site=input?.site;
+    if(input?.kind!=='walk'||!site||site.depth!==s.site.depth||
+     Math.abs(site.x-r.position.x)+Math.abs(site.y-r.position.y)!==1||
+     !Number.isInteger(site.x)||!Number.isInteger(site.y)||site.x<0||site.x>12||site.y<0||site.y>12)break;
+    if(revision&&s.relay.decision.passageBelief==='dangerous'&&same(site,s.relayPlan.site)&&!r.passage){
+     r.passage={order:{id:s.id+'/detour:1',at:tick,by:s.relayPlan.key,to:s.revisionPlan.key,
+      from:clone(r.position),site:clone(site),basis:s.relay.receipt.messageId,action:'wait_at_landing'}};
+     add('diverted',{orderId:r.passage.order.id,site:clone(site)});break;
+    }
+    r.position=clone(site);r.waits=0;add('walk',{site:clone(site)});
+    if(same(site,s.relayPlan.site)){
+     add('transmitted',{messageId:r.message.id,site:clone(site),channel:'face_to_face'});
+     r.receipt={messageId:r.message.id,from:r.message.from,to:r.message.to,
+      parent:r.message.parent,root:r.message.root,payload:clone(r.message.payload),kind:'reported',at:tick};
+     if(revision)r.receipt.context=r.message.context;
+     if(r.passage?.delay){
+      r.passage.crossing={id:s.id+'/crossing:1',observer:s.revisionPlan.key,
+       site:clone(site),at:tick,observation:'crossed_without_incident'};
+      r.receipt.crossing=clone(r.passage.crossing);
+     }
+     add('received',{messageId:r.message.id,recipient:r.receipt.to});
+    }else if(tick-start>=RELAY_MAX_TICKS)add('expired',{messageId:r.message.id,reason:'route_timeout'});
+    break;
+   }
+   case 'received':
+    r.decision=revision?revisionDecision(s,r.receipt):{basis:r.receipt.messageId,post:relayPost(r.receipt)};
+    if(!revision&&r.receipt.payload.passageWarning?.claim==='dangerous')r.decision.passageBelief='dangerous';
+    if(revision&&r.receipt.crossing)r.decision.passageRevision={
+     previous:s.relay.decision.passageBelief,belief:'passable_on_crossing',basis:r.receipt.crossing.id};
+    add('decided',{basis:r.decision.basis,post:r.decision.post});break;
+   case 'decided':
+    if(revision&&r.decision.post===s.relay.effect.post){add('kept',{effectId:s.relay.effect.id});break}
+    r.effect={id:s.id+'/relay-watch:'+(revision?2:1),witness:s.relayPlan.key,site:clone(s.relayPlan.site),post:r.decision.post,at:tick};
+    add('effect',{effectId:r.effect.id});break;
+  }
+  return r.log.length>n;
+ }
+ function relayFinished(r){return ['no-source','expired','effect','kept'].includes(r?.log.at(-1)?.kind)}
+ function advanceQuayRelay(s){
+  if(!s.relayPlan)return;
+  const revision=!!s.relay?.effect;
+  if(revision&&!s.revisionPlan)return;
+  const field=revision?'revisionRelay':'relay';
+  const r=s[field]??relayInitial(revision?s.revisionPlan.site:s.site),kind=r.log.at(-1)?.kind;
+  if(relayFinished(r))return;
+  let input=null;
+  if(kind==='diverted'){
+   if(Number(player.depth)!==s.site.depth)return;
+   input={kind:'delay',site:s.relayPlan.site};
+  }else if(['queued','walk','blocked','delay'].includes(kind)){
+   if(Number(player.depth)!==s.site.depth)return;
+   const target=s.relayPlan.site;
+   const route=map?.[target.y]?.[target.x]==='npc'&&relayPassable(map?.[r.position.y]?.[r.position.x])&&
+    quayRoutes(r.position).find(node=>same(node.site,target));
+   input=route?.first?{kind:'walk',site:route.first}:{kind:'blocked'};
+  }
+  if(relayReduce(s,r,input,revision)){
+   s[field]=r;
+   if(r.log.at(-1).kind==='delay'){
+    const fact=passageDelayFact(r.passage.delay);
+    const facts=ensure().world.facts;
+    facts[fact.id]=fact;
+    const target=quayRoutes(s.site).find(node=>node.distance===1&&!same(node.site,s.revisionPlan.site)&&map[node.site.y][node.site.x]==='floor');
+    if(target)s.fallback=quayFallbackPlan(s,r.passage.delay,target.site);
+   }
+  }
+ }
+ function quayFallbackPlan(s,delay,to){
+  return {id:s.id+'/fallback:1',actor:s.witness.key,origin:delay.id,
+   cause:s.revisionRelay.passage.witness.id,scheduledAt:delay.at,due:delay.at+1,from:clone(s.site),to:clone(to)};
+ }
+ function quayFallbackFact(plan){
+  const {id,actor,origin,cause,scheduledAt,due,from,to,result}=plan;
+  return {id,type:'quay_watch_fallback',actor,origin,cause,scheduledAt,at:due,
+   from:clone(from),target:clone(to),site:clone(result.position),outcome:result.outcome};
+ }
+ function advanceQuayFallback(s){
+  const plan=s.fallback;
+  if(!plan||plan.result)return;
+  // Première étape effective du quai après le constat. Le relief est relu à ce tic.
+  const moved=map?.[plan.to.y]?.[plan.to.x]==='floor';
+  plan.result={at:plan.due,outcome:moved?'moved':'obsolete',position:clone(moved?plan.to:plan.from)};
+  const fact=quayFallbackFact(plan);
+  ensure().world.facts[fact.id]=fact;
+ }
+ function validateQuayFallback(s,k){
+  const plan=s.fallback, fact=k.world.facts[s.id+'/fallback:1'];
+  if(plan===undefined){
+   if(fact!==undefined)throw new Error('Repli sans ordre');
+   return;
+  }
+  const delay=s.revisionRelay?.passage?.delay,to=plan?.to;
+  if(!delay||!to||!Number.isInteger(to.x)||!Number.isInteger(to.y)||
+     to.x<0||to.x>=13||to.y<0||to.y>=13||to.depth!==s.site.depth||
+     Math.abs(to.x-s.site.x)+Math.abs(to.y-s.site.y)!==1||same(to,s.revisionPlan.site))
+   throw new Error('Destination de repli incompatible');
+  const expected=quayFallbackPlan(s,delay,to);
+  if(plan.result!==undefined){
+   const moved=plan.result?.outcome==='moved';
+   expected.result={at:expected.due,outcome:moved?'moved':'obsolete',position:clone(moved?to:s.site)};
+  }
+  const latest=s.revisionRelay.log.at(-1).tick;
+  if(!same(plan,expected)||(!plan.result&&latest>=plan.due)||
+     !same(fact,plan.result?quayFallbackFact(expected):undefined))
+   throw new Error('Historique du repli incompatible');
+ }
+
+ function relayText(effect){
+  if(effect.post==='cordage')return 'Le second veilleur surveille les amarres et vérifie les nœuds de son côté du quai.';
+  if(effect.post==='access')return 'Le second veilleur a quitté les amarres et surveille les arrivées.';
+  return 'Le second veilleur garde le seuil, d’où il peut surveiller les amarres et les arrivées.';
+ }
+ function relayTrace(effect){return {effectId:effect.id,witness:effect.witness,post:effect.post}}
+ function replayRelay(s,r,revision=false){
+  if(!r||!Array.isArray(r.log)||!r.log.length||r.log.length>32)throw new Error('Journal du relais incompatible');
+  const expected=relayInitial(revision?s.revisionPlan.site:s.site);
+  for(let i=0;i<r.log.length;){
+   const row=r.log[i],input=row?.kind==='diverted'?{kind:'walk',site:row.site}:row;
+   if(!relayReduce(s,expected,input,revision))throw new Error('Transition du relais incompatible');
+   i=expected.log.length;
+  }
+  if(!same(expected,r))throw new Error('État du relais incompatible');
+ }
+ function validateQuayRelay(s,k,spot){
+  const p=s.relayPlan,r=s.relay,e=s.events.find(row=>row.action==='relay-inspect');
+  if(p!==undefined&&(!p||!spot(p.site)||p.site.depth!==s.site.depth||p.key!==quayKey(p.site)||p.key===s.witness.key||
+   Math.abs(p.site.x-s.site.x)+Math.abs(p.site.y-s.site.y)>RELAY_RANGE||p.policy!==relayPolicy(k.world.seed,s)))
+   throw new Error('Destination du relais incompatible');
+  if(r===undefined){
+   if(e)throw new Error('Relais du quai absent');
+   return;
+  }
+  if(!p||s.cordageWatch?.phase!==4)throw new Error('Journal du relais incompatible');
+  replayRelay(s,r);
+  validateRelayObservation(s,k,e,r.effect);
+ }
+ function validateRelayObservation(s,k,e,effect){
+  if(!e)return;
+  const o=resolveObservation(k,e.observationId);
+  if(!effect||e.causalOrder<=s.cordageWatch.cutoff||o.type!=='quay_relay_post'||o.provenance.kind!=='direct_observation'||
+   o.provenance.sourceId!==effect.witness||o.links.npc!==effect.witness||
+   !same(o.provenance.relayPost,relayTrace(effect))||!same(o.context.position,{x:effect.site.x,y:effect.site.y})||
+   o.context.depth!==effect.site.depth||o.statement!==relayText(effect))
+   throw new Error('Observation du relais incompatible');
+ }
+
+ const REVISION_MODES=['fresh','old','perspective','echo','rumour'];
+ function revisionMode(seed,s){return REVISION_MODES[pilotHash(seed+':revision:'+s.witness.key)%REVISION_MODES.length]}
+ function planQuayRevision(s,seed){
+  const match=quayRoutes(s.site).find(node=>same(node.site,s.relayPlan.site));
+  const site=match?.first;
+  if(match?.distance<2||!site||map[site.y][site.x]!=='floor')return null;
+  return {site,key:s.id+'/witness-c',mode:revisionMode(seed,s)};
+ }
+ function revisionView(s,k){
+  const fact=k.world.facts[s.cordageWatch.eventId],p=s.revisionPlan;
+  // Depuis le palier, C voit le bord du cordage et une portion du sillon.
+  // Dans cette variante, C date cette portion d’après la croûte salée voisine.
+  const age=fact.state.trace==='fresh_drag_mark'?(p.mode==='old'?'old':'fresh'):null;
+  const payload=p.mode==='perspective'?{claim:'cordage_position',value:fact.state.cordage,age:null,kind:'reported_observation'}:
+   {claim:'drag_mark',age,kind:'reported_observation'};
+  return {id:s.id+'/landing-view:2',observer:p.key,site:clone(p.site),at:2,kind:'direct_observation',
+   view:'landing_edge',ageCue:p.mode==='old'?'adjacent_salt_crust':null,payload};
+ }
+ function revisionEvidence(s){
+  const a=s.relay,p=s.revisionPlan;
+  if(p.mode==='echo'||p.mode==='rumour'){
+   const meeting=a.log.find(e=>e.kind==='walk'&&same(e.site,p.site));
+   if(!meeting)return null;
+   const payload={...a.message.payload,kind:p.mode==='echo'?'relay':'rumour'};
+   if(p.mode==='rumour')payload.age=payload.age==='fresh'?'old':'fresh';
+   return {source:{id:s.id+'/landing-report:1',observer:p.key,site:clone(p.site),at:meeting.tick,
+    kind:'reported',parent:a.message.id,payload:clone(a.message.payload)},root:a.source.id,payload};
+  }
+  if(!s.revisionView)return null;
+  return {source:clone(s.revisionView),root:s.revisionView.id,payload:clone(s.revisionView.payload)};
+ }
+ function quayClaimsRelation(a,b){
+  if(a.context!==b.context)return 'insufficient';
+  if(a.payload.claim!==b.payload.claim)return 'perspective';
+  if(!a.payload.age||!b.payload.age)return 'insufficient';
+  return a.payload.age===b.payload.age?'agreement':'contradiction';
+ }
+ function assessQuayBelief(reports,previous){
+  // La racine identifie la source épistémique et non le fait objectif.
+  const groups=new Map();
+  const weight={reported_observation:2,interpretation:1,relay:0,rumour:0};
+  for(const report of reports){
+   if(report.context!==reports[0].context||report.payload.claim!=='drag_mark'||!report.payload.age)continue;
+   const score=weight[report.payload.kind],root=report.root,key=report.payload.age;
+   if(!groups.has(root))groups.set(root,new Map());
+   const claims=groups.get(root);claims.set(key,Math.max(claims.get(key)??-1,score));
+  }
+  // Une même racine ne vote qu’une fois. Deux lectures de même force
+  // qui s’y contredisent sont conservées mais ne tranchent pas.
+  function strongest(scores){
+   const ranked=[...scores].sort((a,b)=>b[1]-a[1]);
+   return ranked.length&&ranked[0][1]!==ranked[1]?.[1]?ranked[0]:null;
+  }
+  const scores=new Map();
+  for(const claims of groups.values()){
+   const best=strongest(claims);
+   if(best)scores.set(best[0],Math.max(scores.get(best[0])??-1,best[1]));
+  }
+  const belief=strongest(scores)?.[0]??null;
+  return {belief,status:belief===null?'suspend':belief===previous?'maintain':'revise'};
+ }
+ function revisionDecision(s,receipt){
+  const first=s.relay.receipt,context=s.cordageWatch.eventId+'@2';
+  const reports=[{...first,root:s.relay.source.id,context},receipt];
+  const [a,c]=reports,comparison={relation:quayClaimsRelation(a,c),dependent:a.root===c.root,context,
+   roots:reports.map(r=>r.root)};
+  const decision=assessQuayBelief(reports,first.payload.age);
+  return {...decision,previous:first.payload.age,comparison,basis:reports.map(r=>r.messageId),
+   post:relayPost({payload:{age:decision.belief}})};
+ }
+ function validateQuayRevision(s,k,spot){
+  const p=s.revisionPlan,r=s.revisionRelay,e=s.events.find(row=>row.action==='relay-revised');
+  if(p!==undefined&&(!p||!s.relayPlan||!spot(p.site)||p.site.depth!==s.site.depth||
+   Math.abs(p.site.x-s.site.x)+Math.abs(p.site.y-s.site.y)!==1||same(p.site,s.relayPlan.site)||
+   p.key!==s.id+'/witness-c'||p.mode!==revisionMode(k.world.seed,s)))
+   throw new Error('Poste du troisième témoin incompatible');
+  if(s.revisionView!==undefined&&(!p||['echo','rumour'].includes(p.mode)||!s.cordageWatch||s.cordageWatch.phase<2||!same(s.revisionView,revisionView(s,k))))
+   throw new Error('Observation du troisième témoin incompatible');
+  if(r!==undefined){
+   if(!p||!s.relay?.effect)throw new Error('Révision du relais incompatible');
+   replayRelay(s,r,true);
+  }
+  const earlier=s.events.find(row=>row.action==='relay-inspect');
+  if(e&&earlier&&e.causalOrder<=earlier.causalOrder)
+   throw new Error('Ordre des observations du relais incompatible');
+  validateRelayObservation(s,k,e,r?.effect);
+ }
+ function quayPassage(s){
+  return {id:s.id+'/b-approach:1',type:'quay_passage_baseline',site:clone(s.relayPlan.site),status:'passable_at_setup'};
+ }
+ function passageDelayFact(delay){
+  return {id:delay.id,type:'quay_missed_rendezvous',site:clone(delay.site),
+   state:{at:delay.at,absent:delay.actor,marker:'missed_watch_chalk_mark'},
+   cause:delay.causedBy,origin:'local_world_event'};
+ }
+ function validatePassageDelay(s,k){
+  const p=s.passageEpisode, r=s.revisionRelay?.passage,delay=r?.delay;
+  const fact=k.world.facts[s.id+'/missed-meeting:1'];
+  if(p!==undefined&&(!s.revisionPlan||s.revisionPlan.mode!=='fresh'||s.relayPlan?.policy!=='mistaken'||
+   !same(p,quayPassage(s))))throw new Error('Passage du quai incompatible');
+  if(!same(k.world.facts[s.id+'/b-approach:1'],s.cordageWatch&&p?p:undefined))throw new Error('État initial du passage incompatible');
+  if(!same(fact,delay?passageDelayFact(delay):undefined))throw new Error('Retard du quai incompatible');
+  const event=s.events.find(e=>e.action==='passage-delay');
+  if(!event)return;
+  const o=resolveObservation(k,event.observationId);
+  if(!delay||o.type!=='quay_delay_mark'||o.provenance.kind!=='direct_observation'||
+   !same(o.provenance.delayMark,{id:delay.id,kind:'missed_watch_chalk_mark'})||
+   !same(o.context.position,{x:delay.site.x,y:delay.site.y})||o.context.depth!==delay.site.depth||
+   o.statement!==PASSAGE_MARK_TEXT)throw new Error('Observation du retard incompatible');
+ }
+ const PASSAGE_MARK_TEXT='Au poste de veille, un trait de craie signale un rendez-vous manqué. Rien sur la marque n’en indique la cause.';
  function pilotCordageDialoguePanel(s,k,button){
   if(!pilotCordageResult(s,k))return '';
   const m=s.cordageDialogue,shared=!!m?.received.length,reacted=!!m?.statements.length;
   let html='<div class="entry"><b>RACONTER L’ESSAI AU TÉMOIN</b><p>Vous pouvez garder ce résultat personnel, ou en communiquer volontairement le protocole et les limites. Le relevé initial, la trace fine et votre marque d’intervention restent distincts.</p><p>'+button('cordage-share',shared?'RÉSULTAT DE L’ESSAI DÉJÀ COMMUNIQUÉ':'COMMUNIQUER LE RÉSULTAT DE L’ESSAI',shared)+'</p>';
   if(shared){
    html+='<p>'+esc(s.witness.name)+' connaît désormais votre récit de l’essai. Cela ne lui donne aucun souvenir vécu de la manipulation.</p><p>'+button('cordage-react',reacted?'RÉACTION À L’ESSAI DÉJÀ RECUEILLIE':'RECUEILLIR SA RÉACTION À L’ESSAI',reacted)+'</p>';
+   const postEvent=s.events.find(e=>e.action==='cordage-witness-post');
+   html+=postEvent?'<p>'+(s.cordageWatch?'Poste observé avant l’anomalie : ':'')+esc(resolveObservation(k,postEvent.observationId).statement)+'</p>'
+    :s.cordageWatch?'':'<p>'+button('cordage-witness-post','OBSERVER LA VEILLE DU TÉMOIN')+'</p>';
    if(reacted)html+='<p>'+esc(resolveObservation(k,m.statements[0].observationId)?.statement||'')+'</p>';
   }else html+='<p class="small">Résultat non communiqué. La consultation de cette fenêtre ne transmet rien.</p>';
   return html+'</div>';
@@ -17539,23 +18135,39 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
   if(kind==='testimony'&&s.witnessMemory)documentarySource={witnessContext:pilotWitnessContext(s,ensure()),...documentarySource};
   const id=record({type,subject:{kind:'phenomenon',id:PILOT_SUBJECT,label:'Traces sous la bâche du quai'},statement:text,
    provenance:{kind,event:'quay_'+action,sceneId:s.id,sourceId:kind==='testimony'?s.witness.key:s.id,sourceName:kind==='testimony'?s.witness.name:'Trace matérielle du quai',choice:s.progress.choice,...clone(documentarySource)},
-   unknownConditions:['contenu_de_la_caisse','identite_du_responsable','portee_dans_une_autre_realite'],links:{place:s.id,npc:s.witness.key,phenomenon:PILOT_SUBJECT}},s.id+':'+action);
+   unknownConditions:['contenu_de_la_caisse','identite_du_responsable','portee_dans_une_autre_realite'],links:{place:s.id,npc:action==='relay-inspect'||action==='relay-revised'?s.relayPlan.key:s.witness.key,phenomenon:PILOT_SUBJECT}},s.id+':'+action);
   s.events.push({action,observationId:id,causalOrder:ensure().causalOrder});return id;
  }
  function pilotStart(){return documentaryAction('quay-start',k=>{
-  if(!pilotAlive()||!Number.isInteger(player.depth)||player.depth<0||player.depth>1||map?.[py]?.[px]!=='npc'||!player.npc?.cd11080Key||player.npc.cd11080Key!==[player.depth,px,py].join(':'))return false;
+  if(!pilotAlive()||!Number.isInteger(player.depth)||player.depth<0||player.depth>1||map?.[py]?.[px]!=='npc')return false;
   if(pilotScene()){if(!pilotAt(pilotScene().site))return false;pilotDraw();return pilotScene().id}
   const destination=pilotDestination();if(!destination)return false;
-  const key=player.npc.cd11080Key,s={schema:1,id:k.world.id+'/quay:'+key,realityId:k.world.id,observerId:k.personal.observer.id,
+  const witness=window.cd11080BindNpc();
+  if(witness?.cd11080Key!==[player.depth,px,py].join(':'))return false;
+  const key=witness.cd11080Key,s={schema:1,id:k.world.id+'/quay:'+key,realityId:k.world.id,observerId:k.personal.observer.id,
    site:{x:px,y:py,depth:player.depth},destination,witness:{key,name:String(player.npc.name),role:String(player.npc.role||'Habitant')},
    objective:{cause:pilotCause(k.world.seed,key)},progress:{choice:null,inspected:false,asked:false,reached:false,detailed:false,confronted:false},events:[]};
+  const plan=relayPlan(s,k.world.seed);
+  if(plan){s.relayPlan=plan;const third=planQuayRevision(s,k.world.seed);if(third)s.revisionPlan=third}
+  if(s.revisionPlan?.mode==='fresh'&&s.relayPlan.policy==='mistaken')s.passageEpisode=quayPassage(s);
   validatePilot(s,k,true);player.cd115910Scene=s;
   pilotRecord(s,'start','quay_witness_report',s.witness.name+' rapporte : « La caisse a glissé avec la marée. Je n’ai vu personne la tirer. » Ce témoin n’a pas forcément vu tout le quai.','testimony');
   validatePilot(s,k);pilotDraw();return s.id;
  })}
  function pilotAct(action,sceneId){return documentaryAction('quay-'+action,k=>{
   const s=pilotScene();if(!pilotAlive()||!s||s.id!==sceneId)return false;validatePilot(s,k);
-  if(action==='arrive'){
+  if(action==='passage-delay'){
+   const delay=s.revisionRelay?.passage?.delay;
+   if(!delay||!pilotAt(delay.site)||map?.[py]?.[px]!=='npc'||s.events.some(e=>e.action===action))return false;
+   pilotRecord(s,action,'quay_delay_mark',PASSAGE_MARK_TEXT,'direct_observation',
+    {delayMark:{id:delay.id,kind:'missed_watch_chalk_mark'}});
+  }else if(action==='relay-inspect'||action==='relay-revised'){
+   const effect=s.revisionRelay?.effect||s.relay?.effect;
+   if(action!==(s.revisionRelay?.effect?'relay-revised':'relay-inspect')||
+    !effect||!pilotAt(effect.site)||map?.[py]?.[px]!=='npc'||s.events.some(e=>e.action===action))return false;
+   pilotRecord(s,action,'quay_relay_post',relayText(effect),'direct_observation',
+    {sourceId:effect.witness,sourceName:'Second veilleur',relayPost:relayTrace(effect)});
+  }else if(action==='arrive'){
    if(!pilotAt(s.destination)||s.progress.choice!=='trail'||s.progress.reached)return false;
    s.progress.reached=true;
    pilotRecord(s,action,'quay_material_exam',s.objective.cause==='cart'?'Dans le passage indiqué, deux marques de roues se prolongent sous un auvent ; aucun contenu de caisse n’est visible.':'Dans le passage indiqué, l’eau salée s’arrête au seuil. Une corde mouillée relie encore la bâche au pieu du quai ; rien n’explique le contenu de la caisse.');
@@ -17565,6 +18177,14 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
     spatialAct(s,k,action==='awning-inner'?'inner':'edge');
    }else if(action==='cordage-share'||action==='cordage-react'){
     if(!pilotCordageDialogueAct(s,k,action))return false;
+   }else if(action==='cordage-witness-post'){
+    const post=pilotWitnessPost(s);
+    if(!post||s.cordageWatch||s.events.some(e=>e.action===action))return false;
+    pilotRecord(s,action,'quay_witness_post',pilotWitnessPostText(s,post),'direct_observation',{witnessPost:post});
+   }else if(action==='cordage-return'){
+    const watch=s.cordageWatch;
+    if(watch?.phase!==4||s.events.some(e=>e.action===action))return false;
+    pilotRecord(s,action,'quay_cordage_return',quayWatchText(s,watch),'direct_observation',{localTrace:quayWatchTrace(watch)});
    }else if(action==='cordage-check'){
     if(!pilotCordageAct(s,k))return false;
    }else if(MEMORY_ACTIONS.includes(action)){
@@ -17598,7 +18218,25 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  })}
  let pilotArchives=false;
  function pilotDraw(){
-  const s=pilotScene();if(!pilotAlive()||!s||!pilotAt(s.site)&&!pilotAt(s.destination))return false;
+  const s=pilotScene();
+  if(pilotAlive()&&pilotAt(s?.relay?.effect?.site)&&map?.[py]?.[px]==='npc'){
+   const action=s.revisionRelay?.effect?'relay-revised':'relay-inspect';
+   const found=s.events.find(e=>e.action===action);
+   const content=document.getElementById('sheetContent'),modal=document.getElementById('modal');
+   content.innerHTML='<div data-cd115910-panel="'+esc(s.id)+'"><h2>LE SECOND VEILLEUR</h2>'+
+    (found?'<p>'+esc(resolveObservation(player.cd11590Knowledge,found.observationId).statement)+'</p>':
+     '<button type="button" data-cd115910="'+action+'" data-scene="'+esc(s.id)+'">OBSERVER LE POSTE DE VEILLE</button>')+
+    '<p><button type="button" data-cd115910="close" data-scene="'+esc(s.id)+'">REVENIR AU MONDE</button></p></div>';
+   if(s.revisionRelay?.passage?.delay){
+    const mark=s.events.find(e=>e.action==='passage-delay');
+    const item=document.createElement(mark?'p':'button');
+    item.textContent=mark?resolveObservation(player.cd11590Knowledge,mark.observationId).statement:'EXAMINER LE TRAIT DE CRAIE';
+    if(!mark){item.type='button';item.dataset.cd115910='passage-delay';item.dataset.scene=s.id}
+    content.querySelector('[data-cd115910-panel]').insertBefore(item,content.querySelector('p:last-child'));
+   }
+   modal.classList.add('open');modal.style.display='flex';return true;
+  }
+  if(!pilotAlive()||!s||!pilotAt(s.site)&&!pilotAt(s.destination))return false;
   const k=player.cd11590Knowledge,known=pilotKnowledge(k),p=s.progress;
   const button=(action,text,disabled=false)=>'<button type="button" data-cd115910="'+action+'" data-scene="'+esc(s.id)+'"'+(disabled?' disabled':'')+'>'+text+'</button>';
   let body='<div data-cd115910-panel="'+esc(s.id)+'"><h2>SOUS LA BÂCHE DU QUAI</h2><p>Rues noyées de Blackwater · '+esc(s.witness.name)+' ('+esc(s.witness.role)+')</p>';
@@ -17619,6 +18257,11 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
    body+=pilotMemoryPanel(s,k,button);
    body+=pilotCordagePanel(s,k,button);
    body+=pilotCordageDialoguePanel(s,k,button);
+   if(s.cordageWatch?.phase===4){
+    const observed=s.events.find(e=>e.action==='cordage-return');
+    body+=observed?'<p>'+esc(resolveObservation(k,observed.observationId).statement)+'</p>'
+     :'<p>'+button('cordage-return','EXAMINER LE CORDAGE ET LE POSTE DE VEILLE')+'</p>';
+   }
    body+='<p>'+button('archives','CONSULTER LES RÉCITS DU QUAI')+'</p>';
    if(pilotArchives){
     const entries=Object.values(book.entries).filter(e=>e.observation.type==='quay_material_exam'&&e.observation.subject.id===PILOT_SUBJECT);
@@ -17643,6 +18286,18 @@ window.cd11340CheckpointStorage={write,read,recover,discard,
  const pilotContext=window.renderContext;
  window.renderContext=function(){const out=pilotContext.apply(this,arguments),s=pilotScene();
   for(const cell of typeof mapCells!=='undefined'?mapCells:[])cell?.classList?.remove('cd115910-destination');
+  if(pilotAlive()&&Number.isInteger(player.depth)&&player.depth>=0&&player.depth<=1&&
+   map?.[py]?.[px]==='npc'&&(!s||pilotAt(s.site))){
+   const root=document.getElementById('context'),b=document.createElement('button');
+   b.type='button';b.dataset.cd115910='start';
+   b.textContent=s?'REPRENDRE L’ENQUÊTE DU QUAI':'EXAMINER LA TRACE DU QUAI';
+   root.style.display='block';root.appendChild(b);
+  }
+  if(pilotAlive()&&pilotAt(s?.relay?.effect?.site)&&map?.[py]?.[px]==='npc'){
+   const root=document.getElementById('context'),b=document.createElement('button');
+   b.type='button';b.dataset.cd115910='open';b.dataset.scene=s.id;
+   b.textContent='EXAMINER LE POSTE DU SECOND VEILLEUR';root.style.display='block';root.appendChild(b);
+  }
   if(pilotAlive()&&s?.progress.choice==='trail'&&!s.progress.reached&&Number(player.depth)===s.destination.depth){
    const cell=typeof mapCells!=='undefined'?mapCells[s.destination.y*13+s.destination.x]:null;cell?.classList?.add('cd115910-destination');
    if(pilotAt(s.destination)){const root=document.getElementById('context'),b=document.createElement('button');b.type='button';b.setAttribute('data-cd115910','open');b.setAttribute('data-scene',s.id);b.textContent='VÉRIFIER LE PASSAGE INDIQUÉ';root.style.display='block';root.appendChild(b)}
