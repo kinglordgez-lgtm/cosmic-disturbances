@@ -496,35 +496,108 @@ function saveGuardInitialize(approved){
  disk.setItem(saveGuardReadyKey,'1');
  if(disk.getItem(saveGuardReadyKey)!=='1')throw new Error('Initialisation de la sauvegarde non confirmée.');
 }
+const saveGuardLockName=saveGuardNewGame?'cosmic-disturbances/save-guard-new-game-v1':'cosmic-disturbances/save-guard-v1';
+const saveGuardLockEvents=[];
+let saveGuardLockState='idle',saveGuardRequest=null;
+function saveGuardTrace(event,detail={}){
+ saveGuardLockEvents.push({event,at:Date.now(),visibility:document.visibilityState,...detail});
+ if(saveGuardLockEvents.length>40)saveGuardLockEvents.shift();
+}
+async function saveGuardInspectLocks(){
+ try{
+  const snapshot=await navigator.locks.query();
+  const count=list=>list.filter(lock=>lock.name===saveGuardLockName).length;
+  saveGuardTrace('snapshot',{held:count(snapshot.held),pending:count(snapshot.pending)});
+ }catch(error){saveGuardTrace('snapshot-unavailable',{error:error.name})}
+}
+window.addEventListener('pagehide',event=>{
+ saveGuardTrace('pagehide',{persisted:event.persisted});
+ if(saveGuardLockState==='requesting')saveGuardRequest?.abort();
+ saveGuardLockState='retired';
+});
+window.addEventListener('pageshow',event=>{
+ saveGuardTrace('pageshow',{persisted:event.persisted});
+ if(event.persisted&&saveGuardLockState==='retired'){
+  document.getElementById('saveGuardImport').hidden=true;
+  showRuntimeError(new Error('Cette page a été restaurée par Safari. Touchez REPRENDRE pour la recharger.'));
+ }
+});
+document.addEventListener('visibilitychange',()=>saveGuardTrace('visibilitychange'));
+document.addEventListener('freeze',()=>saveGuardTrace('freeze'));
 function startSaveGuard(){
  if(saveGuardStarted)return;
  saveGuardStarted=true;
+ void saveGuardAcquire();
+}
+async function saveGuardAcquire(){
+ if(!['idle','blocked'].includes(saveGuardLockState))return;
+ if(!navigator.locks?.request){
+  saveGuardTrace('api-unavailable');
+  showRuntimeError(new Error('Verrou de sauvegarde indisponible. Les données restent intactes.'));
+  return;
+ }
+ saveGuardLockState='requesting';
+ const request=new AbortController();
+ saveGuardRequest=request;
+ let timeout;
+ let acquired=false;
+ saveGuardTrace('request');
+ async function runWithLock(lock){
+  if(!lock)return;
+  if(saveGuardLockState==='retired')return;
+  clearTimeout(timeout);
+  acquired=true;
+  let release;
+  const lifetime=new Promise(resolve=>{release=resolve});
+  const retire=()=>{saveGuardOwnsLock=false;release()};
+  window.addEventListener('pagehide',retire,{once:true});
+  saveGuardOwnsLock=true;
+  saveGuardLockState='held';
+  saveGuardTrace('acquired');
+  const panel=document.getElementById('runtimeError');
+  panel.style.display='none';
+  document.getElementById('runtimeErrorText').textContent='';
+  try{
+   const approved=await Promise.race([saveGuardApproveImport(),lifetime.then(()=>null)]);
+   if(saveGuardLockState==='retired')return;
+   saveGuardAssertOwner();
+   saveGuardInitialize(approved);
+   window.cd11590LoadBook();
+   if(validateCore())bootGame();
+   await lifetime;
+  }finally{
+   window.removeEventListener('pagehide',retire);
+   retire();
+   saveGuardTrace('releasing');
+  }
+ }
  try{
-  if(!navigator.locks?.request)throw new Error('Verrou de sauvegarde indisponible. Les données restent intactes.');
-  navigator.locks.request(saveGuardNewGame?'cosmic-disturbances/save-guard-new-game-v1':'cosmic-disturbances/save-guard-v1',{mode:'exclusive',ifAvailable:true},async lock=>{
-   if(!lock)throw new Error('Cette sauvegarde est ouverte dans une autre page. Fermez cette page puis actualisez ici.');
-   let release;
-   const lifetime=new Promise(resolve=>{release=resolve});
-   const retire=()=>{saveGuardOwnsLock=false;release()};
-   // Les gestionnaires de pause du jeu sont déjà en place.
-   window.addEventListener('pagehide',retire,{once:true});
-   window.addEventListener('pageshow',event=>{
-    if(event.persisted&&!saveGuardOwnsLock)showRuntimeError(new Error('Page historique. Actualisez pour reprendre.'));
-   });
-   saveGuardOwnsLock=true;
-   try{
-    const approved=await Promise.race([saveGuardApproveImport(),lifetime.then(()=>{throw new Error('Page fermée avant confirmation. Rouvrez pour reprendre.');})]);
-    saveGuardAssertOwner();
-    saveGuardInitialize(approved);
-    window.cd11590LoadBook();
-    if(validateCore())bootGame();
-    await lifetime;
-   }finally{
-    retire();
-    window.removeEventListener('pagehide',retire);
-   }
-  }).catch(showRuntimeError);
- }catch(error){showRuntimeError(error)}
+  await navigator.locks.request(saveGuardLockName,{mode:'exclusive',ifAvailable:true},runWithLock);
+  if(acquired||saveGuardLockState==='retired')return;
+  saveGuardTrace('unavailable');
+  void saveGuardInspectLocks();
+  showRuntimeError(new Error('La sauvegarde est ouverte dans un autre contexte. Attente de la libération du verrou…'));
+  timeout=setTimeout(()=>{saveGuardTrace('wait-timeout');request.abort()},4000);
+  await navigator.locks.request(saveGuardLockName,{mode:'exclusive',signal:request.signal},runWithLock);
+ }catch(error){
+  if(saveGuardLockState==='retired')return;
+  saveGuardTrace('request-ended',{error:error.name});
+  if(acquired){
+   saveGuardLockState='failed';
+   showRuntimeError(error);
+   return;
+  }
+  saveGuardLockState='blocked';
+  if(request.signal.aborted){
+   void saveGuardInspectLocks();
+   showRuntimeError(new Error('Le verrou de la sauvegarde est toujours occupé. Fermez les autres ouvertures du jeu, dans Safari ou depuis l’écran d’accueil, puis touchez REPRENDRE.'));
+  }else{
+   showRuntimeError(error);
+  }
+ }finally{
+  clearTimeout(timeout);
+  if(saveGuardRequest===request)saveGuardRequest=null;
+ }
 }
 const localStorage={
  get length(){return saveGuardKeys(saveGuardPrefix+'cosmic_').length},
@@ -1188,6 +1261,9 @@ function showRuntimeError(err){
  p.style.display="block";
 }
 function recoverGame(){
+ if(saveGuardLockState==='retired'){location.reload();return}
+ if(['idle','blocked','requesting'].includes(saveGuardLockState)){void saveGuardAcquire();return}
+ if(!saveGuardOwnsLock){location.reload();return}
  document.getElementById("runtimeError").style.display="none";
  try{
    if(window.cd11350Suspension.status().lastError||window.cd11580Status?.().faulted){if(!window.cd11350Suspension.resume())throw new Error('Aucun point de reprise disponible');}
@@ -16943,6 +17019,7 @@ window.cd11340CheckpointStorage={write,read,discard,assertWritable:writableCurre
   suspend();lastError=null;return true;
  }
  function safeCommit(){
+  if(!saveGuardOwnsLock)return false;
   try{return commit()}catch(e){
    lastError=String(e&&e.message||e);
    console.warn('cd11350 commit',e);
@@ -18666,7 +18743,10 @@ window.cd11340CheckpointStorage={write,read,discard,assertWritable:writableCurre
    notice:'Candidate corrective : canon intégral, UI exacte sauf cible de défilement justifiée par les limites mesurées. Les positions demandée, cible et réelle sont conservées.',
    displayedVersion:document.getElementById('sub')?.textContent,error:document.getElementById('runtimeErrorText')?.textContent,
    status:window.cd11580Status?.(),suspension:window.cd11350Suspension?.status(),metrics:metrics(),
-   firstFailure,lastAttempt,inProgress:attempt,events,lostAuditEvents:lost};
+   firstFailure,lastAttempt,inProgress:attempt,events,lostAuditEvents:lost,
+   lock:{revision:'safari-p0',name:saveGuardLockName,state:saveGuardLockState,
+    standalone:navigator.standalone===true||matchMedia('(display-mode: standalone)').matches,
+    navigation:performance.getEntriesByType('navigation')[0]?.type??null,events:saveGuardLockEvents}};
   try{result.currentStorage=disk()}catch(e){result.storageReadError=String(e.message||e)}
   try{result.currentState=window.cd11290CaptureCore()}catch(e){result.stateReadError=String(e.message||e)}
   return copy(result);
