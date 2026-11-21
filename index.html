@@ -407,7 +407,10 @@ header{left:18px!important}
 let checkpointReadOnly=false, checkpointSuspended=false;
 // Les anciennes pages ne connaissent pas ces clés. Le verrou couvre tous
 // les écrivains de ce format, y compris les écritures auxiliaires et le Livre.
-const saveGuardPrefix='cd-save-guard-v1:';
+const saveGuardHistoricalPrefix='cd-save-guard-v1:';
+const saveGuardNewGamePrefix='cd-save-guard-new-game-v1:';
+const saveGuardNewGame=new URLSearchParams(location.search).get('partie')==='nouvelle';
+const saveGuardPrefix=saveGuardNewGame?saveGuardNewGamePrefix:saveGuardHistoricalPrefix;
 const saveGuardReadyKey=saveGuardPrefix+'ready';
 let saveGuardOwnsLock=false,saveGuardStarted=false;
 function saveGuardKeys(prefix){
@@ -429,7 +432,8 @@ function saveGuardSame(a,b){return JSON.stringify(a)===JSON.stringify(b)}
 function saveGuardSnapshot(){
  const disk=window.localStorage;
  const keys=[...saveGuardKeys('cosmic_').map(name=>'cosmic_'+name),
-  ...saveGuardKeys(saveGuardPrefix).map(name=>saveGuardPrefix+name)].sort();
+  ...[saveGuardHistoricalPrefix,saveGuardNewGamePrefix].flatMap(prefix=>
+   saveGuardKeys(prefix).map(name=>prefix+name))].sort();
  return keys.map(key=>[key,disk.getItem(key)]);
 }
 function saveGuardExport(){
@@ -446,6 +450,7 @@ function saveGuardExport(){
  return entries;
 }
 async function saveGuardApproveImport(){
+ if(saveGuardNewGame)return null;
  if(window.localStorage.getItem(saveGuardReadyKey)!==null||
     saveGuardKeys(saveGuardPrefix+'cosmic_').length||!saveGuardLegacy().length)return null;
  const panel=document.getElementById('saveGuardImport');
@@ -479,10 +484,7 @@ function saveGuardInitialize(approved){
  const imported=saveGuardKeys(saveGuardPrefix+'cosmic_');
  if(ready==='1')return;
  if(ready!==null||imported.length)throw new Error('Copie de sauvegarde incomplète. Les données sont conservées.');
- const legacy=()=>saveGuardKeys('cosmic_').map(name=>{
-  const key='cosmic_'+name;
-  return [key,disk.getItem(key)];
- });
+ const legacy=()=>saveGuardNewGame?[]:saveGuardLegacy();
  const source=legacy();
  if(source.length&&(!approved||!saveGuardSame(source,approved)))
   throw new Error('Export et confirmation nécessaires avant la copie des sauvegardes.');
@@ -499,7 +501,7 @@ function startSaveGuard(){
  saveGuardStarted=true;
  try{
   if(!navigator.locks?.request)throw new Error('Verrou de sauvegarde indisponible. Les données restent intactes.');
-  navigator.locks.request('cosmic-disturbances/save-guard-v1',{mode:'exclusive',ifAvailable:true},async lock=>{
+  navigator.locks.request(saveGuardNewGame?'cosmic-disturbances/save-guard-new-game-v1':'cosmic-disturbances/save-guard-v1',{mode:'exclusive',ifAvailable:true},async lock=>{
    if(!lock)throw new Error('Cette sauvegarde est ouverte dans une autre page. Fermez cette page puis actualisez ici.');
    let release;
    const lifetime=new Promise(resolve=>{release=resolve});
@@ -542,7 +544,8 @@ const localStorage={
 </script>
 <div id="saveGuardImport" hidden style="position:fixed;inset:0;z-index:100001;background:#12151c;color:#fff;overflow:auto;padding:20px;font:16px system-ui;box-sizing:border-box">
  <h2>Conserver vos sauvegardes</h2>
- <p>Une sauvegarde historique est présente. Enregistrez sa copie dans Fichiers avant de reprendre avec WORLD-QUEST.</p>
+ <p>Une sauvegarde historique est présente. Vous pouvez la reprendre après export ou jouer dans un emplacement séparé.</p>
+ <p><a href="?partie=nouvelle" style="display:inline-flex;align-items:center;min-height:44px;color:#ffe1a3">Commencer une nouvelle partie</a></p>
  <p>La reprise utilisera de nouvelles clés protégées. Les données historiques resteront disponibles pour l’ancienne version. Fermez les anciennes pages du jeu pour éviter deux progressions séparées.</p>
  <button id="saveGuardBackup" style="min-height:44px">1 · EXPORTER LES SAUVEGARDES</button>
  <p id="saveGuardImportStatus" role="status">La copie attend votre confirmation.</p>
@@ -579,6 +582,7 @@ const localStorage={
  <button onclick="try{saveGuardExport()}catch(e){showRuntimeError(e)}" style="min-height:42px">EXPORTER LES SAUVEGARDES</button>
  <div id="runtimeErrorText" style="margin:8px 0;white-space:pre-wrap"></div>
  <button onclick="recoverGame()" style="min-height:42px;padding:8px 12px">REPRENDRE</button>
+ <a id="saveGuardNewGameOnError" href="?partie=nouvelle" hidden style="color:#ffe1a3">Commencer une nouvelle partie</a>
 </div>
 
 <div id="rotate"><div><div style="font-size:60px">↻</div><h2>MODE HORIZONTAL</h2><p>Tournez l’appareil pour jouer.</p></div></div>
@@ -1180,6 +1184,7 @@ else startSaveGuard();
 function showRuntimeError(err){
  const p=document.getElementById("runtimeError");
  document.getElementById("runtimeErrorText").textContent=String(err&&err.message?err.message:err);
+ document.getElementById("saveGuardNewGameOnError").hidden=saveGuardNewGame;
  p.style.display="block";
 }
 function recoverGame(){
