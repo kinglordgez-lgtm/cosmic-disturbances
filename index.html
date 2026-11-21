@@ -409,7 +409,25 @@ let checkpointReadOnly=false, checkpointSuspended=false;
 // les écrivains de ce format, y compris les écritures auxiliaires et le Livre.
 const saveGuardHistoricalPrefix='cd-save-guard-v1:';
 const saveGuardNewGamePrefix='cd-save-guard-new-game-v1:';
-const saveGuardNewGame=new URLSearchParams(location.search).get('partie')==='nouvelle';
+function saveGuardSelectProfile(){
+ const requested=new URLSearchParams(location.search).get('partie');
+ if(requested==='nouvelle'||requested==='historique')return {profile:requested,reason:'explicit'};
+ const continuations=['cosmic_suspended_run_current_v1','cosmic_suspended_run_pending_v1','cosmic_run_terminal_v1'];
+ try{
+  const disk=window.localStorage;
+  const hasContinuation=prefix=>continuations.some(key=>disk.getItem(prefix+key)!==null);
+  // Le raccourci existant n'indique pas de profil. N'adopter la partie séparée
+  // que si elle est initialisée et qu'aucune reprise protégée historique n'est présente.
+  if(disk.getItem(saveGuardNewGamePrefix+'ready')==='1'&&
+     hasContinuation(saveGuardNewGamePrefix)&&!hasContinuation(saveGuardHistoricalPrefix))
+   return {profile:'nouvelle',reason:'existing-isolated-continuation'};
+ }catch(_error){
+  // La vérification normale du stockage, sous verrou, signalera l'accès refusé.
+ }
+ return {profile:'historique',reason:'default'};
+}
+const saveGuardSelection=saveGuardSelectProfile();
+const saveGuardNewGame=saveGuardSelection.profile==='nouvelle';
 const saveGuardPrefix=saveGuardNewGame?saveGuardNewGamePrefix:saveGuardHistoricalPrefix;
 const saveGuardReadyKey=saveGuardPrefix+'ready';
 let saveGuardOwnsLock=false,saveGuardStarted=false;
@@ -18744,7 +18762,7 @@ window.cd11340CheckpointStorage={write,read,discard,assertWritable:writableCurre
    displayedVersion:document.getElementById('sub')?.textContent,error:document.getElementById('runtimeErrorText')?.textContent,
    status:window.cd11580Status?.(),suspension:window.cd11350Suspension?.status(),metrics:metrics(),
    firstFailure,lastAttempt,inProgress:attempt,events,lostAuditEvents:lost,
-   lock:{revision:'safari-p0',name:saveGuardLockName,state:saveGuardLockState,
+   lock:{revision:'stabilisation-1',name:saveGuardLockName,state:saveGuardLockState,selection:saveGuardSelection,
     standalone:navigator.standalone===true||matchMedia('(display-mode: standalone)').matches,
     navigation:performance.getEntriesByType('navigation')[0]?.type??null,events:saveGuardLockEvents}};
   try{result.currentStorage=disk()}catch(e){result.storageReadError=String(e.message||e)}
